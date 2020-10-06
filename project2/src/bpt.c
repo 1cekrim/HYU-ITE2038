@@ -1036,7 +1036,7 @@ node* coalesce_nodes(node* root, node* n, node* neighbor, int neighbor_index,
     if (!n->is_leaf)
     {
         /* Append k_prime.
-         */
+            */
 
         neighbor->keys[neighbor_insertion_index] = k_prime;
         neighbor->num_keys++;
@@ -1052,13 +1052,13 @@ node* coalesce_nodes(node* root, node* n, node* neighbor, int neighbor_index,
         }
 
         /* The number of pointers is always
-         * one more than the number of keys.
-         */
+            * one more than the number of keys.
+            */
 
         neighbor->pointers[i] = n->pointers[j];
 
         /* All children must now point up to the same parent.
-         */
+            */
 
         for (i = 0; i < neighbor->num_keys + 1; i++)
         {
@@ -1246,7 +1246,7 @@ node* delete_entry(node* root, node* n, int key, void* pointer)
 
     else
         return redistribute_nodes(root, n, neighbor, neighbor_index,
-                                  k_prime_index, k_prime);
+                                    k_prime_index, k_prime);
 }
 
 /* Master deletion function.

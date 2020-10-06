@@ -1,1 +1,5 @@
 project1/
+*.o
+.clang-format
+main
+.vscode/
