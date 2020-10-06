@@ -70,5 +70,10 @@ void TESTS()
         CHECK_FALSE(0);
         CHECK_FALSE(false);
     END()
+
+    TEST("CHECK_VALUE")
+        CHECK_VALUE(1, 1);
+        CHECK_VALUE(1 + 1, 2);
+    END()
 }
 

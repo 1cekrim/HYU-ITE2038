@@ -22,10 +22,7 @@
     }
 
 #define CHECK_TRUE(expression)                      \
-    if (expression)                                 \
-    {                                               \
-    }                                               \
-    else                                            \
+    if (!(expression))                              \
     {                                               \
         printf(" [ (%s) != true ]\n", #expression); \
         testFlag = true;                            \
@@ -38,9 +35,14 @@
         printf(" [ (%s) != true ]\n", #expression); \
         testFlag = true;                            \
         break;                                      \
-    }                                               \
-    else                                            \
-    {                                               \
+    }
+
+#define CHECK_VALUE(expression, value)                   \
+    if ((expression) != value)                           \
+    {                                                    \
+        printf(" [ (%s) != %d ]\n", #expression, value); \
+        testFlag = true;                                 \
+        break;                                           \
     }
 
 #endif /* __TEST_H__*/
