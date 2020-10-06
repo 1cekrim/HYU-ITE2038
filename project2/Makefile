@@ -18,7 +18,7 @@ TEST_SRC:=$(wildcard tests/*.c)
 TEST_OBJ:=$(TEST_SRC:.c=.o)
 
 # Include more files if you write another source file.
-SRCS_FOR_LIB:=$(SRCDIR)bpt.c $(SRCDIR)file_manager.c
+SRCS_FOR_LIB:=$(SRCDIR)bpt.c $(SRCDIR)file_manager.c $(SRCDIR)file.c
 OBJS_FOR_LIB:=$(SRCS_FOR_LIB:.c=.o)
 
 CFLAGS+= -g -fPIC -I $(INC)

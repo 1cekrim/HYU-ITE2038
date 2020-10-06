@@ -10,12 +10,15 @@
 
 #define END()             \
     }                     \
-    while (0);            \
+    while (0)             \
+        ;                 \
     ++cnt;                \
+    ++allCnt;             \
     if (!testFlag)        \
     {                     \
         puts(" success"); \
         ++success;        \
+        ++allSuccess;     \
     }                     \
     else                  \
     {                     \
@@ -37,12 +40,12 @@
         break;                                      \
     }
 
-#define CHECK_VALUE(expression, value)                   \
-    if ((expression) != value)                           \
-    {                                                    \
-        printf(" [ (%s) != %d ]\n", #expression, value); \
-        testFlag = true;                                 \
-        break;                                           \
+#define CHECK_VALUE(expression, value)                     \
+    if ((expression) != (value))                           \
+    {                                                      \
+        printf(" [ (%s) != %d ]\n", #expression, (value)); \
+        testFlag = true;                                   \
+        break;                                             \
     }
 
 #define CHECK_NULL(expression)                      \
@@ -52,7 +55,5 @@
         testFlag = true;                            \
         break;                                      \
     }
-
-#define CHECK_NULL(expression)
 
 #endif /* __TEST_H__*/

@@ -2,7 +2,7 @@
 #define __FILE_H__
 #include <stdint.h>
 
-#define PAGESIZE = 4096
+#define PAGESIZE 4096
 
 typedef uint64_t pagenum_t;
 
@@ -66,5 +66,7 @@ void file_read_page(pagenum_t pagenum, struct page_t* dest);
 
 void file_write_page(pagenum_t pagenum, const struct page_t* src);
 
+void InitHeaderPage(struct page_t* page,
+                    const struct HeaderPageHeader* HeaderPageHeader);
 
 #endif /* __FILE_H__*/
