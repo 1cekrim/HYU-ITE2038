@@ -45,4 +45,14 @@
         break;                                           \
     }
 
+#define CHECK_NULL(expression)                      \
+    if (expression != NULL)                         \
+    {                                               \
+        printf(" [ (%s) != NULL ]\n", #expression); \
+        testFlag = true;                            \
+        break;                                      \
+    }
+
+#define CHECK_NULL(expression)
+
 #endif /* __TEST_H__*/

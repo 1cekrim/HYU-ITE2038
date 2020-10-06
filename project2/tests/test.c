@@ -1,8 +1,9 @@
+#include "test.h"
+
 #include <stdbool.h>
 #include <stdio.h>
 
 #include "file_manager.h"
-#include "test.h"
 
 int success, cnt;
 bool testFlag;
@@ -15,19 +16,9 @@ void TESTS();
 
 int main()
 {
-    void (*tests[])() = {
-        TEST_FILE_MANAGER,
-        TEST_BPT,
-        TEST_FILE,
-        TESTS
-    };
+    void (*tests[])() = { TEST_FILE_MANAGER, TEST_BPT, TEST_FILE, TESTS };
 
-    char* (testNames[]) = {
-        "file_manager",
-        "bpt",
-        "test_file",
-        "TESTS"
-    };
+    char*(testNames[]) = { "file_manager", "bpt", "test_file", "TESTS" };
 
     for (int i = 0; i < (sizeof(tests) / sizeof(void (*)(void))); ++i)
     {
@@ -35,25 +26,39 @@ int main()
 
         printf("[%d| %s START]\n", i, testNames[i]);
         tests[i]();
-        printf("[success: %d / %d]\n[%d| %s END]\n\n", success, cnt, i, testNames[i]);
+        printf("[success: %d / %d]\n[%d| %s END]\n\n", success, cnt, i,
+               testNames[i]);
     }
 }
 
 void TEST_FILE_MANAGER()
 {
-    TEST("DmCreate")
-        CHECK_TRUE(DmCreate())
+    TEST("FmCreate")
+    CHECK_TRUE(FmCreate())
+    END()
+
+    TEST("FmInit")
+    {
+        struct FileManager* fm = FmCreate();
+        bool result = FmInit(fm);
+
+        CHECK_TRUE(result)
+        CHECK_NULL(fm->fp)
+        CHECK_VALUE(fm->fileHeader.freePageNumber, 0);
+        CHECK_VALUE(fm->fileHeader.numberOfPages, 0);
+        CHECK_VALUE(fm->fileHeader.rootPageNumber, 0);
+
+        CHECK_FALSE(FmInit(NULL));
+    }
     END()
 }
 
 void TEST_BPT()
 {
- 
 }
 
 void TEST_FILE()
 {
-
 }
 
 void TESTS()
@@ -75,5 +80,8 @@ void TESTS()
         CHECK_VALUE(1, 1);
         CHECK_VALUE(1 + 1, 2);
     END()
-}
 
+    TEST("CHECK_NULL")
+        CHECK_NULL(NULL);
+    END()
+}

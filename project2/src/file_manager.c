@@ -5,7 +5,7 @@
 #include "file.h"
 
 // FileManager struct를 생성해 반환
-struct FileManager* DmCreate()
+struct FileManager* FmCreate()
 {
     struct FileManager* fm = (struct FileManager*)malloc(sizeof(struct FileManager));
     return fm;
@@ -14,7 +14,17 @@ struct FileManager* DmCreate()
 // FileManager를 초기화. 성공하면 true 반환
 bool FmInit(struct FileManager* fm)
 {
-    // TODO: 구현
+    if (!fm)
+    {
+        return false;
+    }
+
+    fm->fp = NULL;
+    fm->fileHeader.freePageNumber = 0;
+    fm->fileHeader.numberOfPages = 0;
+    fm->fileHeader.rootPageNumber = 0;
+
+    return true;
 }
 
 // name 명으로 File을 열어 FileManager에 저장

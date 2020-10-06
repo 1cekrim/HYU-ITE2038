@@ -12,7 +12,7 @@ struct FileManager {
 };
 
 // FileManager struct를 생성해 반환
-struct FileManager* DmCreate();
+struct FileManager* FmCreate();
 
 // FileManager를 초기화. 성공하면 true 반환
 bool FmInit(struct FileManager* fm);
