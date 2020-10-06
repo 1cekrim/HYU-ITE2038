@@ -7,7 +7,8 @@
 // FileManager struct를 생성해 반환
 struct FileManager* DmCreate()
 {
-    // TODO: 구현
+    struct FileManager* fm = (struct FileManager*)malloc(sizeof(struct FileManager));
+    return fm;
 }
 
 // FileManager를 초기화. 성공하면 true 반환

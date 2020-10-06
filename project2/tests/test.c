@@ -1,6 +1,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 
+#include "file_manager.h"
 #include "test.h"
 
 int success, cnt;
@@ -40,7 +41,9 @@ int main()
 
 void TEST_FILE_MANAGER()
 {
-
+    TEST("DmCreate")
+        CHECK_TRUE(DmCreate())
+    END()
 }
 
 void TEST_BPT()
@@ -56,10 +59,10 @@ void TEST_FILE()
 void TESTS()
 {
     TEST("CHECK_TRUE")
-        CHECK_TRUE(1 == 1);
-        CHECK_TRUE(true);
-        CHECK_TRUE(2);
-        CHECK_TRUE(-1);
+        CHECK_TRUE(1 == 1)
+        CHECK_TRUE(true)
+        CHECK_TRUE(2)
+        CHECK_TRUE(-1)
     END()
 
     TEST("CHECK_FALSE")
