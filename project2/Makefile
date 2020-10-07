@@ -1,4 +1,5 @@
-CC=g++
+CC=gcc
+CPP=g++
 
 MAINDIR=main_src/
 INC=include/
@@ -20,6 +21,7 @@ SRCS_FOR_LIB:=$(wildcard src/*.cc)
 OBJS_FOR_LIB:=$(SRCS_FOR_LIB:.cc=.o)
 
 CFLAGS+= -g -fPIC -I $(INC)
+CPPFLAGS+= -g -std=c++17 -fPIC -I $(INC)
 
 TARGET=main
 
@@ -29,23 +31,23 @@ all: $(TARGET)
 
 $(TARGET): $(TARGET_OBJ) $(OBJS_FOR_LIB)
 	make static_library
-	$(CC) $(CFLAGS) -o $@ $^ -L $(LIBS) -lbpt
+	$(CPP) $(CFLAGS) -o $@ $^ -L $(LIBS) -lbpt
 
 $(TEST_TARGET): $(OBJS_FOR_LIB) $(TEST_OBJ)
 	make static_library
-	$(CC) $(CFLAGS) -o $@ $^ -L $(LIBS) -lbpt
+	$(CPP) $(CFLAGS) -o $@ $^ -L $(LIBS) -lbpt
 
 %.o: %.cc
-	${CC} ${CFLAGS} -c -o $@ $<
+	${CPP} ${CFLAGS} -c -o $@ $<
 
 %.o: %.c
-	gcc ${CFLAGS} -c -o $@ $<
+	${CC} ${CFLAGS} -c -o $@ $<
 
 clean:
 	rm $(TARGET) $(TARGET_OBJ) $(OBJS_FOR_LIB) $(LIBS)*
 
 library:
-	g++ -shared -Wl,-soname,libbpt.so -o $(LIBS)libbpt.so $(OBJS_FOR_LIB)
+	${CPP} -shared -Wl,-soname,libbpt.so -o $(LIBS)libbpt.so $(OBJS_FOR_LIB)
 
 static_library:
 	ar cr $(LIBS)libbpt.a $(OBJS_FOR_LIB)

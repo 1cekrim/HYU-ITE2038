@@ -3,11 +3,15 @@
 #include <stdbool.h>
 #include <stdio.h>
 
+#include <iostream>
+#include <string>
+
+#include "file.hpp"
 #include "file_manager.hpp"
 
 int success, cnt, allSuccess, allCnt;
 bool testFlag;
-char* testName;
+std::string testName;
 
 void TEST_FILE_MANAGER();
 void TEST_BPT();
@@ -18,86 +22,76 @@ int main()
 {
     void (*tests[])() = { TEST_FILE_MANAGER, TEST_BPT, TEST_FILE, TESTS };
 
-    char*(testNames[]) = { "file_manager", "bpt", "test_file", "TESTS" };
+    std::string testNames[] = { "file_manager", "bpt", "test_file", "TESTS" };
 
     for (int i = 0; i < (sizeof(tests) / sizeof(void (*)(void))); ++i)
     {
         success = cnt = 0;
 
-        printf("[%d| %s START]\n", i, testNames[i]);
+        std::cout << "[" << i << "| " << testNames[i] << " START]\n";
         tests[i]();
-        printf("[success: %d / %d]\n[%d| %s END]\n\n", success, cnt, i,
-               testNames[i]);
+        std::cout << "[success: " << success << " / " << cnt << "]\n[" << i
+                  << "| " << testNames[i] << " END]\n\n";
     }
 
-    printf("\n[Tests are over] success: %d / %d\n", allSuccess, allCnt);
+    std::cout << "\n[Tests are over] success: " << allSuccess << " / " << allCnt
+              << "\n";
     return 0;
 }
 
 void TEST_FILE_MANAGER()
 {
-    TEST("FmCreate")
+    TEST("FileManager")
     {
-        CHECK_TRUE(FmCreate());
-    }
-    END()
+        FileManager fm;
 
-    TEST("FmInit")
-    {
-        struct FileManager* fm = FmCreate();
-        bool result = FmInit(fm);
+        const HeaderPageHeader& ph = fm.getHeaderPageHeader();
 
-        CHECK_TRUE(result);
-        CHECK_NULL(fm->fp);
-        CHECK_VALUE(fm->fileHeader.freePageNumber, 0);
-        CHECK_VALUE(fm->fileHeader.numberOfPages, 0);
-        CHECK_VALUE(fm->fileHeader.rootPageNumber, 0);
+        CHECK_VALUE(ph.freePageNumber, 0);
+        CHECK_VALUE(ph.numberOfPages, 0);
+        CHECK_VALUE(ph.rootPageNumber, 0);
 
         for (int i = 0; i < 104; ++i)
         {
-            CHECK_VALUE(fm->fileHeader.reserved[i], 0);
-        }
-
-        CHECK_FALSE(FmInit(NULL));
-    }
-    END()
-
-    TEST("FmOpen")
-    {
-        struct FileManager* fm = FmCreate();
-        FmInit(fm);
-        bool result = FmOpen(fm, "test.db");
-        CHECK_TRUE(result);
-
-        CHECK_VALUE(fm->fileHeader.freePageNumber, 0);
-        CHECK_VALUE(fm->fileHeader.numberOfPages, 0);
-        CHECK_VALUE(fm->fileHeader.rootPageNumber, 0);
-
-        for (int i = 0; i < 104; ++i)
-        {
-            CHECK_VALUE(fm->fileHeader.reserved[i], 0);
+            CHECK_VALUE(ph.reserved[i], 0);
         }
     }
     END()
 
-    TEST("FmPage w/r")
+    TEST("FileManager::open")
     {
-        struct FileManager* fm = FmCreate();
-        bool initResult = FmInit(fm);
-        CHECK_TRUE(initResult);
-        bool openResult = FmOpen(fm, "test.db");
-        CHECK_TRUE(openResult);
+        FileManager fm;
+        fm.open("test.db");
 
-        struct page_t page;
+        const HeaderPageHeader& ph = fm.getHeaderPageHeader();
+
+        CHECK_VALUE(ph.freePageNumber, 0);
+        CHECK_VALUE(ph.numberOfPages, 0);
+        CHECK_VALUE(ph.rootPageNumber, 0);
+
+        for (int i = 0; i < 104; ++i)
+        {
+            CHECK_VALUE(ph.reserved[i], 0);
+        }
+    }
+    END()
+
+    TEST("FileManager Page r/w")
+    {
+        FileManager fm;
+        fm.open("test.db");
+
+        page_t page;
         for (int i = 0; i < 248; ++i)
         {
             page.entry.internals[i].key = i;
             page.entry.internals[i].pageNumber = i;
         }
-        FmPageWrite(fm, 0, &page);
 
-        struct page_t readPage;
-        FmPageRead(fm, 0, &readPage);
+        fm.pageWrite(0, page);
+
+        page_t readPage;
+        fm.pageRead(0, readPage);
 
         for (int i = 0; i < 248; ++i)
         {
@@ -144,9 +138,9 @@ void TESTS()
     }
     END()
 
-    TEST("CHECK_NULL")
+    TEST("CHECK_NULLPTR")
     {
-        CHECK_NULL(NULL);
+        CHECK_NULLPTR(nullptr);
     }
     END()
 }
