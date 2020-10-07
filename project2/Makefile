@@ -9,8 +9,8 @@ TESTDIR=tests/
 # OBJS:=$(SRCS:.c=.o)
 
 # main source file
-TARGET_SRC:=$(MAINDIR)main.c
-TARGET_OBJ:=$(MAINDIR)main.o
+TARGET_SRC:=$(MAINDIR)new_main.c
+TARGET_OBJ:=$(MAINDIR)new_main.o
 
 TEST_SRC:=$(wildcard tests/*.cc)
 TEST_OBJ:=$(TEST_SRC:.cc=.o)
