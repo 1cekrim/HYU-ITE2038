@@ -1,9 +1,9 @@
-#include "test.h"
+#include "test.hpp"
 
 #include <stdbool.h>
 #include <stdio.h>
 
-#include "file_manager.h"
+#include "file_manager.hpp"
 
 int success, cnt, allSuccess, allCnt;
 bool testFlag;

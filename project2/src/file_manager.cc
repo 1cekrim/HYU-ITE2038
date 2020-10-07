@@ -1,10 +1,10 @@
-#include "file_manager.h"
+#include "file_manager.hpp"
 
 #include <fcntl.h>
 #include <memory.h>
 #include <stdlib.h>
 
-#include "file.h"
+#include "file.hpp"
 
 // FileManager struct를 생성해 반환
 struct FileManager* FmCreate()

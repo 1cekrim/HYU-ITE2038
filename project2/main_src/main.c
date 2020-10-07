@@ -1,5 +1,5 @@
-#include "bpt.h"
-#include "file.h"
+#include "bpt.hpp"
+#include "file.hpp"
 // MAIN
 
 int main(int argc, char** argv)
@@ -54,7 +54,7 @@ int main(int argc, char** argv)
         {
             case 'd':
                 scanf("%d", &input);
-                root = delete (root, input);
+                root = delete_function (root, input);
                 print_tree(root);
                 break;
             case 'i':
