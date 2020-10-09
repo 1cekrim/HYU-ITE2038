@@ -1,13 +1,14 @@
 #include "test.hpp"
 
-#include <stdbool.h>
-#include <stdio.h>
+#include <cstdio>
 
 #include <iostream>
 #include <string>
+#include <sstream>
 
 #include "file_api.hpp"
 #include "file_manager.hpp"
+#include "bpt.hpp"
 #include "logger.hpp"
 
 int success, cnt, allSuccess, allCnt;
@@ -21,7 +22,6 @@ void TESTS();
 
 int main()
 {
-    // ASSERT_WITH_LOG(1==2, "오류 발생!");
     void (*tests[])() = { TEST_FILE_MANAGER, TEST_BPT, TEST_FILE, TESTS };
 
     std::string testNames[] = { "file_manager", "bpt", "test_file", "TESTS" };
@@ -41,108 +41,135 @@ int main()
     return 0;
 }
 
-// void TEST_FILE_MANAGER()
-// {
-//     TEST("FileManager")
-//     {
-//         FileManager fm;
+void TEST_FILE_MANAGER()
+{
+    TEST("FileManager")
+    {
+        FileManager fm;
 
-//         const HeaderPageHeader& ph = fm.getHeaderPageHeader();
+        const HeaderPageHeader& ph = fm.fileHeader;
 
-//         CHECK_VALUE(ph.freePageNumber, 0);
-//         CHECK_VALUE(ph.numberOfPages, 0);
-//         CHECK_VALUE(ph.rootPageNumber, 0);
+        CHECK_VALUE(ph.freePageNumber, 0);
+        CHECK_VALUE(ph.numberOfPages, 0);
+        CHECK_VALUE(ph.rootPageNumber, 0);
 
-//         for (int i = 0; i < 104; ++i)
-//         {
-//             CHECK_VALUE(ph.reserved[i], 0);
-//         }
-//     }
-//     END()
+        for (int i = 0; i < 104; ++i)
+        {
+            CHECK_VALUE(ph.reserved[i], 0);
+        }
+    }
+    END()
 
-//     TEST("FileManager::open")
-//     {
-//         FileManager fm;
-//         fm.open("test.db");
+    TEST("FileManager::open")
+    {
+        FileManager fm;
+        fm.open("test.db");
 
-//         const HeaderPageHeader& ph = fm.getHeaderPageHeader();
+        const HeaderPageHeader& ph = fm.fileHeader;
 
-//         CHECK_VALUE(ph.freePageNumber, 0);
-//         CHECK_VALUE(ph.numberOfPages, 0);
-//         CHECK_VALUE(ph.rootPageNumber, 0);
+        CHECK_VALUE(ph.freePageNumber, 0);
+        CHECK_VALUE(ph.numberOfPages, 0);
+        CHECK_VALUE(ph.rootPageNumber, 0);
 
-//         for (int i = 0; i < 104; ++i)
-//         {
-//             CHECK_VALUE(ph.reserved[i], 0);
-//         }
-//     }
-//     END()
+        for (int i = 0; i < 104; ++i)
+        {
+            CHECK_VALUE(ph.reserved[i], 0);
+        }
+    }
+    END()
 
-//     TEST("FileManager Page r/w")
-//     {
-//         FileManager fm;
-//         fm.open("test.db");
+    TEST("FileManager Page r/w")
+    {
+        FileManager fm;
+        fm.open("test.db");
 
-//         page_t page;
-//         for (int i = 0; i < 248; ++i)
-//         {
-//             page.entry.internals[i].key = i;
-//             page.entry.internals[i].pageNumber = i;
-//         }
+        page_t page;
+        for (int i = 0; i < 248; ++i)
+        {
+            page.entry.internals[i].key = i;
+            page.entry.internals[i].pageNumber = i;
+        }
 
-//         fm.pageWrite(0, page);
+        fm.pageWrite(0, page);
 
-//         page_t readPage;
-//         fm.pageRead(0, readPage);
+        page_t readPage;
+        fm.pageRead(0, readPage);
 
-//         for (int i = 0; i < 248; ++i)
-//         {
-//             CHECK_TRUE(page.entry.internals[i].key ==
-//                        readPage.entry.internals[i].key);
-//             CHECK_TRUE(page.entry.internals[i].pageNumber ==
-//                        readPage.entry.internals[i].pageNumber);
-//         }
-//     }
-//     END()
-// }
+        for (int i = 0; i < 248; ++i)
+        {
+            CHECK_TRUE(page.entry.internals[i].key ==
+                       readPage.entry.internals[i].key);
+            CHECK_TRUE(page.entry.internals[i].pageNumber ==
+                       readPage.entry.internals[i].pageNumber);
+        }
+    }
+    END()
+}
 
-// void TEST_BPT()
-// {
-// }
+void TEST_BPT()
+{
+    TEST("BPTree")
+    {
+        FileManager fm;
+        fm.open("test.db");
 
-// void TEST_FILE()
-// {
-// }
+        BPTree tree(fm);
+    }
+    END() 
 
-// void TESTS()
-// {
-//     TEST("CHECK_TRUE")
-//     {
-//         CHECK_TRUE(1 == 1);
-//         CHECK_TRUE(true);
-//         CHECK_TRUE(2);
-//         CHECK_TRUE(-1);
-//     }
-//     END()
+    TEST("BPTree insert")
+    {
+        FileManager fm;
+        fm.open("insert.db");
 
-//     TEST("CHECK_FALSE")
-//     {
-//         CHECK_FALSE(1 == 2);
-//         CHECK_FALSE(0);
-//         CHECK_FALSE(false);
-//     }
-//     END()
+        BPTree tree(fm, true);
 
-//     TEST("CHECK_VALUE")
-//     {
-//         CHECK_VALUE(1, 1);
-//         CHECK_VALUE(1 + 1, 2);
-//     }
-//     END()
+        for (int i = 100; i > 0; --i)
+        {
+            valType v;
+            std::stringstream ss;
+            ss << "test insert " << i;
+            tree.char_to_valType(v, ss.str().c_str());
 
-//     TEST("CHECK_NULLPTR")
-//     {
-//         CHECK_NULLPTR(nullptr);
-//     }
-//     END()
-// }
+            CHECK_TRUE(tree.insert(i, v));
+        }
+    }
+    END()
+}
+
+void TEST_FILE()
+{
+}
+
+void TESTS()
+{
+    TEST("CHECK_TRUE")
+    {
+        CHECK_TRUE(1 == 1);
+        CHECK_TRUE(true);
+        CHECK_TRUE(2);
+        CHECK_TRUE(-1);
+    }
+    END()
+
+    TEST("CHECK_FALSE")
+    {
+        CHECK_FALSE(1 == 2);
+        CHECK_FALSE(0);
+        CHECK_FALSE(false);
+    }
+    END()
+
+    TEST("CHECK_VALUE")
+    {
+        CHECK_VALUE(1, 1);
+        CHECK_VALUE(1 + 1, 2);
+    }
+    END()
+
+    TEST("CHECK_NULLPTR")
+    {
+        CHECK_NULLPTR(nullptr);
+    }
+    END()
+}

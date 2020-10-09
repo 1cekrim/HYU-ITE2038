@@ -8,7 +8,7 @@
 #define PAGESIZE 4096
 
 constexpr auto value_size = 120;
-using val_t = uint8_t[120];
+using valType = uint8_t[120];
 using keyType = int64_t;
 using pagenum_t = uint64_t;
 
@@ -51,11 +51,16 @@ struct FreePageHeader
 struct Record
 {
     keyType key;
-    val_t value;
+    valType value;
     Record& operator=(const Record& rhs)
     {
         memcpy(this, &rhs, sizeof(Record));
         return *this;
+    }
+    void init(keyType key, const valType& val)
+    {
+        this->key = key;
+        memcpy(&value, &val, sizeof(valType));
     }
 };
 
@@ -70,15 +75,15 @@ struct page_t
 {
     union
     {
-        struct HeaderPageHeader headerPageHeader;
-        struct NodePageHeader nodePageHeader;
-        struct FreePageHeader freePageHeader;
+        HeaderPageHeader headerPageHeader;
+        NodePageHeader nodePageHeader;
+        FreePageHeader freePageHeader;
     } header;
 
     union
     {
-        struct Record records[31];
-        struct Internal internals[248];
+        Record records[31];
+        Internal internals[248];
     } entry;
 
     page_t()
@@ -86,7 +91,7 @@ struct page_t
         std::memset(this, 0, sizeof(page_t));
     }
 
-    void insert_record(std::unique_ptr<Record> record, int insertion_point)
+    void insert_record(const Record& record, int insertion_point)
     {
         auto& head = header.nodePageHeader;
         auto& rec = entry.records;
@@ -97,7 +102,7 @@ struct page_t
         }
 
         ++head.nubmerOfKeys;
-        rec[insertion_point] = *record;
+        rec[insertion_point] = record;
     }
 };
 

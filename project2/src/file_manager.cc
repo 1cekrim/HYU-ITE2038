@@ -5,6 +5,8 @@
 #include <cstdlib>
 #include <cstring>
 
+#include "logger.hpp"
+
 FileManager::FileManager() : fp(nullptr, &std::fclose)
 {
     fileHeader.Init();
@@ -21,32 +23,24 @@ bool FileManager::open(const std::string& name)
                    "r+"),
             &std::fclose);
         fp = std::move(p);
-        if (!fp)
-        {
-            return false;
-        }
+        ASSERT_WITH_LOG(fp, false, "create file failure");
 
         page_t headerPage;
-        if (!pageWrite(0, headerPage))
-        {
-            return false;
-        }
+        headerPage.header.headerPageHeader.numberOfPages = 1;
+        fileHeader.numberOfPages = 1;
+        ASSERT_WITH_LOG(pageWrite(0, headerPage), false,
+                        "write header page failure: 0");
     }
     else
     {
         std::unique_ptr<std::FILE, decltype(&std::fclose)> p(
             fdopen(::open(name.c_str(), O_RDWR | O_DSYNC), "r+"), &std::fclose);
         fp = std::move(p);
-        if (!fp)
-        {
-            return false;
-        }
+        ASSERT_WITH_LOG(fp, false, "open file failure");
 
         page_t headerPage;
-        if (!pageRead(0, headerPage))
-        {
-            return false;
-        }
+        ASSERT_WITH_LOG(pageRead(0, headerPage), false,
+                        "read header page failure: 0");
 
         fileHeader = headerPage.header.headerPageHeader;
     }
@@ -82,8 +76,29 @@ bool FileManager::close()
 // File에 Page 추가
 pagenum_t FileManager::pageCreate()
 {
-    // TODO: 구현
-    return false;
+    auto pagenum = fileHeader.freePageNumber;
+    if (pagenum == EMPTY_PAGE_NUMBER)
+    {
+        pagenum = fileHeader.numberOfPages;
+        page_t page;
+        ASSERT_WITH_LOG(pageWrite(pagenum, page), EMPTY_PAGE_NUMBER,
+                        "write page failure: %ld", pagenum);
+        ++fileHeader.numberOfPages;
+    }
+    else
+    {
+        page_t page;
+        ASSERT_WITH_LOG(pageRead(pagenum, page), EMPTY_PAGE_NUMBER,
+                        "read page failure: %ld", pagenum);
+        fileHeader.freePageNumber =
+            page.header.freePageHeader.nextFreePageNumber;
+    }
+
+    ASSERT_WITH_LOG(updateFileHeader(), EMPTY_PAGE_NUMBER,
+                    "update file header failure");
+
+    printf("pagenum: %d\n", pagenum);
+    return pagenum;
 }
 
 // Page 씀. 성공하면 true 반환
