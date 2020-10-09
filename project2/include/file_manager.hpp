@@ -1,5 +1,5 @@
-#ifndef __DISK_H__
-#define __DISK_H__
+#ifndef __FILE_MANAGER_HPP__
+#define __FILE_MANAGER_HPP__
 
 #include <unistd.h>
 
@@ -7,7 +7,7 @@
 #include <memory>
 #include <string_view>
 
-#include "file.hpp"
+#include "page.hpp"
 
 class FileManager
 {
@@ -47,4 +47,4 @@ class FileManager
     HeaderPageHeader fileHeader;
 };
 
-#endif /* __DISK_H__*/
+#endif /* __FILE_MANAGER_HPP__*/

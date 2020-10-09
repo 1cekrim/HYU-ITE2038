@@ -49,7 +49,7 @@ void enqueue(node* new_node)
         c = queue;
         while (c->next != NULL)
         {
-            c = c->next;sdfa
+            c = c->next;
         }
         c->next = new_node;
         new_node->next = NULL;

@@ -5,8 +5,6 @@
 #include <cstdlib>
 #include <cstring>
 
-#include "file.hpp"
-
 FileManager::FileManager() : fp(nullptr, &std::fclose)
 {
     fileHeader.Init();
@@ -78,12 +76,14 @@ bool FileManager::read(long int seek, void* target, size_t size)
 bool FileManager::close()
 {
     // TODO: 구현
+    return false;
 }
 
 // File에 Page 추가
 pagenum_t FileManager::pageCreate()
 {
     // TODO: 구현
+    return false;
 }
 
 // Page 씀. 성공하면 true 반환
@@ -102,6 +102,7 @@ bool FileManager::pageRead(pagenum_t pagenum, page_t& page)
 bool FileManager::pageFree(pagenum_t pagenum)
 {
     // TODO: 구현
+    return false;
 }
 
 const HeaderPageHeader& FileManager::getHeaderPageHeader() const

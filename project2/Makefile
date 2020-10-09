@@ -3,6 +3,7 @@ CPP=g++
 
 MAINDIR=main_src/
 INC=include/
+MAIN_INC=main_include/
 LIBS=lib/
 TESTDIR=tests/
 
@@ -10,8 +11,8 @@ TESTDIR=tests/
 # OBJS:=$(SRCS:.c=.o)
 
 # main source file
-TARGET_SRC:=$(MAINDIR)new_main.c
-TARGET_OBJ:=$(MAINDIR)new_main.o
+TARGET_SRC:=$(MAINDIR)main.c
+TARGET_OBJ:=$(MAINDIR)main.o
 
 TEST_SRC:=$(wildcard tests/*.cc)
 TEST_OBJ:=$(TEST_SRC:.cc=.o)
@@ -20,7 +21,7 @@ TEST_OBJ:=$(TEST_SRC:.cc=.o)
 SRCS_FOR_LIB:=$(wildcard src/*.cc)
 OBJS_FOR_LIB:=$(SRCS_FOR_LIB:.cc=.o)
 
-CFLAGS+= -g -fPIC -I $(INC)
+CFLAGS+= -g -fPIC -I $(MAIN_INC)
 CPPFLAGS+= -g -std=c++17 -fPIC -I $(INC)
 
 TARGET=main
@@ -31,14 +32,14 @@ all: $(TARGET)
 
 $(TARGET): $(TARGET_OBJ) $(OBJS_FOR_LIB)
 	make static_library
-	$(CPP) $(CFLAGS) -o $@ $^ -L $(LIBS) -lbpt
+	$(CC) $(CFLAGS) -o $@ $(TARGET_OBJ) -L $(LIBS) -lbpt
 
 $(TEST_TARGET): $(OBJS_FOR_LIB) $(TEST_OBJ)
 	make static_library
-	$(CPP) $(CFLAGS) -o $@ $^ -L $(LIBS) -lbpt
+	$(CPP) $(CPPFLAGS) -o $@ $^ -L $(LIBS) -lbpt
 
 %.o: %.cc
-	${CPP} ${CFLAGS} -c -o $@ $<
+	${CPP} ${CPPFLAGS} -c -o $@ $<
 
 %.o: %.c
 	${CC} ${CFLAGS} -c -o $@ $<
