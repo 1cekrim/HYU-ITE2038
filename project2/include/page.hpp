@@ -3,10 +3,16 @@
 
 #include <cstdint>
 #include <cstring>
+#include <memory>
 
 #define PAGESIZE 4096
 
-typedef uint64_t pagenum_t;
+constexpr auto value_size = 120;
+using val_t = uint8_t[120];
+using keyType = int64_t;
+using pagenum_t = uint64_t;
+
+constexpr auto EMPTY_PAGE_NUMBER = 0;
 
 struct NodePageHeader
 {
@@ -44,13 +50,18 @@ struct FreePageHeader
 
 struct Record
 {
-    int64_t key;
-    uint8_t value[120];
+    keyType key;
+    val_t value;
+    Record& operator=(const Record& rhs)
+    {
+        memcpy(this, &rhs, sizeof(Record));
+        return *this;
+    }
 };
 
 struct Internal
 {
-    int64_t key;
+    keyType key;
     pagenum_t pageNumber;
 };
 
@@ -73,6 +84,20 @@ struct page_t
     page_t()
     {
         std::memset(this, 0, sizeof(page_t));
+    }
+
+    void insert_record(std::unique_ptr<Record> record, int insertion_point)
+    {
+        auto& head = header.nodePageHeader;
+        auto& rec = entry.records;
+        
+        for (int i = head.nubmerOfKeys; i > insertion_point; --i)
+        {
+            rec[i] = rec[i - 1];
+        }
+
+        ++head.nubmerOfKeys;
+        rec[insertion_point] = *record;
     }
 };
 

@@ -37,14 +37,16 @@ class FileManager
     // pagenum에 해당하는 Page free. 성공하면 true 반환.
     bool pageFree(pagenum_t pagenum);
 
+    // update file header
+    bool updateFileHeader();
+
     // 새 페이지 추가
     pagenum_t pageCreate();
 
-    const HeaderPageHeader& getHeaderPageHeader() const;
+    HeaderPageHeader fileHeader;
 
  private:
     std::unique_ptr<std::FILE, decltype(&std::fclose)> fp;
-    HeaderPageHeader fileHeader;
 };
 
 #endif /* __FILE_MANAGER_HPP__*/

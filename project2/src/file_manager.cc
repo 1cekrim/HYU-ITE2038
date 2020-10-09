@@ -105,7 +105,7 @@ bool FileManager::pageFree(pagenum_t pagenum)
     return false;
 }
 
-const HeaderPageHeader& FileManager::getHeaderPageHeader() const
+bool FileManager::updateFileHeader()
 {
-    return fileHeader;
+    return write(0, &fileHeader, sizeof(HeaderPageHeader));
 }
