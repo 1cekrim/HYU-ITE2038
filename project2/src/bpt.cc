@@ -1,6 +1,7 @@
 #include "bpt.hpp"
 
 #include <iostream>
+#include <vector>
 
 #include "logger.hpp"
 
@@ -53,7 +54,7 @@ bool BPTree::insert(keyType key, const valType& value)
 
     auto& header = leaf->header.nodePageHeader;
     auto& records = leaf->entry.records;
-    if (header.nubmerOfKeys < leaf_order - 1)
+    if (header.numberOfKeys < leaf_order - 1)
     {
         return insert_into_leaf(nodePair, *pointer);
     }
@@ -70,11 +71,11 @@ bool BPTree::insert_into_leaf(node_tuple& leaf, const record& rec)
     auto& header = c->header.nodePageHeader;
     auto& records = c->entry.records;
 
-    while (insertion_point < header.nubmerOfKeys &&
+    while (insertion_point < header.numberOfKeys &&
            records[insertion_point].key < rec.key)
     {
         ++insertion_point;
-    } 
+    }
 
     c->insert_record(rec, insertion_point);
     ASSERT_WITH_LOG(fm.pageWrite(pagenum, *c), false, "page write failure");
@@ -82,10 +83,159 @@ bool BPTree::insert_into_leaf(node_tuple& leaf, const record& rec)
     return true;
 }
 
-bool BPTree::insert_into_leaf_after_splitting(node_tuple& leaf,
+bool BPTree::insert_into_leaf_after_splitting(node_tuple& leaf_tuple,
                                               const record& rec)
 {
-    // TODO: 구현
+    auto new_leaf = make_node(true);
+    auto new_pagenum = fm.pageCreate();
+    ASSERT_WITH_LOG(new_pagenum != EMPTY_PAGE_NUMBER, false,
+                    "page create failure");
+
+    auto& leaf = leaf_tuple.n;
+    auto pagenum = leaf_tuple.pagenum;
+
+    auto& header = leaf->header.nodePageHeader;
+    auto& records = leaf->entry.records;
+
+    int insertion_index = 0;
+    while (insertion_index < header.numberOfKeys &&
+           records[insertion_index].key < rec.key)
+    {
+        ++insertion_index;
+    }
+
+    std::vector<record> temp(leaf_order + 1);
+
+    for (int i = 0, j = 0; i < header.numberOfKeys; ++i, ++j)
+    {
+        if (j == insertion_index)
+        {
+            ++j;
+        }
+        temp[j] = records[i];
+    }
+
+    temp[insertion_index] = rec;
+
+    header.numberOfKeys = 0;
+
+    int split = cut(leaf_order - 1);
+
+    for (int i = 0; i < split; ++i)
+    {
+        records[i] = temp[i];
+        ++header.numberOfKeys;
+    }
+
+    auto& new_header = new_leaf->header.nodePageHeader;
+    auto& new_records = new_leaf->entry.records;
+
+    for (int i = split, j = 0; i < leaf_order; ++i, ++j)
+    {
+        new_records[j] = temp[i];
+        ++new_header.numberOfKeys;
+    }
+
+    new_header.onePageNumber = header.onePageNumber;
+    header.onePageNumber = new_pagenum;
+    new_header.parentPageNumber = header.parentPageNumber;
+
+    ASSERT_WITH_LOG(fm.pageWrite(pagenum, *leaf), false,
+                    "leaf page write failure");
+    ASSERT_WITH_LOG(fm.pageWrite(new_pagenum, *new_leaf), false, "new leaf page write failure");
+
+    struct node_tuple right = {std::move(new_leaf), new_pagenum};
+    return insert_into_parent(leaf_tuple, new_records[0].key, right);
+}
+
+bool BPTree::insert_into_parent(node_tuple& left, keyType key,
+                                node_tuple& right)
+{
+    auto left_pagenum = left.pagenum;
+    auto& left_header = left.n->header.nodePageHeader;
+    auto& left_record = left.n->entry.records;
+
+    auto right_pagenum = right.pagenum;
+    auto& right_header = right.n->header.nodePageHeader;
+    auto& right_record = right.n->entry.records;
+
+    auto parent_pagenum = left_header.parentPageNumber;
+
+    if (parent_pagenum == EMPTY_PAGE_NUMBER)
+    {
+        return insert_into_new_root(left, key, right);
+    }
+
+    node_tuple parent;
+    parent.pagenum = parent_pagenum;
+    parent.n = std::make_unique<node>();
+
+    ASSERT_WITH_LOG(fm.pageRead(parent_pagenum, *parent.n), false, "read parent page failure: %ld", parent_pagenum);
+
+    int left_index = get_left_index(*parent.n, left.pagenum);
+    if (parent.n->header.nodePageHeader.numberOfKeys < internal_order - 1)
+    {
+        return insert_into_node(parent, left_index, key, right);
+    }
+
+    return insert_into_node_after_splitting(parent, left_index, key, right);
+}
+
+int BPTree::get_left_index(const node& parent, pagenum_t left_pagenum) const
+{
+    int left_index = 0;
+    auto& header = parent.header.nodePageHeader;
+    auto& internal = parent.entry.internals;
+    if (header.onePageNumber == left_pagenum)
+    {
+        return 0;
+    }
+
+    while (left_index < header.numberOfKeys && internal[left_index].pageNumber != left_pagenum)
+    {
+        ++left_index;
+    }
+    return left_index + 1;
+}
+
+bool BPTree::insert_into_new_root(node_tuple& left, keyType key, node_tuple& right)
+{
+    auto root_pagenum = fm.pageCreate();
+    ASSERT_WITH_LOG(root_pagenum != EMPTY_PAGE_NUMBER, false, "root page creation failure");
+
+    auto root = make_node(false);
+    auto& header = root->header.nodePageHeader;
+    auto& internal = root->entry.internals;
+
+    header.onePageNumber = left.pagenum;
+
+    // TODO: insert_internal
+    internal[0].key = key;
+    internal[0].pageNumber = right.pagenum;
+    ++header.numberOfKeys;
+
+    left.n->header.nodePageHeader.parentPageNumber = root_pagenum;
+    right.n->header.nodePageHeader.parentPageNumber = root_pagenum;
+
+    ASSERT_WITH_LOG(fm.pageWrite(left.pagenum, *left.n), false, "left page write failure: %ld", left.pagenum);
+    ASSERT_WITH_LOG(fm.pageWrite(right.pagenum, *right.n), false, "right page write failure: %ld", right.pagenum);
+    ASSERT_WITH_LOG(fm.pageWrite(root_pagenum, *root), false, "root page write failure: %ld", root_pagenum);
+
+    fm.fileHeader.rootPageNumber = root_pagenum;
+    ASSERT_WITH_LOG(fm.updateFileHeader(), false, "update file header failure");  
+
+    return true;
+}
+
+bool BPTree::insert_into_node(node_tuple& parent, int left_index, keyType key,
+                      node_tuple& right)
+{
+    puts("insert into node");
+}
+
+bool BPTree::insert_into_node_after_splitting(node_tuple& parent, int left_index,
+                                      keyType key, node_tuple& right)
+{
 }
 
 std::unique_ptr<record> BPTree::find(keyType key)
@@ -100,7 +250,7 @@ std::unique_ptr<record> BPTree::find(keyType key)
     auto& records = c->entry.records;
 
     int i;
-    for (i = 0; i < header.nubmerOfKeys; ++i)
+    for (i = 0; i < header.numberOfKeys; ++i)
     {
         if (records[i].key == key)
         {
@@ -108,7 +258,7 @@ std::unique_ptr<record> BPTree::find(keyType key)
         }
     }
 
-    if (i == header.nubmerOfKeys)
+    if (i == header.numberOfKeys)
     {
         return nullptr;
     }
@@ -143,7 +293,7 @@ node_tuple BPTree::find_leaf(keyType key)
         if (verbose_output)
         {
             printf("[");
-            for (i = 0; i < header.nubmerOfKeys - 1; ++i)
+            for (i = 0; i < header.numberOfKeys - 1; ++i)
             {
                 printf("%ld ", internal[i].key);
             }
@@ -151,7 +301,7 @@ node_tuple BPTree::find_leaf(keyType key)
         }
 
         i = 0;
-        while (i < header.nubmerOfKeys)
+        while (i < header.numberOfKeys)
         {
             if (key >= internal[i].key)
             {
@@ -177,7 +327,7 @@ node_tuple BPTree::find_leaf(keyType key)
         auto& records = now->entry.records;
         printf("Leaf [");
         int i;
-        for (i = 0; i < header.nubmerOfKeys - 1; ++i)
+        for (i = 0; i < header.numberOfKeys - 1; ++i)
         {
             printf("%ld ", records[i].key);
         }
@@ -205,7 +355,7 @@ std::unique_ptr<node> BPTree::make_node(bool is_leaf) const
 
     // 어차피 0으로 초기화 되어있는데 필요한가?
     header.isLeaf = is_leaf;
-    header.nubmerOfKeys = 0;
+    header.numberOfKeys = 0;
     header.onePageNumber = EMPTY_PAGE_NUMBER;
     header.parentPageNumber = EMPTY_PAGE_NUMBER;
 

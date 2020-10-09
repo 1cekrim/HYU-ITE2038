@@ -4,6 +4,7 @@
 
 #include <cstdlib>
 #include <cstring>
+#include <iostream>
 
 #include "logger.hpp"
 
@@ -50,21 +51,23 @@ bool FileManager::open(const std::string& name)
 
 bool FileManager::write(long int seek, const void* payload, std::size_t size)
 {
-    std::fseek(fp.get(), seek, SEEK_SET);
+    // std::fseek(fp.get(), seek, SEEK_SET);
 
-    std::size_t count = std::fwrite(payload, size, 1, fp.get());
+    // long count = std::fwrite(payload, size, 1, fp.get());
+    long count = pwrite(fileno(fp.get()), payload, size, seek);
     std::fflush(fp.get());
 
-    return count == 1;
+    return count != -1;
 }
 
 bool FileManager::read(long int seek, void* target, size_t size)
 {
-    std::fseek(fp.get(), seek, SEEK_SET);
+    // std::fseek(fp.get(), seek, SEEK_SET);
 
-    std::size_t count = std::fread(target, size, 1, fp.get());
+    // long count = std::fread(target, size, 1, fp.get());
+    long count = pread(fileno(fp.get()), target, size, seek);
 
-    return count == 1;
+    return count != -1;
 }
 
 bool FileManager::close()
@@ -83,6 +86,8 @@ pagenum_t FileManager::pageCreate()
         page_t page;
         ASSERT_WITH_LOG(pageWrite(pagenum, page), EMPTY_PAGE_NUMBER,
                         "write page failure: %ld", pagenum);
+        ASSERT_WITH_LOG(pageRead(pagenum, page), EMPTY_PAGE_NUMBER,
+                        "write page failure: %ld", pagenum);
         ++fileHeader.numberOfPages;
     }
     else
@@ -97,7 +102,6 @@ pagenum_t FileManager::pageCreate()
     ASSERT_WITH_LOG(updateFileHeader(), EMPTY_PAGE_NUMBER,
                     "update file header failure");
 
-    printf("pagenum: %d\n", pagenum);
     return pagenum;
 }
 

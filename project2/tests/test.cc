@@ -5,6 +5,7 @@
 #include <iostream>
 #include <string>
 #include <sstream>
+#include <vector>
 
 #include "file_api.hpp"
 #include "file_manager.hpp"
@@ -68,7 +69,7 @@ void TEST_FILE_MANAGER()
         const HeaderPageHeader& ph = fm.fileHeader;
 
         CHECK_VALUE(ph.freePageNumber, 0);
-        CHECK_VALUE(ph.numberOfPages, 0);
+        CHECK_VALUE(ph.numberOfPages, 1);
         CHECK_VALUE(ph.rootPageNumber, 0);
 
         for (int i = 0; i < 104; ++i)
@@ -101,6 +102,33 @@ void TEST_FILE_MANAGER()
                        readPage.entry.internals[i].key);
             CHECK_TRUE(page.entry.internals[i].pageNumber ==
                        readPage.entry.internals[i].pageNumber);
+        }
+    }
+    END()
+
+    TEST("FileManager Many Page")
+    {
+        FileManager fm;
+        fm.open("qqq.db");
+        page_t page;
+        for (int i = 0; i < 248; ++i)
+        {
+            page.entry.internals[i].key = i;
+            page.entry.internals[i].pageNumber = i;
+        }
+        std::vector<pagenum_t> nums;
+        for (int i = 0; i < 100; ++i)
+        {
+            pagenum_t num = fm.pageCreate();
+            CHECK_TRUE(num != EMPTY_PAGE_NUMBER);
+
+            CHECK_TRUE(fm.pageWrite(num, page));
+            nums.push_back(num);
+        }
+
+        for (auto n : nums)
+        {
+            CHECK_TRUE(fm.pageRead(n, page));
         }
     }
     END()

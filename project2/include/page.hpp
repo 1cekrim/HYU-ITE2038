@@ -18,9 +18,12 @@ struct NodePageHeader
 {
     pagenum_t parentPageNumber;
     uint32_t isLeaf;
-    uint32_t nubmerOfKeys;
+    uint32_t numberOfKeys;
     uint8_t reserved[104];
     pagenum_t onePageNumber;
+
+    friend std::ostream& operator<<(std::ostream& os,
+                                    const NodePageHeader& nph);
 };
 
 struct HeaderPageHeader
@@ -95,13 +98,13 @@ struct page_t
     {
         auto& head = header.nodePageHeader;
         auto& rec = entry.records;
-        
-        for (int i = head.nubmerOfKeys; i > insertion_point; --i)
+
+        for (int i = head.numberOfKeys; i > insertion_point; --i)
         {
             rec[i] = rec[i - 1];
         }
 
-        ++head.nubmerOfKeys;
+        ++head.numberOfKeys;
         rec[insertion_point] = record;
     }
 };
