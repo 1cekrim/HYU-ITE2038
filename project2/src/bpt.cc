@@ -1,5 +1,9 @@
 #include "bpt.hpp"
 
+#include <iostream>
+
+#include "logger.hpp"
+
 BPTree::BPTree(FileManager& fm)
     : fm(fm),
       leaf_order(LEAF_ORDER),
@@ -30,7 +34,6 @@ bool BPTree::insert(keyType key, const val_t& value)
 
 std::unique_ptr<record> BPTree::find(keyType key)
 {
-    
 }
 
 std::unique_ptr<node> BPTree::find_leaf(keyType key)
@@ -46,25 +49,19 @@ std::unique_ptr<node> BPTree::find_leaf(keyType key)
     }
 
     auto now = std::make_unique<node>();
-    if (fm.pageRead(root, now))
-    {
-        // TODO: 로그 출력
-        exit(-1);
-    }
+    ASSERT_WITH_LOG(fm.pageRead(root, *now), nullptr, "page read");
 }
 
-std::unique_ptr<record> BPTree::make_record(keyType key, const val_t& value) const
+std::unique_ptr<record> BPTree::make_record(keyType key,
+                                            const val_t& value) const
 {
 }
 
 std::unique_ptr<node> BPTree::make_node(bool is_leaf) const
 {
     auto n = std::make_unique<node>();
-    if (!n)
-    {
-        // TODO: node 할당 실패. 오류 출력
-        exit(-1);
-    }
+    ASSERT_WITH_LOG(n, nullptr, "allocation failure: node");
+
     auto& header = n->header.nodePageHeader;
 
     // 어차피 0으로 초기화 되어있는데 필요한가?
@@ -83,18 +80,11 @@ bool BPTree::start_new_tree(std::unique_ptr<record> record)
     root->insert_record(std::move(record), 0);
 
     auto pagenum = fm.pageCreate();
-    if (pagenum == EMPTY_PAGE_NUMBER)
-    {
-        // TODO: page 추가 실패! 오류 출력
-        exit(-1);
-    }
-
-    if (!fm.pageWrite(pagenum, *root))
-    {
-        // TODO: page write 실패! 오류 출력
-        exit(-1);
-    }
+    ASSERT_WITH_LOG(pagenum != EMPTY_PAGE_NUMBER, false, "page creation failure");
+    ASSERT_WITH_LOG(fm.pageWrite(pagenum, *root), false, "page write failure");
 
     fm.fileHeader.rootPageNumber = pagenum;
-    fm.updateFileHeader();
+    ASSERT_WITH_LOG(fm.updateFileHeader(), false, "file header update failure");
+
+    return true;
 }

@@ -45,7 +45,7 @@ $(TEST_TARGET): $(OBJS_FOR_LIB) $(TEST_OBJ)
 	${CC} ${CFLAGS} -c -o $@ $<
 
 clean:
-	rm $(TARGET) $(TARGET_OBJ) $(OBJS_FOR_LIB) $(LIBS)*
+	rm $(TARGET) $(TARGET_OBJ) $(OBJS_FOR_LIB) $(LIBS)* $(TEST_OBJ)
 
 library:
 	${CPP} -shared -Wl,-soname,libbpt.so -o $(LIBS)libbpt.so $(OBJS_FOR_LIB)
