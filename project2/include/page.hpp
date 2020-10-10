@@ -71,6 +71,16 @@ struct Internal
 {
     keyType key;
     pagenum_t pageNumber;
+    Internal& operator=(const Internal& rhs)
+    {
+        memcpy(this, &rhs, sizeof(Internal));
+        return *this;
+    }
+    void init(keyType key, pagenum_t pageNumber)
+    {
+        this->key = key;
+        this->pageNumber = pageNumber;
+    }
 };
 
 // page
@@ -106,6 +116,20 @@ struct page_t
 
         ++head.numberOfKeys;
         rec[insertion_point] = record;
+    }
+
+    void insert_internal(const Internal& internal, int insertion_point)
+    {
+        auto& head = header.nodePageHeader;
+        auto& internals = entry.internals;
+
+        for (int i = head.numberOfKeys; i > insertion_point; --i)
+        {
+            internals[i] = internals[i - 1];
+        }
+
+        ++head.numberOfKeys;
+        internals[insertion_point] = internal;
     }
 };
 

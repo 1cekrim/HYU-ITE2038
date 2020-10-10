@@ -230,12 +230,20 @@ bool BPTree::insert_into_new_root(node_tuple& left, keyType key, node_tuple& rig
 bool BPTree::insert_into_node(node_tuple& parent, int left_index, keyType key,
                       node_tuple& right)
 {
-    puts("insert into node");
+    Internal internal;
+    internal.init(key, right.pagenum);
+    parent.n->insert_internal(internal, left_index);
+    return true;
 }
 
 bool BPTree::insert_into_node_after_splitting(node_tuple& parent, int left_index,
                                       keyType key, node_tuple& right)
 {
+    auto& parent_header = parent.n->header.nodePageHeader;
+    auto& parent_internal = parent.n->entry.internals;
+    
+    auto& right_header = right.n->header.nodePageHeader;
+    auto& right_internal = right.n->entry.
 }
 
 std::unique_ptr<record> BPTree::find(keyType key)

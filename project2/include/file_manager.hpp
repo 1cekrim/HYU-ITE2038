@@ -13,13 +13,10 @@ class FileManager
 {
  public:
     FileManager();
-    ~FileManager() = default;
+    ~FileManager();
 
     // name 명으로 File 열기
     bool open(const std::string& name);
-
-    // 파일 닫기
-    bool close();
 
     // payload 포인터가 가리키는 공간부터 size만큼 읽어와 File의 seek 위치에
     // 쓰기

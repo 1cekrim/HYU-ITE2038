@@ -13,6 +13,15 @@ FileManager::FileManager() : fp(nullptr, &std::fclose)
     fileHeader.Init();
 }
 
+FileManager::~FileManager()
+{
+    if (fp)
+    {
+        updateFileHeader();
+        fp.reset();
+    }
+}
+
 bool FileManager::open(const std::string& name)
 {
     // 파일 없음
@@ -51,9 +60,6 @@ bool FileManager::open(const std::string& name)
 
 bool FileManager::write(long int seek, const void* payload, std::size_t size)
 {
-    // std::fseek(fp.get(), seek, SEEK_SET);
-
-    // long count = std::fwrite(payload, size, 1, fp.get());
     long count = pwrite(fileno(fp.get()), payload, size, seek);
     std::fflush(fp.get());
 
@@ -62,18 +68,9 @@ bool FileManager::write(long int seek, const void* payload, std::size_t size)
 
 bool FileManager::read(long int seek, void* target, size_t size)
 {
-    // std::fseek(fp.get(), seek, SEEK_SET);
-
-    // long count = std::fread(target, size, 1, fp.get());
     long count = pread(fileno(fp.get()), target, size, seek);
 
     return count != -1;
-}
-
-bool FileManager::close()
-{
-    // TODO: 구현
-    return false;
 }
 
 // File에 Page 추가
@@ -120,8 +117,15 @@ bool FileManager::pageRead(pagenum_t pagenum, page_t& page)
 // pagenum에 해당하는 Page free. 성공하면 true 반환.
 bool FileManager::pageFree(pagenum_t pagenum)
 {
-    // TODO: 구현
-    return false;
+    page_t page;
+    ASSERT_WITH_LOG(pageRead(pagenum, page), false, "page read failure: %ld",
+                    pagenum);
+    page.header.freePageHeader.nextFreePageNumber = fileHeader.freePageNumber;
+    ASSERT_WITH_LOG(pageWrite(pagenum, page), false, "page write failure: %ld",
+                    pagenum);
+    fileHeader.freePageNumber = pagenum;
+    ASSERT_WITH_LOG(updateFileHeader(), false, "update file header failure");
+    return true;
 }
 
 bool FileManager::updateFileHeader()
