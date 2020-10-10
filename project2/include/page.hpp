@@ -43,6 +43,8 @@ struct HeaderPageHeader
         numberOfPages = header.numberOfPages;
         return *this;
     }
+    friend std::ostream& operator<<(std::ostream& os,
+                                    const HeaderPageHeader& hph);
 };
 
 struct FreePageHeader
@@ -130,6 +132,16 @@ struct page_t
 
         ++head.numberOfKeys;
         internals[insertion_point] = internal;
+    }
+
+    void push_record(const Record& record)
+    {
+        entry.records[header.nodePageHeader.numberOfKeys++] = record;
+    }
+
+    void push_internal(const Internal& internal)
+    {
+        entry.internals[header.nodePageHeader.numberOfKeys++] = internal;
     }
 };
 

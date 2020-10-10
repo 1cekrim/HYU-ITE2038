@@ -163,6 +163,36 @@ void TEST_BPT()
         }
     }
     END()
+
+    TEST("BPTree insert open")
+    {
+        FileManager fm;
+        fm.open("insert.db");
+
+        std::cout << fm.fileHeader;
+
+        BPTree tree(fm, true);
+    }
+    END()
+
+    TEST("BPTree insert many")
+    {
+        FileManager fm;
+        fm.open("insert.db");
+
+        BPTree tree(fm, true);
+
+        for (int i = 10000; i > 100; --i)
+        {
+            valType v;
+            std::stringstream ss;
+            ss << "test insert " << i;
+            tree.char_to_valType(v, ss.str().c_str());
+
+            CHECK_TRUE(tree.insert(i, v));
+        }
+    }
+    END()
 }
 
 void TEST_FILE()

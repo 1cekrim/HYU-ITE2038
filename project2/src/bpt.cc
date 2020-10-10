@@ -142,9 +142,10 @@ bool BPTree::insert_into_leaf_after_splitting(node_tuple& leaf_tuple,
 
     ASSERT_WITH_LOG(fm.pageWrite(pagenum, *leaf), false,
                     "leaf page write failure");
-    ASSERT_WITH_LOG(fm.pageWrite(new_pagenum, *new_leaf), false, "new leaf page write failure");
+    ASSERT_WITH_LOG(fm.pageWrite(new_pagenum, *new_leaf), false,
+                    "new leaf page write failure");
 
-    struct node_tuple right = {std::move(new_leaf), new_pagenum};
+    struct node_tuple right = { std::move(new_leaf), new_pagenum };
     return insert_into_parent(leaf_tuple, new_records[0].key, right);
 }
 
@@ -170,7 +171,8 @@ bool BPTree::insert_into_parent(node_tuple& left, keyType key,
     parent.pagenum = parent_pagenum;
     parent.n = std::make_unique<node>();
 
-    ASSERT_WITH_LOG(fm.pageRead(parent_pagenum, *parent.n), false, "read parent page failure: %ld", parent_pagenum);
+    ASSERT_WITH_LOG(fm.pageRead(parent_pagenum, *parent.n), false,
+                    "read parent page failure: %ld", parent_pagenum);
 
     int left_index = get_left_index(*parent.n, left.pagenum);
     if (parent.n->header.nodePageHeader.numberOfKeys < internal_order - 1)
@@ -191,17 +193,20 @@ int BPTree::get_left_index(const node& parent, pagenum_t left_pagenum) const
         return 0;
     }
 
-    while (left_index < header.numberOfKeys && internal[left_index].pageNumber != left_pagenum)
+    while (left_index < header.numberOfKeys &&
+           internal[left_index].pageNumber != left_pagenum)
     {
         ++left_index;
     }
     return left_index + 1;
 }
 
-bool BPTree::insert_into_new_root(node_tuple& left, keyType key, node_tuple& right)
+bool BPTree::insert_into_new_root(node_tuple& left, keyType key,
+                                  node_tuple& right)
 {
     auto root_pagenum = fm.pageCreate();
-    ASSERT_WITH_LOG(root_pagenum != EMPTY_PAGE_NUMBER, false, "root page creation failure");
+    ASSERT_WITH_LOG(root_pagenum != EMPTY_PAGE_NUMBER, false,
+                    "root page creation failure");
 
     auto root = make_node(false);
     auto& header = root->header.nodePageHeader;
@@ -217,18 +222,21 @@ bool BPTree::insert_into_new_root(node_tuple& left, keyType key, node_tuple& rig
     left.n->header.nodePageHeader.parentPageNumber = root_pagenum;
     right.n->header.nodePageHeader.parentPageNumber = root_pagenum;
 
-    ASSERT_WITH_LOG(fm.pageWrite(left.pagenum, *left.n), false, "left page write failure: %ld", left.pagenum);
-    ASSERT_WITH_LOG(fm.pageWrite(right.pagenum, *right.n), false, "right page write failure: %ld", right.pagenum);
-    ASSERT_WITH_LOG(fm.pageWrite(root_pagenum, *root), false, "root page write failure: %ld", root_pagenum);
+    ASSERT_WITH_LOG(fm.pageWrite(left.pagenum, *left.n), false,
+                    "left page write failure: %ld", left.pagenum);
+    ASSERT_WITH_LOG(fm.pageWrite(right.pagenum, *right.n), false,
+                    "right page write failure: %ld", right.pagenum);
+    ASSERT_WITH_LOG(fm.pageWrite(root_pagenum, *root), false,
+                    "root page write failure: %ld", root_pagenum);
 
     fm.fileHeader.rootPageNumber = root_pagenum;
-    ASSERT_WITH_LOG(fm.updateFileHeader(), false, "update file header failure");  
+    ASSERT_WITH_LOG(fm.updateFileHeader(), false, "update file header failure");
 
     return true;
 }
 
 bool BPTree::insert_into_node(node_tuple& parent, int left_index, keyType key,
-                      node_tuple& right)
+                              node_tuple& right)
 {
     Internal internal;
     internal.init(key, right.pagenum);
@@ -236,14 +244,80 @@ bool BPTree::insert_into_node(node_tuple& parent, int left_index, keyType key,
     return true;
 }
 
-bool BPTree::insert_into_node_after_splitting(node_tuple& parent, int left_index,
-                                      keyType key, node_tuple& right)
+bool BPTree::insert_into_node_after_splitting(node_tuple& parent,
+                                              int left_index, keyType key,
+                                              node_tuple& right)
 {
+    Internal internal;
+    internal.init(key, right.pagenum);
+
     auto& parent_header = parent.n->header.nodePageHeader;
     auto& parent_internal = parent.n->entry.internals;
-    
-    auto& right_header = right.n->header.nodePageHeader;
-    auto& right_internal = right.n->entry.
+
+    auto new_pagenum = fm.pageCreate();
+    ASSERT_WITH_LOG(new_pagenum != EMPTY_PAGE_NUMBER, false,
+                    "new page creation failure");
+
+    std::vector<Internal> temp(internal_order);
+
+    for (int i = 0, j = 0; i < parent_header.numberOfKeys; ++i, ++j)
+    {
+        if (j == left_index)
+        {
+            ++j;
+        }
+        temp[j] = parent_internal[i];
+    }
+
+    int split = cut(internal_order);
+
+    auto new_node = make_node(false);
+
+    // parent의 onePageNumber는 변경되지 않음이 보장되니 고려하지 않음
+    int i, j;
+    parent_header.numberOfKeys = 0;
+    for (i = 0; i < split - 1; ++i)
+    {
+        parent.n->push_internal(temp[i]);
+    }
+    keyType k_prime = temp[split - 1].key;
+
+    page_t new_page;
+    auto& new_header = new_page.header.nodePageHeader;
+    auto& new_internals = new_page.entry.internals;
+
+    new_header.onePageNumber = temp[split - 1].pageNumber;
+    for (++i; i < internal_order; ++i)
+    {
+        new_page.push_internal(temp[i]);
+    }
+    new_header.parentPageNumber = parent_header.parentPageNumber;
+
+    auto change_parent = [&](pagenum_t pagenum) {
+        page_t page;
+        ASSERT_WITH_LOG(fm.pageRead(pagenum, page), false,
+                        "page read failure: %ld", pagenum);
+        page.header.nodePageHeader.parentPageNumber = new_pagenum;
+        ASSERT_WITH_LOG(fm.pageWrite(pagenum, page), false,
+                        "page write failure: %ld", pagenum);
+        return true;
+    };
+
+    ASSERT_WITH_LOG(change_parent(new_header.onePageNumber), false,
+                    "change parent of onePage failure");
+    for (int i = 0; i < new_header.numberOfKeys; ++i)
+    {
+        ASSERT_WITH_LOG(change_parent(new_internals[i].pageNumber), false,
+                        "change parent of %d failure", i);
+    }
+
+    ASSERT_WITH_LOG(fm.pageWrite(parent.pagenum, *parent.n), false,
+                    "parent page write failure");
+    ASSERT_WITH_LOG(fm.pageWrite(new_pagenum, new_page), false,
+                    "new page write failure");
+
+    node_tuple new_tuple { std::move(new_node), new_pagenum };
+    return insert_into_parent(parent, k_prime, new_tuple);
 }
 
 std::unique_ptr<record> BPTree::find(keyType key)
@@ -320,13 +394,14 @@ node_tuple BPTree::find_leaf(keyType key)
                 break;
             }
         }
+        --i;
 
         if (verbose_output)
         {
             printf("%d ->\n", i);
         }
 
-        fm.pageRead(root = internal[i].pageNumber, *now);
+        fm.pageRead(root = (i == -1) ? header.onePageNumber : internal[i].pageNumber, *now);
     }
 
     if (verbose_output)
