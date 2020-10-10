@@ -42,6 +42,8 @@ class FileManager
 
     HeaderPageHeader fileHeader;
 
+    int getFileDescriptor() const;
+
  private:
     std::unique_ptr<std::FILE, decltype(&std::fclose)> fp;
 };

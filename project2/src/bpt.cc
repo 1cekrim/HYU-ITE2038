@@ -5,13 +5,18 @@
 
 #include "logger.hpp"
 
-BPTree::BPTree(FileManager& fm, bool verbose_output)
-    : fm(fm),
-      leaf_order(LEAF_ORDER),
+BPTree::BPTree(bool verbose_output)
+    :       leaf_order(LEAF_ORDER),
       internal_order(INTERNAL_ORDER),
       verbose_output(verbose_output)
 {
     // Do nothing
+}
+
+bool BPTree::open_table(const std::string& filename)
+{
+    ASSERT_WITH_LOG(fm.open(filename), false, "open table failure");
+    return true;
 }
 
 int BPTree::char_to_valType(valType& dst, const char* src) const
@@ -29,6 +34,11 @@ int BPTree::char_to_valType(valType& dst, const char* src) const
 
     dst[value_size - 1] = 0;
     return result;
+}
+
+int BPTree::get_table_id() const
+{
+    return fm.getFileDescriptor();
 }
 
 bool BPTree::insert(keyType key, const valType& value)

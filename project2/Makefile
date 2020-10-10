@@ -6,6 +6,7 @@ INC=include/
 MAIN_INC=main_include/
 LIBS=lib/
 TESTDIR=tests/
+BUILDS=builds/
 
 # SRCS:=$(wildcard src/*.c)
 # OBJS:=$(SRCS:.c=.o)
@@ -31,12 +32,14 @@ TEST_TARGET=test
 all: $(TARGET)
 
 $(TARGET): $(TARGET_OBJ) $(OBJS_FOR_LIB)
+	mkdir -p $(BUILDS)
 	make static_library
-	$(CC) $(CFLAGS) -o $@ $(TARGET_OBJ) -L $(LIBS) -lbpt
+	$(CC) $(CFLAGS) -o $(BUILDS)$@ $(TARGET_OBJ) -L $(LIBS) -lbpt -lstdc++
 
 $(TEST_TARGET): $(OBJS_FOR_LIB) $(TEST_OBJ)
+	mkdir -p $(BUILDS)
 	make static_library
-	$(CPP) $(CPPFLAGS) -o $@ $^ -L $(LIBS) -lbpt
+	$(CPP) $(CPPFLAGS) -o $(BUILDS)$@ $^ -L $(LIBS) -lbpt
 
 %.o: %.cc
 	${CPP} ${CPPFLAGS} -c -o $@ $<
@@ -45,7 +48,10 @@ $(TEST_TARGET): $(OBJS_FOR_LIB) $(TEST_OBJ)
 	${CC} ${CFLAGS} -c -o $@ $<
 
 clean:
-	rm $(TARGET) $(TARGET_OBJ) $(OBJS_FOR_LIB) $(LIBS)* $(TEST_OBJ) *.db
+	rm $(TARGET_OBJ) $(OBJS_FOR_LIB) $(LIBS)* $(TEST_OBJ)
+
+removedb:
+	rm $(BUILDS)*.db
 
 library:
 	${CPP} -shared -Wl,-soname,libbpt.so -o $(LIBS)libbpt.so $(OBJS_FOR_LIB)

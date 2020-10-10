@@ -198,10 +198,8 @@ void TEST_BPT()
 
     TEST("BPTree random number insert many")
     {
-        FileManager fm;
-        fm.open("insert.db");
-
-        BPTree tree(fm, false);
+        BPTree tree;
+        CHECK_TRUE(tree.open_table("insert.db"));
 
         std::vector<int> keys(100000);
 
@@ -230,10 +228,8 @@ void TEST_BPT()
 
     TEST("BPTree find key")
     {
-        FileManager fm;
-        fm.open("insert.db");
-
-        BPTree tree(fm, false);
+        BPTree tree;
+        CHECK_TRUE(tree.open_table("insert.db"));
 
         for (int i = 1; i <= 100000; ++i)
         {

@@ -2,6 +2,7 @@
 #define __BPT_HPP__
 
 #include <memory>
+#include <string_view>
 
 #include "file_manager.hpp"
 #include "page.hpp"
@@ -26,9 +27,10 @@ struct node_tuple
 class BPTree
 {
  public:
-    BPTree(FileManager& fm, bool verbose_output = VERBOSE_OUTPUT);
+    BPTree(bool verbose_output = VERBOSE_OUTPUT);
     int char_to_valType(valType& dst, const char* src) const;
-
+    int get_table_id() const;
+    bool open_table(const std::string& filename);
     // Insertion.
     bool insert(keyType key, const valType& value);
     std::unique_ptr<record> find(keyType key);
@@ -58,7 +60,7 @@ class BPTree
     }
     int get_left_index(const node& parent, pagenum_t left) const;
     bool start_new_tree(const record& rec);
-    FileManager& fm;
+    FileManager fm;
     int leaf_order;
     int internal_order;
     bool verbose_output;
