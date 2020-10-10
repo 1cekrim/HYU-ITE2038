@@ -24,4 +24,17 @@
         }                                                      \
     } while (0)
 
+#define EXIT_WITH_LOG(statement, fmt, args...)      \
+    do                                                         \
+    {                                                          \
+        if (!(statement))                                      \
+        {                                                      \
+            printf(S_COLOR_RED "[-] %s", __PRETTY_FUNCTION__); \
+            printf("\n    statement: " #statement "\n    " fmt \
+                   "\n" S_COLOR_RESET,                         \
+                   ##args);                                    \
+            exit(-1);                                    \
+        }                                                      \
+    } while (0)
+
 #endif /* __LOGGER_HPP__*/

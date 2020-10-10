@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <iostream>
 
 #define PAGESIZE 4096
 
@@ -143,6 +144,8 @@ struct page_t
     {
         entry.internals[header.nodePageHeader.numberOfKeys++] = internal;
     }
+
+    void print_node();
 };
 
 #endif /* __PAGE_HPP__*/
