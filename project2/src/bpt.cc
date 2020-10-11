@@ -5,10 +5,11 @@
 
 #include "logger.hpp"
 
-BPTree::BPTree(bool verbose_output)
-    :       leaf_order(LEAF_ORDER),
+BPTree::BPTree(int delayed_min, bool verbose_output)
+    : leaf_order(LEAF_ORDER),
       internal_order(INTERNAL_ORDER),
-      verbose_output(verbose_output)
+      verbose_output(verbose_output),
+      delayed_min(delayed_min)
 {
     // Do nothing
 }
@@ -251,7 +252,8 @@ bool BPTree::insert_into_node(node_tuple& parent, int left_index, keyType key,
     Internal internal;
     internal.init(key, right.pagenum);
     parent.n->insert_internal(internal, left_index);
-    ASSERT_WITH_LOG(fm.pageWrite(parent.pagenum, *parent.n), false, "parent page write failure: %ld", parent.pagenum);
+    ASSERT_WITH_LOG(fm.pageWrite(parent.pagenum, *parent.n), false,
+                    "parent page write failure: %ld", parent.pagenum);
     return true;
 }
 
@@ -279,7 +281,7 @@ bool BPTree::insert_into_node_after_splitting(node_tuple& parent,
         }
         temp[j] = parent_internal[i];
     }
-    temp[left_index] = internal; 
+    temp[left_index] = internal;
 
     int split = cut(internal_order);
 
@@ -329,6 +331,87 @@ bool BPTree::insert_into_node_after_splitting(node_tuple& parent,
 
     node_tuple new_tuple { std::move(new_node), new_pagenum };
     return insert_into_parent(parent, k_prime, new_tuple);
+}
+
+bool BPTree::delete_key(keyType key)
+{
+    auto record = find(key);
+    auto leaf = find_leaf(key);
+    ASSERT_WITH_LOG(leaf.pagenum != EMPTY_PAGE_NUMBER, false, "find leaf failure: %ld", key);
+    if (!record)
+    {
+        return false;
+    }
+
+    ASSERT_WITH_LOG(delete_entry(leaf, key), false, "delete entry failure");
+
+    return true;
+}
+
+bool BPTree::delete_entry(node_tuple& target, keyType key)
+{
+    ASSERT_WITH_LOG(remove_entry_from_node(target, key), false, "remove entry from node failure: %ld", key);
+
+    if (target.pagenum == fm.fileHeader.rootPageNumber)
+    {
+        return adjust_root();
+    }
+
+    auto& header = target.n->header.nodePageHeader;
+
+    int min_keys;
+    if (delayed_min)
+    {
+        min_keys = delayed_min;
+    }
+    else
+    {
+        // min_keys = header.isLeaf ? cut();
+    }
+}
+
+bool BPTree::remove_entry_from_node(node_tuple& target, keyType key)
+{
+    auto& header = target.n->header.nodePageHeader;
+    if (header.isLeaf)
+    {
+        auto& records = target.n->entry.records;
+        int i = 0;
+        while (i < header.numberOfKeys && records[i].key != key)
+        {
+            ++i;
+        }
+        ASSERT_WITH_LOG(i != header.numberOfKeys, false, "invalid key: %ld", key);
+        for (++i; i < header.numberOfKeys; ++i)
+        {
+            records[i - 1] = records[i];
+        }
+        --header.numberOfKeys;
+    }
+    else
+    {
+        auto& internals = target.n->entry.internals;
+        int i = 0;
+         while (i < header.numberOfKeys && internals[i].key != key)
+        {
+            ++i;
+        }
+        ASSERT_WITH_LOG(i != header.numberOfKeys, false, "invalid key: %ld", key);
+        for (++i; i < header.numberOfKeys; ++i)
+        {
+            internals[i - 1] = internals[i];
+        }
+        --header.numberOfKeys;
+    }
+}
+
+bool BPTree::adjust_root()
+{
+}
+
+bool BPTree::coalesce_nodes(node_tuple& target, node_tuple& neighbor,
+                            int k_prime)
+{
 }
 
 std::unique_ptr<record> BPTree::find(keyType key)
@@ -412,7 +495,9 @@ node_tuple BPTree::find_leaf(keyType key)
             printf("%d ->\n", i);
         }
 
-        fm.pageRead(root = ((i == -1) ? header.onePageNumber : internal[i].pageNumber), *now);
+        fm.pageRead(
+            root = ((i == -1) ? header.onePageNumber : internal[i].pageNumber),
+            *now);
     }
 
     if (verbose_output)
