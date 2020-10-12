@@ -455,7 +455,7 @@ bool BPTree::remove_entry_from_node(node_tuple& target, keyType key)
 
 bool BPTree::adjust_root()
 {
-    page_t root;
+    node root;
     pagenum_t root_pagenum = fm.fileHeader.rootPageNumber;
 
     ASSERT_WITH_LOG(fm.pageRead(root_pagenum, root), false,
@@ -491,7 +491,7 @@ bool BPTree::adjust_root()
 
 bool BPTree::update_parent_with_commit(pagenum_t target, pagenum_t parent)
 {
-    page_t temp;
+    node temp;
     ASSERT_WITH_LOG(fm.pageRead(target, temp), false,
                     "read child page failure: %ld", target);
     temp.nodePageHeader().parentPageNumber = parent;
