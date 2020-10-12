@@ -450,10 +450,6 @@ bool BPTree::remove_entry_from_node(node_tuple& target, keyType key)
         {
             ++i;
         }
-        if (i == static_cast<int>(header.numberOfKeys))
-        {
-            target.n->print_node();
-        }
         ASSERT_WITH_LOG(i != static_cast<int>(header.numberOfKeys), false,
                         "invalid key: %ld", key);
         for (++i; i < static_cast<int>(header.numberOfKeys); ++i)
@@ -488,6 +484,7 @@ bool BPTree::adjust_root()
     else
     {
         pagenum_t new_root_pagenum = root_header.onePageNumber;
+        fm.fileHeader.rootPageNumber = new_root_pagenum;
 
         page_t new_root;
         ASSERT_WITH_LOG(fm.pageRead(new_root_pagenum, new_root), false,
