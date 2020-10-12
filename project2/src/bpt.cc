@@ -1,8 +1,8 @@
 #include "bpt.hpp"
 
+#include <cstring>
 #include <iostream>
 #include <vector>
-#include <cstring>
 
 #include "logger.hpp"
 
@@ -328,7 +328,8 @@ bool BPTree::delete_key(keyType key)
 {
     auto record = find(key);
     auto leaf = find_leaf(key);
-    ASSERT_WITH_LOG(leaf.pagenum != EMPTY_PAGE_NUMBER, false, "find leaf failure: %ld", key);
+    ASSERT_WITH_LOG(leaf.pagenum != EMPTY_PAGE_NUMBER, false,
+                    "find leaf failure: %ld", key);
     if (!record)
     {
         return false;
@@ -341,14 +342,17 @@ bool BPTree::delete_key(keyType key)
 
 bool BPTree::delete_entry(node_tuple& target, keyType key)
 {
-    ASSERT_WITH_LOG(remove_entry_from_node(target, key), false, "remove entry from node failure: %ld", key);
+    ASSERT_WITH_LOG(remove_entry_from_node(target, key), false,
+                    "remove entry from node failure: %ld", key);
+    ASSERT_WITH_LOG(fm.pageWrite(target.pagenum, *target.n), false,
+                    "write target page failure: %ld", target.pagenum);
 
     if (target.pagenum == fm.fileHeader.rootPageNumber)
     {
         return adjust_root();
     }
 
-    auto& header = target.n->header.nodePageHeader;
+    auto& target_header = target.n->header.nodePageHeader;
 
     int min_keys;
     if (delayed_min)
@@ -357,7 +361,54 @@ bool BPTree::delete_entry(node_tuple& target, keyType key)
     }
     else
     {
-        // min_keys = header.isLeaf ? cut();
+        min_keys =
+            target_header.isLeaf ? cut(leaf_order - 1) : cut(leaf_order) - 1;
+    }
+
+    if (target_header.numberOfKeys >= min_keys)
+    {
+        return true;
+    }
+
+    auto parent = make_node(false);
+    ASSERT_WITH_LOG(fm.pageRead(target_header.parentPageNumber, *parent), false,
+                    "read parent page failure: %ld",
+                    target_header.parentPageNumber);
+
+    auto& parent_header = parent->header.nodePageHeader;
+    auto& parent_internals = parent->entry.internals;
+
+    int neighbor_index = get_left_index(*parent, target.pagenum);
+    int k_prime_index = neighbor_index == -1 ? 0 : neighbor_index;
+    keyType k_prime = parent_internals[k_prime_index].key;
+
+    node_tuple neighbor_tuple;
+    neighbor_tuple.n = make_node(false);
+    neighbor_tuple.pagenum =
+        neighbor_index == -1
+            ? parent_internals[0].pageNumber
+            : neighbor_index == 0
+                  ? parent_header.onePageNumber
+                  : parent_internals[neighbor_index - 1].pageNumber;
+    ASSERT_WITH_LOG(fm.pageRead(neighbor_tuple.pagenum, *neighbor_tuple.n),
+                    false, "read neighbor_tuple page failure: %ld",
+                    neighbor_tuple.pagenum);
+
+    int capacity = target_header.isLeaf ? leaf_order : internal_order - 1;
+
+    node_tuple parent_tuple { std::move(parent),
+                              target_header.parentPageNumber };
+
+    if (target_header.numberOfKeys +
+            neighbor_tuple.n->header.nodePageHeader.numberOfKeys <
+        capacity)
+    {
+        return coalesce_nodes(target, neighbor_tuple, parent_tuple, k_prime);
+    }
+    else
+    {
+        return redistribute_nodes(target, neighbor_tuple, parent_tuple, k_prime,
+                                  k_prime_index);
     }
 }
 
@@ -372,7 +423,8 @@ bool BPTree::remove_entry_from_node(node_tuple& target, keyType key)
         {
             ++i;
         }
-        ASSERT_WITH_LOG(i != header.numberOfKeys, false, "invalid key: %ld", key);
+        ASSERT_WITH_LOG(i != header.numberOfKeys, false, "invalid key: %ld",
+                        key);
         for (++i; i < header.numberOfKeys; ++i)
         {
             records[i - 1] = records[i];
@@ -383,11 +435,12 @@ bool BPTree::remove_entry_from_node(node_tuple& target, keyType key)
     {
         auto& internals = target.n->entry.internals;
         int i = 0;
-         while (i < header.numberOfKeys && internals[i].key != key)
+        while (i < header.numberOfKeys && internals[i].key != key)
         {
             ++i;
         }
-        ASSERT_WITH_LOG(i != header.numberOfKeys, false, "invalid key: %ld", key);
+        ASSERT_WITH_LOG(i != header.numberOfKeys, false, "invalid key: %ld",
+                        key);
         for (++i; i < header.numberOfKeys; ++i)
         {
             internals[i - 1] = internals[i];
@@ -398,10 +451,48 @@ bool BPTree::remove_entry_from_node(node_tuple& target, keyType key)
 
 bool BPTree::adjust_root()
 {
+    page_t root;
+    pagenum_t root_pagenum = fm.fileHeader.rootPageNumber;
+
+    ASSERT_WITH_LOG(fm.pageRead(root_pagenum, root), false, "read root page failure: %ld", root_pagenum);
+
+    auto& root_header = root.header.nodePageHeader;
+
+    if (root_header.numberOfKeys > 0)
+    {
+        return true;
+    }
+
+    if (root_header.isLeaf)
+    {
+        fm.fileHeader.rootPageNumber = EMPTY_PAGE_NUMBER;
+    }
+    else
+    {
+        pagenum_t new_root_pagenum = root_header.onePageNumber;
+
+        page_t new_root;
+        ASSERT_WITH_LOG(fm.pageRead(new_root_pagenum, new_root), false, "read new root failure: %ld", new_root_pagenum);
+        new_root.header.nodePageHeader.parentPageNumber = EMPTY_PAGE_NUMBER;
+        ASSERT_WITH_LOG(fm.pageWrite(new_root_pagenum, new_root), false, "write new root failure: %ld", new_root_pagenum);
+    }
+
+    ASSERT_WITH_LOG(fm.updateFileHeader(), false, "update file header failure");
+    ASSERT_WITH_LOG(fm.pageFree(root_pagenum), false, "free old root page failure");
+
+    return true;
 }
 
-bool BPTree::coalesce_nodes(node_tuple& target, node_tuple& neighbor,
-                            int k_prime)
+bool BPTree::coalesce_nodes(node_tuple& target_tuple,
+                            node_tuple& neighbor_tuple,
+                            node_tuple& parent_tuple, int k_prime)
+{
+}
+
+bool BPTree::redistribute_nodes(node_tuple& target_tuple,
+                                node_tuple& neighbor_tuple,
+                                node_tuple& parent_tuple, int k_prime,
+                                int k_prime_index)
 {
 }
 

@@ -134,68 +134,31 @@ void TEST_FILE_MANAGER()
         }
     }
     END()
+
+    TEST("FileManager free many")
+    {
+        FileManager fm;
+        fm.open("qqq.db");
+        for (int i = 1; i <= 100; ++i)
+        {
+            fm.pageFree(i);
+        }
+        pagenum_t now = fm.fileHeader.freePageNumber;
+        CHECK_VALUE(now, 100);
+        while (now != EMPTY_PAGE_NUMBER)
+        {
+            page_t page;
+            CHECK_TRUE(fm.pageRead(now, page));
+            auto& header = page.header.freePageHeader;
+            CHECK_VALUE(header.nextFreePageNumber + 1, now);
+            now = header.nextFreePageNumber;
+        }
+    }
+    END()
 }
 
 void TEST_BPT()
 {
-    // TEST("BPTree")
-    // {
-    //     FileManager fm;
-    //     fm.open("test.db");
-
-    //     BPTree tree(fm);
-    // }
-    // END() 
-
-    // TEST("BPTree insert")
-    // {
-    //     FileManager fm;
-    //     fm.open("insert.db");
-
-    //     BPTree tree(fm, true);
-
-    //     for (int i = 100; i > 0; --i)
-    //     {
-    //         valType v;
-    //         std::stringstream ss;
-    //         ss << "test insert " << i;
-    //         tree.char_to_valType(v, ss.str().c_str());
-
-    //         CHECK_TRUE(tree.insert(i, v));
-    //     }
-    // }
-    // END()
-
-    // TEST("BPTree insert open")
-    // {
-    //     FileManager fm;
-    //     fm.open("insert.db");
-
-    //     std::cout << fm.fileHeader;
-
-    //     BPTree tree(fm, false);
-    // }
-    // END()
-
-    // TEST("BPTree insert many")
-    // {
-    //     FileManager fm;
-    //     fm.open("insert.db");
-
-    //     BPTree tree(fm, false);
-
-    //     for (int i = 100000; i > 100; --i)
-    //     {
-                // valType v;
-                // std::stringstream ss;
-                // ss << "test insert " << i;
-                // tree.char_to_valType(v, ss.str().c_str());
-
-                // CHECK_TRUE(tree.insert(i, v));
-    //     }
-    // }
-    // END()
-
     TEST("BPTree random number insert many")
     {
         BPTree tree;

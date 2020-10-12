@@ -47,16 +47,23 @@ class BPTree
     bool insert_into_leaf_after_splitting(node_tuple& leaf_tuple,
                                           const record& rec);
     bool insert_into_new_root(node_tuple& left, keyType key, node_tuple& right);
-    bool insert_into_node(node_tuple& parent, int left_index, keyType key, node_tuple& right);
-    bool insert_into_node_after_splitting(node_tuple& parent, int left_index, keyType key, node_tuple& right);
+    bool insert_into_node(node_tuple& parent, int left_index, keyType key,
+                          node_tuple& right);
+    bool insert_into_node_after_splitting(node_tuple& parent, int left_index,
+                                          keyType key, node_tuple& right);
     bool insert_into_parent(node_tuple& left, keyType key, node_tuple& right);
 
     bool delete_entry(node_tuple& target, keyType key);
     bool remove_entry_from_node(node_tuple& target, keyType key);
     bool adjust_root();
-    bool coalesce_nodes(node_tuple& target, node_tuple& neighbor, int k_prime);
+    bool coalesce_nodes(node_tuple& target_tuple, node_tuple& neighbor_tuple,
+                        node_tuple& parent_tuple, int k_prime);
+    bool redistribute_nodes(node_tuple& target_tuple,
+                            node_tuple& neighbor_tuple,
+                            node_tuple& parent_tuple, int k_prime,
+                            int k_prime_index);
 
-    constexpr int cut(int length)
+        constexpr int cut(int length)
     {
         if (length % 2)
         {
