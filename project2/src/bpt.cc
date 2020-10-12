@@ -334,7 +334,6 @@ bool BPTree::delete_key(keyType key)
     {
         return false;
     }
-    std::cout << "key: " << key << '\n';
 
     ASSERT_WITH_LOG(delete_entry(leaf, key), false, "delete entry failure");
 
@@ -343,7 +342,6 @@ bool BPTree::delete_key(keyType key)
 
 bool BPTree::delete_entry(node_tuple& target, keyType key)
 {
-    std::cout << "delete_entry: " << key << '\n'; 
     ASSERT_WITH_LOG(remove_entry_from_node(target, key), false,
                     "remove entry from node failure: %ld", key);
     ASSERT_WITH_LOG(fm.pageWrite(target.pagenum, *target.n), false,
@@ -378,6 +376,7 @@ bool BPTree::delete_entry(node_tuple& target, keyType key)
                     target_header.parentPageNumber);
 
     auto& parent_header = parent->header.nodePageHeader;
+    ASSERT_WITH_LOG(parent_header.numberOfKeys != 0, false, "empty parent: %ld. child: %ld", target_header.parentPageNumber, target.pagenum);
     auto& parent_internals = parent->entry.internals;
 
     int neighbor_index = get_left_index(*parent, target.pagenum) - 1;
@@ -427,7 +426,6 @@ bool BPTree::delete_entry(node_tuple& target, keyType key)
 
 bool BPTree::remove_entry_from_node(node_tuple& target, keyType key)
 {
-    std::cout << "remove_entry_from_node: " << key << '\n';
     auto& header = target.n->header.nodePageHeader;
     if (header.isLeaf)
     {
@@ -452,6 +450,10 @@ bool BPTree::remove_entry_from_node(node_tuple& target, keyType key)
         while (i < header.numberOfKeys && internals[i].key != key)
         {
             ++i;
+        }
+        if (i == header.numberOfKeys)
+        {
+            target.n->print_node();
         }
         ASSERT_WITH_LOG(i != header.numberOfKeys, false, "invalid key: %ld",
                         key);
@@ -503,7 +505,13 @@ bool BPTree::coalesce_nodes(node_tuple& target_tuple,
                             node_tuple& neighbor_tuple,
                             node_tuple& parent_tuple, int k_prime)
 {
-    std::cout << "coalesce_nodes\n";
+    if (target_tuple.pagenum == 3 || neighbor_tuple.pagenum == 3)
+    {
+        std::cout << target_tuple.pagenum << neighbor_tuple.pagenum;
+        target_tuple.n->print_node();
+        neighbor_tuple.n->print_node();
+    }
+    // neightbor가 빈 노드일때, 해당 neighbor를 부모로 하는 노드가 남아있어 터짐
     auto& target_header = target_tuple.n->header.nodePageHeader;
     auto& neighbor_header = neighbor_tuple.n->header.nodePageHeader;
     auto& parent_header = parent_tuple.n->header.nodePageHeader;
@@ -524,6 +532,7 @@ bool BPTree::coalesce_nodes(node_tuple& target_tuple,
     else
     {
         // internal
+        std::cout << "internal\n";
         auto& target_internals = target_tuple.n->entry.internals;
         auto& neighbor = neighbor_tuple.n;
 
@@ -531,6 +540,7 @@ bool BPTree::coalesce_nodes(node_tuple& target_tuple,
 
         for (int i = -1; i < target_header.numberOfKeys; ++i)
         {
+            std::cout << "do";
             pagenum_t pagenum;
             if (i == -1)
             {
@@ -538,12 +548,13 @@ bool BPTree::coalesce_nodes(node_tuple& target_tuple,
             }
             else
             {
-                neighbor->push_internal(target_internals[i]);
                 pagenum = target_internals[i].pageNumber;
+                neighbor->push_internal(target_internals[i]);
             }
 
             ASSERT_WITH_LOG(fm.pageRead(pagenum, temp), false, "read child page failure: %ld", pagenum);
             temp.header.nodePageHeader.parentPageNumber = neighbor_tuple.pagenum;
+            std::cout << neighbor_tuple.pagenum << ' ';
             ASSERT_WITH_LOG(fm.pageWrite(pagenum, temp), false, "write child page failure: %ld", pagenum);
         }
     }
@@ -646,14 +657,8 @@ bool BPTree::redistribute_nodes(node_tuple& target_tuple,
 std::unique_ptr<record> BPTree::find(keyType key)
 {
     auto [c, pagenum] = find_leaf(key);
-    if (verbose_output)
-    std::cout << "find" << '\n';
     if (!c)
     {
-        if (verbose_output)
-        {
-            std::cout << "asd";
-        }
         return nullptr;
     }
 

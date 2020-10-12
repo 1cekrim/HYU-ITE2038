@@ -213,7 +213,6 @@ void TEST_BPT()
         
         for (int i = 1; i <= 50000; ++i)
         {
-            std::cout << i << '\n';
             CHECK_TRUE(tree.delete_key(i));
             CHECK_FALSE(tree.find(i));
         }
