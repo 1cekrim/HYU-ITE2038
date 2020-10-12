@@ -62,8 +62,13 @@ int db_find(int64_t key, char* ret_val)
 
 int db_delete(int64_t key)
 {
-    puts("db_delete");
+    if (bpt->get_table_id() == -1)
+    {
+        return -1;
+    }
 
-    return 0;
+    auto res = bpt->delete_key(key);
+
+    return !res;
 }
 }

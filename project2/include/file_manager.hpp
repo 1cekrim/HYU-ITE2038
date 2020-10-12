@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <memory>
 #include <string_view>
+#include <vector>
 
 #include "page.hpp"
 
@@ -43,6 +44,9 @@ class FileManager
     HeaderPageHeader fileHeader;
 
     int getFileDescriptor() const;
+
+    inline static FileManager* lastOpenedFileManager;
+    inline static std::vector<FileManager*> openedFileManager;
 
  private:
     std::unique_ptr<std::FILE, decltype(&std::fclose)> fp;
