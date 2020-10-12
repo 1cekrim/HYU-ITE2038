@@ -50,7 +50,7 @@ $(TEST_TARGET): $(OBJS_FOR_LIB) $(TEST_OBJ)
 	${CC} ${CFLAGS} -c -o $@ $<
 
 clean:
-	rm -f $(TARGET_OBJ) $(OBJS_FOR_LIB) $(LIBS)* $(TEST_OBJ) $(BUILDS)*.db
+	rm -f $(TARGET_OBJ) $(OBJS_FOR_LIB) $(LIBS)* $(TEST_OBJ) $(BUILDS)*
 
 removedb:
 	rm $(BUILDS)*.db

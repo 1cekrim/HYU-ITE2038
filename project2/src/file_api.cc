@@ -3,7 +3,7 @@
 extern "C" {
 pagenum_t file_alloc_page()
 {
-    
+    return EMPTY_PAGE_NUMBER;
 }
 
 void file_free_page(pagenum_t pagenum)

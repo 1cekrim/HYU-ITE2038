@@ -63,5 +63,7 @@ int db_find(int64_t key, char* ret_val)
 int db_delete(int64_t key)
 {
     puts("db_delete");
+
+    return 0;
 }
 }

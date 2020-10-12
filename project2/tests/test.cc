@@ -205,6 +205,38 @@ void TEST_BPT()
         }
     }
     END()
+
+    TEST("BPTree delete half - 1")
+    {
+        BPTree tree;
+        CHECK_TRUE(tree.open_table("insert.db"));
+        
+        for (int i = 1; i <= 50000; ++i)
+        {
+            std::cout << i << '\n';
+            CHECK_TRUE(tree.delete_key(i));
+            CHECK_FALSE(tree.find(i));
+        }
+
+        for (int i = 50001; i <= 100000; ++i)
+        {
+            CHECK_TRUE(tree.find(i));
+        }
+    }
+    END()
+
+    // TEST("BPTree delete half - 2")
+    // {
+    //     BPTree tree;
+    //     CHECK_TRUE(tree.open_table("insert.db"));
+        
+    //     for (int i = 50001; i <= 100000; ++i)
+    //     {
+    //         CHECK_TRUE(tree.delete_key(i));
+    //         CHECK_FALSE(tree.find(i));
+    //     }
+    // }
+    // END()
 }
 
 void TEST_FILE()

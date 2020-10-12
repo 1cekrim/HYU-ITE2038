@@ -28,7 +28,7 @@ struct node_tuple
 class BPTree
 {
  public:
-    BPTree(int delayed_min = DELAYED_MIN, bool verbose_output = VERBOSE_OUTPUT);
+    BPTree(bool verbose_output = VERBOSE_OUTPUT, int delayed_min = DELAYED_MIN);
     int char_to_valType(valType& dst, const char* src) const;
     int get_table_id() const;
     bool open_table(const std::string& filename);
@@ -61,9 +61,9 @@ class BPTree
     bool redistribute_nodes(node_tuple& target_tuple,
                             node_tuple& neighbor_tuple,
                             node_tuple& parent_tuple, int k_prime,
-                            int k_prime_index);
+                            int k_prime_index, int neighbor_index);
 
-        constexpr int cut(int length)
+    constexpr int cut(int length)
     {
         if (length % 2)
         {
