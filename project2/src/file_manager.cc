@@ -28,7 +28,7 @@ bool FileManager::open(const std::string& name)
     if (access(name.c_str(), F_OK) == -1)
     {
         std::unique_ptr<std::FILE, decltype(&std::fclose)> p(
-            fdopen(::open(name.c_str(), O_RDWR | O_CREAT | O_TRUNC | O_DSYNC | O_DIRECT,
+            fdopen(::open(name.c_str(), O_RDWR | O_CREAT | O_TRUNC | O_DSYNC,
                           0755),
                    "r+"),
             &std::fclose);
@@ -44,7 +44,7 @@ bool FileManager::open(const std::string& name)
     else
     {
         std::unique_ptr<std::FILE, decltype(&std::fclose)> p(
-            fdopen(::open(name.c_str(), O_RDWR | O_DSYNC | O_DIRECT), "r+"), &std::fclose);
+            fdopen(::open(name.c_str(), O_RDWR | O_DSYNC), "r+"), &std::fclose);
         fp = std::move(p);
         ASSERT_WITH_LOG(fp, false, "open file failure");
 
@@ -60,10 +60,6 @@ bool FileManager::open(const std::string& name)
 
 bool FileManager::write(long int seek, const void* payload, std::size_t size)
 {
-    if (!fp)
-    {
-        std::cout << "fuck\n";
-    }
     long count = pwrite(fileno(fp.get()), payload, size, seek);
     std::fflush(fp.get());
 
@@ -72,10 +68,6 @@ bool FileManager::write(long int seek, const void* payload, std::size_t size)
 
 bool FileManager::read(long int seek, void* target, size_t size)
 {
-    if (!fp)
-    {
-        std::cout << seek << '\n' << size << "fuck\n";
-    }
     long count = pread(fileno(fp.get()), target, size, seek);
 
     return count != -1;

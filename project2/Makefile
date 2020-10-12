@@ -33,11 +33,13 @@ all: $(TARGET)
 
 $(TARGET): $(TARGET_OBJ) $(OBJS_FOR_LIB)
 	mkdir -p $(BUILDS)
+	mkdir -p $(LIBS)
 	make static_library
 	$(CC) $(CFLAGS) -o $(BUILDS)$@ $(TARGET_OBJ) -L $(LIBS) -lbpt -lstdc++
 
 $(TEST_TARGET): $(OBJS_FOR_LIB) $(TEST_OBJ)
 	mkdir -p $(BUILDS)
+	mkdir -p $(LIBS)
 	make static_library
 	$(CPP) $(CPPFLAGS) -o $(BUILDS)$@ $^ -L $(LIBS) -lbpt
 
@@ -48,7 +50,7 @@ $(TEST_TARGET): $(OBJS_FOR_LIB) $(TEST_OBJ)
 	${CC} ${CFLAGS} -c -o $@ $<
 
 clean:
-	rm $(TARGET_OBJ) $(OBJS_FOR_LIB) $(LIBS)* $(TEST_OBJ)
+	rm -f $(TARGET_OBJ) $(OBJS_FOR_LIB) $(LIBS)* $(TEST_OBJ) $(BUILDS)*.db
 
 removedb:
 	rm $(BUILDS)*.db

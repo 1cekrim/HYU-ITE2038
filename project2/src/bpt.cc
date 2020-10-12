@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <vector>
+#include <cstring>
 
 #include "logger.hpp"
 
@@ -22,19 +23,9 @@ bool BPTree::open_table(const std::string& filename)
 
 int BPTree::char_to_valType(valType& dst, const char* src) const
 {
-    int result;
-    for (result = 0; result < value_size - 1 && *src; ++result, ++src)
-    {
-        dst[result] = *src;
-    }
-
-    for (int i = result; i < value_size - 1; ++i)
-    {
-        dst[i] = 0;
-    }
-
-    dst[value_size - 1] = 0;
-    return result;
+    memset(&dst, 0, sizeof(&dst));
+    memcpy(&dst, src, std::max(static_cast<int>(strlen(src)), 119));
+    return 0;
 }
 
 int BPTree::get_table_id() const
