@@ -1,10 +1,11 @@
 #ifndef __PAGE_HPP__
 #define __PAGE_HPP__
 
+#include <array>
 #include <cstdint>
 #include <cstring>
-#include <memory>
 #include <iostream>
+#include <memory>
 
 #define PAGESIZE 4096
 
@@ -20,8 +21,27 @@ struct NodePageHeader
     pagenum_t parentPageNumber;
     uint32_t isLeaf;
     uint32_t numberOfKeys;
-    uint8_t reserved[104];
+    std::array<uint8_t, 104> reserved;
     pagenum_t onePageNumber;
+
+    NodePageHeader() : parentPageNumber(0), isLeaf(0), numberOfKeys(0), reserved(), onePageNumber(0)
+    {
+        // Do nothing
+    }
+
+    NodePageHeader(const NodePageHeader& header) : parentPageNumber(header.parentPageNumber), isLeaf(header.isLeaf), numberOfKeys(header.numberOfKeys), reserved(), onePageNumber(header.onePageNumber)
+    {
+        // Do nothing
+    }
+
+    NodePageHeader& operator=(const NodePageHeader& header)
+    {
+        parentPageNumber = header.parentPageNumber;
+        isLeaf = header.isLeaf;
+        numberOfKeys = header.numberOfKeys;
+        onePageNumber = header.onePageNumber;
+        return *this;
+    }
 
     friend std::ostream& operator<<(std::ostream& os,
                                     const NodePageHeader& nph);
@@ -32,7 +52,18 @@ struct HeaderPageHeader
     pagenum_t freePageNumber;
     pagenum_t rootPageNumber;
     pagenum_t numberOfPages;
-    uint8_t reserved[sizeof(struct NodePageHeader) - 24];
+    std::array<uint8_t, sizeof(struct NodePageHeader) - 24> reserved;
+
+    HeaderPageHeader() : freePageNumber(0), rootPageNumber(0), numberOfPages(0), reserved()
+    {
+        // Do nothing
+    }
+
+    HeaderPageHeader(const HeaderPageHeader& header) : freePageNumber(header.freePageNumber), rootPageNumber(header.rootPageNumber), numberOfPages(header.numberOfPages)
+    {
+        // Do nothing
+    }
+
     HeaderPageHeader& operator=(const HeaderPageHeader& header)
     {
         freePageNumber = header.freePageNumber;
@@ -47,7 +78,17 @@ struct HeaderPageHeader
 struct FreePageHeader
 {
     pagenum_t nextFreePageNumber;
-    uint8_t reserved[sizeof(struct NodePageHeader) - 8];
+    std::array<uint8_t, sizeof(struct NodePageHeader) - 8> reserved;
+    
+    FreePageHeader() : nextFreePageNumber(0), reserved()
+    {
+        // Do nothing
+    }
+
+    FreePageHeader(const FreePageHeader& header) : nextFreePageNumber(header.nextFreePageNumber), reserved()
+    {
+        // Do nothing
+    }
 };
 
 struct Record
@@ -85,23 +126,77 @@ struct Internal
 // page
 struct page_t
 {
-    union
+    union Header
     {
         HeaderPageHeader headerPageHeader;
         NodePageHeader nodePageHeader;
         FreePageHeader freePageHeader;
+        Header() : freePageHeader()
+        {
+            // Do nothing
+        }
     } header;
 
-    union
+    union Entry
     {
-        Record records[31];
-        Internal internals[248];
+        std::array<Record, 31> records;
+        std::array<Internal, 248> internals;
     } entry;
+
+    HeaderPageHeader& headerPageHeader()
+    {
+        return header.headerPageHeader;
+    }
+
+    NodePageHeader& nodePageHeader()
+    {
+        return header.nodePageHeader;
+    }
+
+    FreePageHeader& freePageHeader()
+    {
+        return header.freePageHeader;
+    }
+
+    std::array<Record, 31>& records()
+    {
+        return entry.records;
+    }
+
+    std::array<Internal, 248>& internals()
+    {
+        return entry.internals;
+    }
+
+    const HeaderPageHeader& headerPageHeader() const
+    {
+        return header.headerPageHeader;
+    }
+
+    const NodePageHeader& nodePageHeader() const
+    {
+        return header.nodePageHeader;
+    }
+
+    const FreePageHeader& freePageHeader() const
+    {
+        return header.freePageHeader;
+    }
+
+    const std::array<Record, 31>& records() const
+    {
+        return entry.records;
+    }
+
+    const std::array<Internal, 248>& internals() const
+    {
+        return entry.internals;
+    }
 
     void insert_record(const Record& record, int insertion_point)
     {
-        auto& head = header.nodePageHeader;
-        auto& rec = entry.records;
+        auto& head = nodePageHeader();
+        auto& rec = records();
 
         for (int i = head.numberOfKeys; i > insertion_point; --i)
         {
@@ -114,8 +209,8 @@ struct page_t
 
     void insert_internal(const Internal& internal, int insertion_point)
     {
-        auto& head = header.nodePageHeader;
-        auto& internals = entry.internals;
+        auto& head = nodePageHeader();
+        auto& internals = this->internals();
 
         for (int i = head.numberOfKeys; i > insertion_point; --i)
         {
@@ -128,12 +223,12 @@ struct page_t
 
     void push_record(const Record& record)
     {
-        entry.records[header.nodePageHeader.numberOfKeys++] = record;
+        records()[nodePageHeader().numberOfKeys++] = record;
     }
 
     void push_internal(const Internal& internal)
     {
-        entry.internals[header.nodePageHeader.numberOfKeys++] = internal;
+        internals()[nodePageHeader().numberOfKeys++] = internal;
     }
 
     void print_node();

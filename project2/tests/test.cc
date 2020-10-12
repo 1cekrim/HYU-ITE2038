@@ -89,8 +89,8 @@ void TEST_FILE_MANAGER()
         page_t page;
         for (int i = 0; i < 248; ++i)
         {
-            page.entry.internals[i].key = i;
-            page.entry.internals[i].pageNumber = i;
+            page.internals()[i].key = i;
+            page.internals()[i].pageNumber = i;
         }
 
         fm.pageWrite(0, page);
@@ -100,10 +100,10 @@ void TEST_FILE_MANAGER()
 
         for (int i = 0; i < 248; ++i)
         {
-            CHECK_TRUE(page.entry.internals[i].key ==
-                       readPage.entry.internals[i].key);
-            CHECK_TRUE(page.entry.internals[i].pageNumber ==
-                       readPage.entry.internals[i].pageNumber);
+            CHECK_TRUE(page.internals()[i].key ==
+                       readPage.internals()[i].key);
+            CHECK_TRUE(page.internals()[i].pageNumber ==
+                       readPage.internals()[i].pageNumber);
         }
     }
     END()
@@ -115,8 +115,8 @@ void TEST_FILE_MANAGER()
         page_t page;
         for (int i = 0; i < 248; ++i)
         {
-            page.entry.internals[i].key = i;
-            page.entry.internals[i].pageNumber = i;
+            page.internals()[i].key = i;
+            page.internals()[i].pageNumber = i;
         }
         std::vector<pagenum_t> nums;
         for (int i = 0; i < 100; ++i)
@@ -149,7 +149,7 @@ void TEST_FILE_MANAGER()
         {
             page_t page;
             CHECK_TRUE(fm.pageRead(now, page));
-            auto& header = page.header.freePageHeader;
+            auto& header = page.freePageHeader();
             CHECK_VALUE(header.nextFreePageNumber + 1, now);
             now = header.nextFreePageNumber;
         }

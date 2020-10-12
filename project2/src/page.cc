@@ -20,24 +20,24 @@ std::ostream& operator<<(std::ostream& os, const HeaderPageHeader& hph)
 
 void page_t::print_node()
 {
-    auto& head = header.nodePageHeader;
+    auto& head = nodePageHeader();
     std::cout << head;
     if (head.isLeaf)
     {
-        auto& body = entry.records;
+        auto& body = records();
         for (int i = 0; i < static_cast<int>(head.numberOfKeys); ++i)
         {
-            std::cout << "[" << i << "] (" << body[i].key << ", " << body[i].value
-                      << ")\n";
+            std::cout << "[" << i << "] (" << body[i].key << ", "
+                      << body[i].value << ")\n";
         }
     }
     else
     {
-        auto& body = entry.internals;
+        auto& body = internals();
         for (int i = 0; i < static_cast<int>(head.numberOfKeys); ++i)
         {
-            std::cout << "[" << i << "] (" << body[i].key << ", " << body[i].pageNumber
-                      << ")\n";
+            std::cout << "[" << i << "] (" << body[i].key << ", "
+                      << body[i].pageNumber << ")\n";
         }
     }
 }

@@ -35,7 +35,7 @@ bool FileManager::open(const std::string& name)
         ASSERT_WITH_LOG(fp, false, "create file failure");
 
         page_t headerPage;
-        headerPage.header.headerPageHeader.numberOfPages = 1;
+        headerPage.headerPageHeader().numberOfPages = 1;
         fileHeader.numberOfPages = 1;
         ASSERT_WITH_LOG(pageWrite(0, headerPage), false,
                         "write header page failure: 0");
@@ -51,7 +51,7 @@ bool FileManager::open(const std::string& name)
         ASSERT_WITH_LOG(pageRead(0, headerPage), false,
                         "read header page failure: 0");
 
-        fileHeader = headerPage.header.headerPageHeader;
+        fileHeader = headerPage.headerPageHeader();
     }
 
     return true;
@@ -92,7 +92,7 @@ pagenum_t FileManager::pageCreate()
         ASSERT_WITH_LOG(pageRead(pagenum, page), EMPTY_PAGE_NUMBER,
                         "read page failure: %ld", pagenum);
         fileHeader.freePageNumber =
-            page.header.freePageHeader.nextFreePageNumber;
+            page.freePageHeader().nextFreePageNumber;
     }
 
     ASSERT_WITH_LOG(updateFileHeader(), EMPTY_PAGE_NUMBER,
@@ -119,7 +119,7 @@ bool FileManager::pageFree(pagenum_t pagenum)
     page_t page;
     ASSERT_WITH_LOG(pageRead(pagenum, page), false, "page read failure: %ld",
                     pagenum);
-    page.header.freePageHeader.nextFreePageNumber = fileHeader.freePageNumber;
+    page.freePageHeader().nextFreePageNumber = fileHeader.freePageNumber;
     ASSERT_WITH_LOG(pageWrite(pagenum, page), false, "page write failure: %ld",
                     pagenum);
     fileHeader.freePageNumber = pagenum;
