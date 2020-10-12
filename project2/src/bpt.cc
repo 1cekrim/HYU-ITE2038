@@ -399,15 +399,27 @@ bool BPTree::delete_entry(node_tuple& target, keyType key)
     node_tuple parent_tuple { std::move(parent),
                               target_header.parentPageNumber };
 
+    node_tuple tmp_neightbor, tmp_target;
+    if (neighbor_index == -1)
+    {
+        tmp_neightbor = std::move(target);
+        tmp_target = std::move(neighbor_tuple);
+    }
+    else
+    {
+        tmp_neightbor = std::move(neighbor_tuple);
+        tmp_target = std::move(target);
+    }
+
     if (target_header.numberOfKeys +
             neighbor_tuple.n->header.nodePageHeader.numberOfKeys <
         capacity)
     {
-        return coalesce_nodes(target, neighbor_tuple, parent_tuple, k_prime);
+        return coalesce_nodes(tmp_target, tmp_neightbor, parent_tuple, k_prime);
     }
     else
     {
-        return redistribute_nodes(target, neighbor_tuple, parent_tuple, k_prime,
+        return redistribute_nodes(tmp_target, tmp_neightbor, parent_tuple, k_prime,
                                   k_prime_index);
     }
 }
@@ -487,6 +499,55 @@ bool BPTree::coalesce_nodes(node_tuple& target_tuple,
                             node_tuple& neighbor_tuple,
                             node_tuple& parent_tuple, int k_prime)
 {
+    auto& target_header = target_tuple.n->header.nodePageHeader;
+    auto& neighbor_header = neighbor_tuple.n->header.nodePageHeader;
+    auto& parent_header = parent_tuple.n->header.nodePageHeader;
+
+    int neighbor_insertion_index = neighbor_header.numberOfKeys;
+
+    if (target_header.isLeaf)
+    {
+        auto& target_records = target_tuple.n->entry.records;
+        auto& neighbor = neighbor_tuple.n;
+        for (int i = 0; i < target_header.numberOfKeys; ++i)
+        {
+            // TODO: merge record
+            neighbor->push_record(target_records[i]);
+        }
+        neighbor_header.onePageNumber = target_header.onePageNumber;
+    }
+    else
+    {
+        // internal
+        auto& target_internals = target_tuple.n->entry.internals;
+        auto& neighbor = neighbor_tuple.n;
+
+        page_t temp;
+
+        for (int i = -1; i < target_header.numberOfKeys; ++i)
+        {
+            int pagenum;
+            if (i == -1)
+            {
+                neighbor->push_internal({k_prime, pagenum = target_header.onePageNumber});
+            }
+            else
+            {
+                neighbor->push_internal(target_internals[i]);
+                pagenum = target_internals[i].pageNumber;
+            }
+
+            ASSERT_WITH_LOG(fm.pageRead(pagenum, temp), false, "read child page failure: %ld", pagenum);
+            temp.header.nodePageHeader.parentPageNumber = neighbor_tuple.pagenum;
+            ASSERT_WITH_LOG(fm.pageWrite(pagenum, temp), false, "write child page failure: %ld", pagenum);
+        }
+    }
+
+    ASSERT_WITH_LOG(fm.pageWrite(neighbor_tuple.pagenum, *neighbor_tuple.n), false, "write neighbor page failure: %ld", neighbor_tuple.pagenum);
+    ASSERT_WITH_LOG(delete_entry(parent_tuple, k_prime), false, "delete entry of parent failure: %ld", parent_tuple.pagenum);
+    ASSERT_WITH_LOG(fm.pageFree(target_tuple.pagenum), false, "free target page failure: %ld", target_tuple.pagenum);
+
+    return true;
 }
 
 bool BPTree::redistribute_nodes(node_tuple& target_tuple,
