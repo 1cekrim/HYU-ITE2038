@@ -52,9 +52,8 @@ bool BPTree::insert(keyType key, const valType& value)
     }
 
     auto nodePair = find_leaf(key);
-    auto& [leaf, pagenum] = nodePair;
 
-    auto& header = leaf->nodePageHeader();
+    auto& header = nodePair.n->nodePageHeader();
     if (static_cast<int>(header.numberOfKeys) < leaf_order - 1)
     {
         return insert_into_leaf(nodePair, *pointer);
@@ -292,22 +291,14 @@ bool BPTree::insert_into_node_after_splitting(node_tuple& parent,
     }
     new_header.parentPageNumber = parent_header.parentPageNumber;
 
-    auto change_parent = [&](pagenum_t pagenum) {
-        page_t page;
-        ASSERT_WITH_LOG(fm.pageRead(pagenum, page), false,
-                        "page read failure: %ld", pagenum);
-        page.nodePageHeader().parentPageNumber = new_pagenum;
-        ASSERT_WITH_LOG(fm.pageWrite(pagenum, page), false,
-                        "page write failure: %ld", pagenum);
-        return true;
-    };
-
-    ASSERT_WITH_LOG(change_parent(new_header.onePageNumber), false,
-                    "change parent of onePage failure");
+    ASSERT_WITH_LOG(
+        update_parent_with_commit(new_header.onePageNumber, new_pagenum), false,
+        "update parent with commit failure");
     for (int i = 0; i < static_cast<int>(new_header.numberOfKeys); ++i)
     {
-        ASSERT_WITH_LOG(change_parent(new_internals[i].pageNumber), false,
-                        "change parent of %d failure", i);
+        ASSERT_WITH_LOG(
+            update_parent_with_commit(new_internals[i].pageNumber, new_pagenum),
+            false, "update parent with commit failure: %d", i);
     }
 
     ASSERT_WITH_LOG(fm.pageWrite(parent.pagenum, *parent.n), false,
@@ -486,17 +477,26 @@ bool BPTree::adjust_root()
         pagenum_t new_root_pagenum = root_header.onePageNumber;
         fm.fileHeader.rootPageNumber = new_root_pagenum;
 
-        page_t new_root;
-        ASSERT_WITH_LOG(fm.pageRead(new_root_pagenum, new_root), false,
-                        "read new root failure: %ld", new_root_pagenum);
-        new_root.nodePageHeader().parentPageNumber = EMPTY_PAGE_NUMBER;
-        ASSERT_WITH_LOG(fm.pageWrite(new_root_pagenum, new_root), false,
-                        "write new root failure: %ld", new_root_pagenum);
+        ASSERT_WITH_LOG(
+            update_parent_with_commit(new_root_pagenum, EMPTY_PAGE_NUMBER),
+            false, "update parent with commit failure");
     }
 
     ASSERT_WITH_LOG(fm.updateFileHeader(), false, "update file header failure");
     ASSERT_WITH_LOG(fm.pageFree(root_pagenum), false,
                     "free old root page failure");
+
+    return true;
+}
+
+bool BPTree::update_parent_with_commit(pagenum_t target, pagenum_t parent)
+{
+    page_t temp;
+    ASSERT_WITH_LOG(fm.pageRead(target, temp), false,
+                    "read child page failure: %ld", target);
+    temp.nodePageHeader().parentPageNumber = parent;
+    ASSERT_WITH_LOG(fm.pageWrite(target, temp), false,
+                    "write child page failure: %ld", target);
 
     return true;
 }
@@ -541,11 +541,9 @@ bool BPTree::coalesce_nodes(node_tuple& target_tuple,
                 neighbor->push_internal(target_internals[i]);
             }
 
-            ASSERT_WITH_LOG(fm.pageRead(pagenum, temp), false,
-                            "read child page failure: %ld", pagenum);
-            temp.nodePageHeader().parentPageNumber = neighbor_tuple.pagenum;
-            ASSERT_WITH_LOG(fm.pageWrite(pagenum, temp), false,
-                            "write child page failure: %ld", pagenum);
+            ASSERT_WITH_LOG(
+                update_parent_with_commit(pagenum, neighbor_tuple.pagenum),
+                false, "update parent with commit failure");
         }
     }
 
@@ -585,14 +583,9 @@ bool BPTree::redistribute_nodes(node_tuple& target_tuple,
             parent_internals[k_prime_index].key = new_one.key;
             target_header.onePageNumber = new_one.pageNumber;
 
-            page_t tmp;
-            ASSERT_WITH_LOG(fm.pageRead(new_one.pageNumber, tmp), false,
-                            "read new one page failure: %ld",
-                            new_one.pageNumber);
-            tmp.nodePageHeader().parentPageNumber = target_tuple.pagenum;
-            ASSERT_WITH_LOG(fm.pageWrite(new_one.pageNumber, tmp), false,
-                            "write new one page failure: %ld",
-                            new_one.pageNumber);
+            ASSERT_WITH_LOG(update_parent_with_commit(new_one.pageNumber,
+                                                      target_tuple.pagenum),
+                            false, "update parent with commit failure");
         }
         else
         {
@@ -619,20 +612,11 @@ bool BPTree::redistribute_nodes(node_tuple& target_tuple,
             parent_internals[k_prime_index].key = neighbor_internals[0].key;
             neighbor_header.onePageNumber = neighbor_internals[0].pageNumber;
 
-            page_t tmp;
             ASSERT_WITH_LOG(
-                fm.pageRead(
+                update_parent_with_commit(
                     target_internals[target_header.numberOfKeys - 1].pageNumber,
-                    tmp),
-                false, "read target last internal failure: %ld",
-                target_internals[target_header.numberOfKeys - 1].pageNumber);
-            tmp.nodePageHeader().parentPageNumber = target_tuple.pagenum;
-            ASSERT_WITH_LOG(
-                fm.pageWrite(
-                    target_internals[target_header.numberOfKeys - 1].pageNumber,
-                    tmp),
-                false, "write target last internal failure: %ld",
-                target_internals[target_header.numberOfKeys - 1].pageNumber);
+                    target_tuple.pagenum),
+                false, "update parent with commit failure");
 
             for (int i = 1; i < static_cast<int>(neighbor_header.numberOfKeys);
                  ++i)

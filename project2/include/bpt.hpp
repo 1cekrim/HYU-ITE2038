@@ -62,6 +62,7 @@ class BPTree
                             node_tuple& neighbor_tuple,
                             node_tuple& parent_tuple, int k_prime,
                             int k_prime_index, int neighbor_index);
+    bool update_parent_with_commit(pagenum_t target, pagenum_t parent);
 
     constexpr int cut(int length)
     {
