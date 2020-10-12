@@ -10,7 +10,6 @@
 
 FileManager::FileManager() : fp(nullptr, &std::fclose)
 {
-    fileHeader.Init();
 }
 
 FileManager::~FileManager()

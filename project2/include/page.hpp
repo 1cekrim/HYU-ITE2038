@@ -33,10 +33,6 @@ struct HeaderPageHeader
     pagenum_t rootPageNumber;
     pagenum_t numberOfPages;
     uint8_t reserved[sizeof(struct NodePageHeader) - 24];
-    void Init()
-    {
-        std::memset(this, 0, sizeof(HeaderPageHeader));
-    }
     HeaderPageHeader& operator=(const HeaderPageHeader& header)
     {
         freePageNumber = header.freePageNumber;
@@ -101,11 +97,6 @@ struct page_t
         Record records[31];
         Internal internals[248];
     } entry;
-
-    page_t()
-    {
-        std::memset(this, 0, sizeof(page_t));
-    }
 
     void insert_record(const Record& record, int insertion_point)
     {

@@ -25,7 +25,7 @@ void page_t::print_node()
     if (head.isLeaf)
     {
         auto& body = entry.records;
-        for (int i = 0; i < head.numberOfKeys; ++i)
+        for (int i = 0; i < static_cast<int>(head.numberOfKeys); ++i)
         {
             std::cout << "[" << i << "] (" << body[i].key << ", " << body[i].value
                       << ")\n";
@@ -34,7 +34,7 @@ void page_t::print_node()
     else
     {
         auto& body = entry.internals;
-        for (int i = 0; i < head.numberOfKeys; ++i)
+        for (int i = 0; i < static_cast<int>(head.numberOfKeys); ++i)
         {
             std::cout << "[" << i << "] (" << body[i].key << ", " << body[i].pageNumber
                       << ")\n";

@@ -29,7 +29,7 @@ int main()
 
     std::string testNames[] = { "file_manager", "bpt", "test_file", "TESTS" };
 
-    for (int i = 0; i < (sizeof(tests) / sizeof(void (*)(void))); ++i)
+    for (int i = 0; i < static_cast<int>((sizeof(tests) / sizeof(void (*)(void)))); ++i)
     {
         success = cnt = 0;
 

@@ -23,7 +23,7 @@ bool BPTree::open_table(const std::string& filename)
 
 int BPTree::char_to_valType(valType& dst, const char* src) const
 {
-    memset(&dst, 0, sizeof(&dst));
+    std::memset(&dst, 0, sizeof(dst));
     memcpy(&dst, src, std::max(static_cast<int>(strlen(src)), 119));
     return 0;
 }
@@ -55,8 +55,7 @@ bool BPTree::insert(keyType key, const valType& value)
     auto& [leaf, pagenum] = nodePair;
 
     auto& header = leaf->header.nodePageHeader;
-    auto& records = leaf->entry.records;
-    if (header.numberOfKeys < leaf_order - 1)
+    if (static_cast<int>(header.numberOfKeys) < leaf_order - 1)
     {
         return insert_into_leaf(nodePair, *pointer);
     }
@@ -73,7 +72,7 @@ bool BPTree::insert_into_leaf(node_tuple& leaf, const record& rec)
     auto& header = c->header.nodePageHeader;
     auto& records = c->entry.records;
 
-    while (insertion_point < header.numberOfKeys &&
+    while (insertion_point < static_cast<int>(header.numberOfKeys) &&
            records[insertion_point].key < rec.key)
     {
         ++insertion_point;
@@ -100,7 +99,7 @@ bool BPTree::insert_into_leaf_after_splitting(node_tuple& leaf_tuple,
     auto& records = leaf->entry.records;
 
     int insertion_index = 0;
-    while (insertion_index < header.numberOfKeys &&
+    while (insertion_index < static_cast<int>(header.numberOfKeys) &&
            records[insertion_index].key < rec.key)
     {
         ++insertion_index;
@@ -108,7 +107,7 @@ bool BPTree::insert_into_leaf_after_splitting(node_tuple& leaf_tuple,
 
     std::vector<record> temp(leaf_order + 1);
 
-    for (int i = 0, j = 0; i < header.numberOfKeys; ++i, ++j)
+    for (int i = 0, j = 0; i < static_cast<int>(header.numberOfKeys); ++i, ++j)
     {
         if (j == insertion_index)
         {
@@ -154,13 +153,7 @@ bool BPTree::insert_into_leaf_after_splitting(node_tuple& leaf_tuple,
 bool BPTree::insert_into_parent(node_tuple& left, keyType key,
                                 node_tuple& right)
 {
-    auto left_pagenum = left.pagenum;
     auto& left_header = left.n->header.nodePageHeader;
-    auto& left_record = left.n->entry.records;
-
-    auto right_pagenum = right.pagenum;
-    auto& right_header = right.n->header.nodePageHeader;
-    auto& right_record = right.n->entry.records;
 
     auto parent_pagenum = left_header.parentPageNumber;
 
@@ -177,7 +170,7 @@ bool BPTree::insert_into_parent(node_tuple& left, keyType key,
                     "read parent page failure: %ld", parent_pagenum);
 
     int left_index = get_left_index(*parent.n, left.pagenum);
-    if (parent.n->header.nodePageHeader.numberOfKeys < internal_order - 1)
+    if (static_cast<int>(parent.n->header.nodePageHeader.numberOfKeys) < internal_order - 1)
     {
         return insert_into_node(parent, left_index, key, right);
     }
@@ -195,7 +188,7 @@ int BPTree::get_left_index(const node& parent, pagenum_t left_pagenum) const
         return 0;
     }
 
-    while (left_index < header.numberOfKeys &&
+    while (left_index < static_cast<int>(header.numberOfKeys) &&
            internal[left_index].pageNumber != left_pagenum)
     {
         ++left_index;
@@ -264,7 +257,7 @@ bool BPTree::insert_into_node_after_splitting(node_tuple& parent,
 
     std::vector<Internal> temp(internal_order);
 
-    for (int i = 0, j = 0; i < parent_header.numberOfKeys; ++i, ++j)
+    for (int i = 0, j = 0; i < static_cast<int>(parent_header.numberOfKeys); ++i, ++j)
     {
         if (j == left_index)
         {
@@ -279,7 +272,7 @@ bool BPTree::insert_into_node_after_splitting(node_tuple& parent,
     auto new_node = make_node(false);
 
     // parent의 onePageNumber는 변경되지 않음이 보장되니 고려하지 않음
-    int i, j;
+    int i;
     parent_header.numberOfKeys = 0;
     for (i = 0; i < split - 1; ++i)
     {
@@ -309,7 +302,7 @@ bool BPTree::insert_into_node_after_splitting(node_tuple& parent,
 
     ASSERT_WITH_LOG(change_parent(new_header.onePageNumber), false,
                     "change parent of onePage failure");
-    for (int i = 0; i < new_header.numberOfKeys; ++i)
+    for (int i = 0; i < static_cast<int>(new_header.numberOfKeys); ++i)
     {
         ASSERT_WITH_LOG(change_parent(new_internals[i].pageNumber), false,
                         "change parent of %d failure", i);
@@ -365,7 +358,7 @@ bool BPTree::delete_entry(node_tuple& target, keyType key)
             target_header.isLeaf ? cut(leaf_order - 1) : cut(leaf_order) - 1;
     }
 
-    if (target_header.numberOfKeys >= min_keys)
+    if (static_cast<int>(target_header.numberOfKeys) >= min_keys)
     {
         return true;
     }
@@ -400,8 +393,8 @@ bool BPTree::delete_entry(node_tuple& target, keyType key)
     node_tuple parent_tuple { std::move(parent),
                               target_header.parentPageNumber };
 
-    if (target_header.numberOfKeys +
-            neighbor_tuple.n->header.nodePageHeader.numberOfKeys <
+    if (static_cast<int>(target_header.numberOfKeys +
+            neighbor_tuple.n->header.nodePageHeader.numberOfKeys) <
         capacity)
     {
         node_tuple tmp_neightbor, tmp_target;
@@ -431,13 +424,13 @@ bool BPTree::remove_entry_from_node(node_tuple& target, keyType key)
     {
         auto& records = target.n->entry.records;
         int i = 0;
-        while (i < header.numberOfKeys && records[i].key != key)
+        while (i < static_cast<int>(header.numberOfKeys) && records[i].key != key)
         {
             ++i;
         }
-        ASSERT_WITH_LOG(i != header.numberOfKeys, false, "invalid key: %ld",
+        ASSERT_WITH_LOG(i != static_cast<int>(header.numberOfKeys), false, "invalid key: %ld",
                         key);
-        for (++i; i < header.numberOfKeys; ++i)
+        for (++i; i < static_cast<int>(header.numberOfKeys); ++i)
         {
             records[i - 1] = records[i];
         }
@@ -447,23 +440,31 @@ bool BPTree::remove_entry_from_node(node_tuple& target, keyType key)
     {
         auto& internals = target.n->entry.internals;
         int i = 0;
-        while (i < header.numberOfKeys && internals[i].key != key)
+        while (i < static_cast<int>(header.numberOfKeys) && internals[i].key != key)
         {
             ++i;
         }
-        if (i == header.numberOfKeys)
+        if (i == static_cast<int>(header.numberOfKeys))
         {
             target.n->print_node();
         }
-        ASSERT_WITH_LOG(i != header.numberOfKeys, false, "invalid key: %ld",
+        ASSERT_WITH_LOG(i != static_cast<int>(header.numberOfKeys), false, "invalid key: %ld",
                         key);
-        for (++i; i < header.numberOfKeys; ++i)
+        for (++i; i < static_cast<int>(header.numberOfKeys); ++i)
         {
             internals[i - 1] = internals[i];
         }
         --header.numberOfKeys;
     }
-
+    if (target.pagenum == 1)
+    {
+        std::cout << "\ntarget: ";
+        target.n->print_node();
+        page_t parent;
+        std::cout << "\nparent: ";
+        fm.pageRead(target.n->header.nodePageHeader.parentPageNumber, parent);
+        parent.print_node();
+    }
     return true;
 }
 
@@ -514,15 +515,12 @@ bool BPTree::coalesce_nodes(node_tuple& target_tuple,
     // neightbor가 빈 노드일때, 해당 neighbor를 부모로 하는 노드가 남아있어 터짐
     auto& target_header = target_tuple.n->header.nodePageHeader;
     auto& neighbor_header = neighbor_tuple.n->header.nodePageHeader;
-    auto& parent_header = parent_tuple.n->header.nodePageHeader;
-
-    int neighbor_insertion_index = neighbor_header.numberOfKeys;
 
     if (target_header.isLeaf)
     {
         auto& target_records = target_tuple.n->entry.records;
         auto& neighbor = neighbor_tuple.n;
-        for (int i = 0; i < target_header.numberOfKeys; ++i)
+        for (int i = 0; i < static_cast<int>(target_header.numberOfKeys); ++i)
         {
             // TODO: merge record
             neighbor->push_record(target_records[i]);
@@ -538,7 +536,8 @@ bool BPTree::coalesce_nodes(node_tuple& target_tuple,
 
         page_t temp;
 
-        for (int i = -1; i < target_header.numberOfKeys; ++i)
+        std::cout << "target numberOfKeys: " << (int)target_header.numberOfKeys << '\n';
+        for (int i = -1; i < static_cast<int>(target_header.numberOfKeys); ++i)
         {
             std::cout << "do";
             pagenum_t pagenum;
@@ -574,7 +573,6 @@ bool BPTree::redistribute_nodes(node_tuple& target_tuple,
     std::cout << "redistribute_nodes\n";
     auto& target_header = target_tuple.n->header.nodePageHeader;
     auto& neighbor_header = neighbor_tuple.n->header.nodePageHeader;
-    auto& parent_header = parent_tuple.n->header.nodePageHeader;
     auto& parent_internals = parent_tuple.n->entry.internals;
 
     if (neighbor_index != -1)
@@ -583,7 +581,6 @@ bool BPTree::redistribute_nodes(node_tuple& target_tuple,
         if (!target_header.isLeaf)
         {
             auto& neighbor_internals = neighbor_tuple.n->entry.internals;
-            auto& target_internals = target_tuple.n->entry.internals;
             
             target_tuple.n->insert_internal({k_prime, target_header.onePageNumber}, 0);
 
@@ -624,7 +621,7 @@ bool BPTree::redistribute_nodes(node_tuple& target_tuple,
             tmp.header.nodePageHeader.parentPageNumber = target_tuple.pagenum;
             ASSERT_WITH_LOG(fm.pageWrite(target_internals[target_header.numberOfKeys - 1].pageNumber, tmp), false, "write target last internal failure: %ld", target_internals[target_header.numberOfKeys - 1].pageNumber);
 
-            for (int i = 1; i < neighbor_header.numberOfKeys; ++i)
+            for (int i = 1; i < static_cast<int>(neighbor_header.numberOfKeys); ++i)
             {
                 neighbor_internals[i - 1] = neighbor_internals[i];
             }
@@ -632,13 +629,12 @@ bool BPTree::redistribute_nodes(node_tuple& target_tuple,
         else
         {
             auto& neighbor_records = neighbor_tuple.n->entry.records;
-            auto& target_records = target_tuple.n->entry.records;
 
             target_tuple.n->push_record(neighbor_records[0]);
 
             parent_internals[k_prime_index].key = neighbor_records[1].key;
 
-            for (int i = 1; i < neighbor_header.numberOfKeys; ++i)
+            for (int i = 1; i < static_cast<int>(neighbor_header.numberOfKeys); ++i)
             {
                 neighbor_records[i - 1] = neighbor_records[i];
             }
@@ -666,7 +662,7 @@ std::unique_ptr<record> BPTree::find(keyType key)
     auto& records = c->entry.records;
 
     int i;
-    for (i = 0; i < header.numberOfKeys; ++i)
+    for (i = 0; i < static_cast<int>(header.numberOfKeys); ++i)
     {
         if (records[i].key == key)
         {
@@ -674,7 +670,7 @@ std::unique_ptr<record> BPTree::find(keyType key)
         }
     }
 
-    if (i == header.numberOfKeys)
+    if (i == static_cast<int>(header.numberOfKeys))
     {
         return nullptr;
     }
@@ -709,7 +705,7 @@ node_tuple BPTree::find_leaf(keyType key)
         if (verbose_output)
         {
             printf("[");
-            for (i = 0; i < header.numberOfKeys - 1; ++i)
+            for (i = 0; i < static_cast<int>(header.numberOfKeys - 1); ++i)
             {
                 printf("%ld ", internal[i].key);
             }
@@ -717,7 +713,7 @@ node_tuple BPTree::find_leaf(keyType key)
         }
 
         i = 0;
-        while (i < header.numberOfKeys)
+        while (i < static_cast<int>(header.numberOfKeys))
         {
             if (key >= internal[i].key)
             {
@@ -746,7 +742,7 @@ node_tuple BPTree::find_leaf(keyType key)
         auto& records = now->entry.records;
         printf("Leaf [");
         int i;
-        for (i = 0; i < header.numberOfKeys - 1; ++i)
+        for (i = 0; i < static_cast<int>(header.numberOfKeys - 1); ++i)
         {
             printf("%ld ", records[i].key);
         }
