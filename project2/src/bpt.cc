@@ -163,7 +163,7 @@ bool BPTree::insert_into_parent(node_tuple& left, keyType key,
 
     node_tuple parent;
     parent.pagenum = parent_pagenum;
-    parent.n = std::make_unique<node>();
+    parent.n = make_node(false);
 
     ASSERT_WITH_LOG(fm.pageRead(parent_pagenum, *parent.n), false,
                     "read parent page failure: %ld", parent_pagenum);
@@ -525,21 +525,16 @@ bool BPTree::coalesce_nodes(node_tuple& target_tuple,
         auto& target_internals = target_tuple.n->internals();
         auto& neighbor = neighbor_tuple.n;
 
-        page_t temp;
-
-        for (int i = -1; i < static_cast<int>(target_header.numberOfKeys); ++i)
+        pagenum_t pagenum;
+        neighbor->push_internal(
+            { k_prime, pagenum = target_header.onePageNumber });
+        ASSERT_WITH_LOG(
+            update_parent_with_commit(pagenum, neighbor_tuple.pagenum), false,
+            "update parent with commit failure");
+        for (int i = 0; i < static_cast<int>(target_header.numberOfKeys); ++i)
         {
-            pagenum_t pagenum;
-            if (i == -1)
-            {
-                neighbor->push_internal(
-                    { k_prime, pagenum = target_header.onePageNumber });
-            }
-            else
-            {
-                pagenum = target_internals[i].pageNumber;
-                neighbor->push_internal(target_internals[i]);
-            }
+            pagenum = target_internals[i].pageNumber;
+            neighbor->push_internal(target_internals[i]);
 
             ASSERT_WITH_LOG(
                 update_parent_with_commit(pagenum, neighbor_tuple.pagenum),
