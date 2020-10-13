@@ -504,11 +504,10 @@ bool BPTree::coalesce_nodes(node_tuple& target_tuple,
 
     if (target_header.isLeaf)
     {
-        auto& target_records = target_tuple.n->records();
         auto& neighbor = neighbor_tuple.n;
-        for (int i = 0; i < static_cast<int>(target_header.numberOfKeys); ++i)
+        for (auto& rec : target_tuple.n->range<Record>())
         {
-            neighbor->push_back(target_records[i]);
+            neighbor->push_back(rec);
         }
         neighbor_header.onePageNumber = target_header.onePageNumber;
     }
@@ -533,16 +532,6 @@ bool BPTree::coalesce_nodes(node_tuple& target_tuple,
                 update_parent_with_commit(pagenum, neighbor_tuple.pagenum),
                 false, "update parent with commit failure");
         }
-        // for (int i = 0; i < static_cast<int>(target_header.numberOfKeys);
-        // ++i)
-        // {
-        //     pagenum = target_internals[i].pageNumber;
-        //     neighbor->push_back(target_internals[i]);
-
-        //     ASSERT_WITH_LOG(
-        //         update_parent_with_commit(pagenum, neighbor_tuple.pagenum),
-        //         false, "update parent with commit failure");
-        // }
     }
 
     ASSERT_WITH_LOG(fm.pageWrite(neighbor_tuple.pagenum, *neighbor_tuple.n),
