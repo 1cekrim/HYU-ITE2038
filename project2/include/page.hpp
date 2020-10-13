@@ -4,6 +4,7 @@
 #include <array>
 #include <cstdint>
 #include <cstring>
+#include <functional>
 #include <iostream>
 #include <memory>
 
@@ -357,8 +358,8 @@ struct page_t
 
         S& entries = getEntry<S>();
 
-        for (int i = erase_point + 1;
-             i < static_cast<int>(header.numberOfKeys); ++i)
+        for (int i = erase_point + 1; i < static_cast<int>(header.numberOfKeys);
+             ++i)
         {
             entries[i - 1] = entries[i];
         }
@@ -380,6 +381,22 @@ struct page_t
                                             Records, Internals>::type;
         return range_t(std::next(std::begin(getEntry<S>()), begin),
                        std::next(std::begin(getEntry<S>()), end));
+    }
+
+    template<typename T>
+    int satisfy_condition_first(std::function<bool(const T&)> condition) const
+    {
+        static_assert(std::is_same<Record, T>::value ||
+                      std::is_same<Internal, T>::value);
+        using S = typename std::conditional<std::is_same<Record, T>::value,
+                                            Records, Internals>::type;
+        int index {};
+        auto n = static_cast<int>(getHeader<NodePageHeader>().numberOfKeys);
+        while (index < n && !condition(getEntry<S>()[index]))
+        {
+            ++index;
+        }
+        return index;
     }
 
     void print_node();

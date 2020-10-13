@@ -41,10 +41,8 @@ bool BPTree::insert(keyType key, const valType& value)
         return false;
     }
 
-    // key와 value에 대한 새로운 record 생성
     auto pointer { make_record(key, value) };
 
-    // case1. root가 비어있으면 start_new_tree 함수를 호출하고 리턴
     auto root = fm.fileHeader.rootPageNumber;
     if (root == EMPTY_PAGE_NUMBER)
     {
@@ -64,15 +62,10 @@ bool BPTree::insert(keyType key, const valType& value)
 
 bool BPTree::insert_into_leaf(node_tuple& leaf, const record& rec)
 {
-    auto& header = leaf.n->nodePageHeader();
-    auto& records = leaf.n->records();
-
-    int insertion_point {};
-    while (insertion_point < static_cast<int>(header.numberOfKeys) &&
-           records[insertion_point].key < rec.key)
-    {
-        ++insertion_point;
-    }
+    int insertion_point =
+        leaf.n->satisfy_condition_first<Record>([&](auto& now) {
+            return now.key >= rec.key;
+        });
 
     leaf.n->insert(rec, insertion_point);
 
@@ -89,18 +82,16 @@ bool BPTree::insert_into_leaf_after_splitting(node_tuple& leaf_tuple,
     CHECK_WITH_LOG(new_pagenum != EMPTY_PAGE_NUMBER, false,
                    "page create failure");
 
-    auto& leaf = leaf_tuple.n;
-    auto pagenum = leaf_tuple.pagenum;
+    auto& leaf_node = leaf_tuple.n;
+    auto& leaf_pagenum = leaf_tuple.pagenum;
 
-    auto& header = leaf->nodePageHeader();
-    auto& records = leaf->records();
+    auto& header = leaf_node->nodePageHeader();
+    auto& records = leaf_node->records();
 
-    int insertion_index = 0;
-    while (insertion_index < static_cast<int>(header.numberOfKeys) &&
-           records[insertion_index].key < rec.key)
-    {
-        ++insertion_index;
-    }
+    int insertion_index =
+        leaf_node->satisfy_condition_first<Record>([&](auto& now) {
+            return now.key >= rec.key;
+        });
 
     std::vector<record> temp(leaf_order + 1);
 
@@ -138,10 +129,8 @@ bool BPTree::insert_into_leaf_after_splitting(node_tuple& leaf_tuple,
     header.onePageNumber = new_pagenum;
     new_header.parentPageNumber = header.parentPageNumber;
 
-    CHECK_WITH_LOG(fm.pageWrite(pagenum, *leaf), false,
-                   "leaf page write failure");
-    CHECK_WITH_LOG(fm.pageWrite(new_pagenum, *new_leaf), false,
-                   "new leaf page write failure");
+    CHECK(commit_node(leaf_pagenum, *leaf_node));
+    CHECK(commit_node(new_pagenum, *new_leaf));
 
     struct node_tuple right = { new_pagenum, std::move(new_leaf) };
     return insert_into_parent(leaf_tuple, new_records[0].key, right);
@@ -174,19 +163,15 @@ bool BPTree::insert_into_parent(node_tuple& left, keyType key,
 
 int BPTree::get_left_index(const node& parent, pagenum_t left_pagenum) const
 {
-    int left_index = 0;
     const auto& header = parent.nodePageHeader();
-    const auto& internal = parent.internals();
     if (header.onePageNumber == left_pagenum)
     {
         return 0;
     }
 
-    while (left_index < static_cast<int>(header.numberOfKeys) &&
-           internal[left_index].pageNumber != left_pagenum)
-    {
-        ++left_index;
-    }
+    int left_index = parent.satisfy_condition_first<Internal>([&](auto& now) {
+        return now.pageNumber == left_pagenum;
+    });
     return left_index + 1;
 }
 
@@ -333,19 +318,18 @@ bool BPTree::delete_key(keyType key)
     return true;
 }
 
-bool BPTree::delete_entry(node_tuple& target, keyType key)
+bool BPTree::delete_entry(node_tuple& target_tuple, keyType key)
 {
-    CHECK_WITH_LOG(remove_entry_from_node(target, key), false,
+    CHECK_WITH_LOG(remove_entry_from_node(target_tuple, key), false,
                    "remove entry from node failure: %ld", key);
-    CHECK_WITH_LOG(fm.pageWrite(target.pagenum, *target.n), false,
-                   "write target page failure: %ld", target.pagenum);
+    CHECK(commit_node(target_tuple));
 
-    if (target.pagenum == fm.fileHeader.rootPageNumber)
+    if (target_tuple.pagenum == fm.fileHeader.rootPageNumber)
     {
         return adjust_root();
     }
 
-    auto& target_header = target.n->nodePageHeader();
+    auto& target_header = target_tuple.n->nodePageHeader();
 
     int min_keys;
     if (delayed_min)
@@ -371,24 +355,22 @@ bool BPTree::delete_entry(node_tuple& target, keyType key)
     auto& parent_header = parent->nodePageHeader();
     CHECK_WITH_LOG(parent_header.numberOfKeys != 0, false,
                    "empty parent: %ld. child: %ld",
-                   target_header.parentPageNumber, target.pagenum);
+                   target_header.parentPageNumber, target_tuple.pagenum);
     auto& parent_internals = parent->internals();
 
-    int neighbor_index = get_left_index(*parent, target.pagenum) - 1;
+    int neighbor_index = get_left_index(*parent, target_tuple.pagenum) - 1;
     int k_prime_index = neighbor_index == -1 ? 0 : neighbor_index;
     keyType k_prime = parent_internals[k_prime_index].key;
 
     node_tuple neighbor_tuple;
-    neighbor_tuple.n = make_node(false);
     neighbor_tuple.pagenum =
         neighbor_index == -1
             ? parent_internals[0].pageNumber
             : neighbor_index == 0
                   ? parent_header.onePageNumber
                   : parent_internals[neighbor_index - 1].pageNumber;
-    CHECK_WITH_LOG(fm.pageRead(neighbor_tuple.pagenum, *neighbor_tuple.n),
-                   false, "read neighbor_tuple page failure: %ld",
-                   neighbor_tuple.pagenum);
+    neighbor_tuple.n = load_node(neighbor_tuple.pagenum);
+    CHECK(neighbor_tuple.n);
 
     int capacity = target_header.isLeaf ? leaf_order : internal_order - 1;
 
@@ -402,20 +384,20 @@ bool BPTree::delete_entry(node_tuple& target, keyType key)
         node_tuple tmp_neightbor, tmp_target;
         if (neighbor_index == -1)
         {
-            tmp_neightbor = std::move(target);
+            tmp_neightbor = std::move(target_tuple);
             tmp_target = std::move(neighbor_tuple);
         }
         else
         {
             tmp_neightbor = std::move(neighbor_tuple);
-            tmp_target = std::move(target);
+            tmp_target = std::move(target_tuple);
         }
         return coalesce_nodes(tmp_target, tmp_neightbor, parent_tuple, k_prime);
     }
     else
     {
-        return redistribute_nodes(target, neighbor_tuple, parent_tuple, k_prime,
-                                  k_prime_index, neighbor_index);
+        return redistribute_nodes(target_tuple, neighbor_tuple, parent_tuple,
+                                  k_prime, k_prime_index, neighbor_index);
     }
 }
 
@@ -424,29 +406,21 @@ bool BPTree::remove_entry_from_node(node_tuple& target, keyType key)
     auto& header = target.n->nodePageHeader();
     if (header.isLeaf)
     {
-        auto& records = target.n->records();
-        int i = 0;
-        while (i < static_cast<int>(header.numberOfKeys) &&
-               records[i].key != key)
-        {
-            ++i;
-        }
-        CHECK_WITH_LOG(i != static_cast<int>(header.numberOfKeys), false,
+        int idx = target.n->satisfy_condition_first<Record>([&](auto& now) {
+            return now.key == key;
+        });
+        CHECK_WITH_LOG(idx != static_cast<int>(header.numberOfKeys), false,
                        "invalid key: %ld", key);
-        target.n->erase<Record>(i);
+        target.n->erase<Record>(idx);
     }
     else
     {
-        auto& internals = target.n->internals();
-        int i = 0;
-        while (i < static_cast<int>(header.numberOfKeys) &&
-               internals[i].key != key)
-        {
-            ++i;
-        }
-        CHECK_WITH_LOG(i != static_cast<int>(header.numberOfKeys), false,
+        int idx = target.n->satisfy_condition_first<Internal>([&](auto& now) {
+            return now.key == key;
+        });
+        CHECK_WITH_LOG(idx != static_cast<int>(header.numberOfKeys), false,
                        "invalid key: %ld", key);
-        target.n->erase<Internal>(i);
+        target.n->erase<Internal>(idx);
     }
 
     return true;
@@ -488,14 +462,13 @@ bool BPTree::adjust_root()
     return true;
 }
 
-bool BPTree::update_parent_with_commit(pagenum_t target, pagenum_t parent)
+bool BPTree::update_parent_with_commit(pagenum_t target_pagenum,
+                                       pagenum_t parent_pagenum)
 {
-    auto temp = make_node(false);
-    CHECK_WITH_LOG(fm.pageRead(target, *temp), false,
-                   "read child page failure: %ld", target);
-    temp->nodePageHeader().parentPageNumber = parent;
-    CHECK_WITH_LOG(fm.pageWrite(target, *temp), false,
-                   "write child page failure: %ld", target);
+    auto temp = load_node(target_pagenum);
+    CHECK(temp);
+    temp->nodePageHeader().parentPageNumber = parent_pagenum;
+    CHECK(commit_node(target_pagenum, *temp));
 
     return true;
 }
@@ -519,29 +492,22 @@ bool BPTree::coalesce_nodes(node_tuple& target_tuple,
     else
     {
         // internal
-        // auto& target_internals = target_tuple.n->internals();
         auto& neighbor = neighbor_tuple.n;
 
         pagenum_t pagenum;
         neighbor->emplace_back<Internal>(k_prime,
                                          pagenum = target_header.onePageNumber);
-        CHECK_WITH_LOG(
-            update_parent_with_commit(pagenum, neighbor_tuple.pagenum), false,
-            "update parent with commit failure");
+        CHECK(update_parent_with_commit(pagenum, neighbor_tuple.pagenum));
         for (auto& internal : target_tuple.n->range<Internal>())
         {
             pagenum = internal.pageNumber;
             neighbor->push_back(internal);
 
-            CHECK_WITH_LOG(
-                update_parent_with_commit(pagenum, neighbor_tuple.pagenum),
-                false, "update parent with commit failure");
+            CHECK(update_parent_with_commit(pagenum, neighbor_tuple.pagenum));
         }
     }
 
-    CHECK_WITH_LOG(fm.pageWrite(neighbor_tuple.pagenum, *neighbor_tuple.n),
-                   false, "write neighbor page failure: %ld",
-                   neighbor_tuple.pagenum);
+    CHECK(commit_node(neighbor_tuple));
     CHECK_WITH_LOG(delete_entry(parent_tuple, k_prime), false,
                    "delete entry of parent failure: %ld", parent_tuple.pagenum);
     CHECK_WITH_LOG(fm.pageFree(target_tuple.pagenum), false,
@@ -623,13 +589,9 @@ bool BPTree::redistribute_nodes(node_tuple& target_tuple,
         }
     }
 
-    CHECK_WITH_LOG(fm.pageWrite(target_tuple.pagenum, *target_tuple.n), false,
-                   "wrtie target page failure: %ld", target_tuple.pagenum);
-    CHECK_WITH_LOG(fm.pageWrite(neighbor_tuple.pagenum, *neighbor_tuple.n),
-                   false, "wrtie neighbor page failure: %ld",
-                   neighbor_tuple.pagenum);
-    CHECK_WITH_LOG(fm.pageWrite(parent_tuple.pagenum, *parent_tuple.n), false,
-                   "wrtie parent page failure: %ld", parent_tuple.pagenum);
+    CHECK(commit_node(target_tuple));
+    CHECK(commit_node(neighbor_tuple));
+    CHECK(commit_node(parent_tuple));
 
     return true;
 }
@@ -676,61 +638,46 @@ node_tuple BPTree::find_leaf(keyType key)
         return node_tuple::invalid();
     }
 
-    auto now = std::make_unique<node>();
-    CHECK_WITH_LOG(fm.pageRead(root, *now), node_tuple::invalid(),
-                   "page read failure");
+    auto now = load_node(root);
+    CHECK_WITH_LOG(now, node_tuple::invalid(), "page read failure");
 
     while (!now->nodePageHeader().isLeaf)
     {
-        int i;
         auto& header = now->nodePageHeader();
         auto& internal = now->internals();
 
         if (verbose_output)
         {
-            printf("[");
-            for (i = 0; i < static_cast<int>(header.numberOfKeys - 1); ++i)
+            std::cout << '[';
+            for (auto& internal : now->range<Internal>())
             {
-                printf("%ld ", internal[i].key);
+                std::cout << internal.key << ' ';
             }
-            printf("%ld] ", internal[i].key);
+            std::cout << "] \n";
         }
 
-        i = 0;
-        while (i < static_cast<int>(header.numberOfKeys))
-        {
-            if (key >= internal[i].key)
-            {
-                ++i;
-            }
-            else
-            {
-                break;
-            }
-        }
-        --i;
+        int idx = now->satisfy_condition_first<Internal>([&](auto& now){
+            return now.key > key;
+        }) - 1;
 
         if (verbose_output)
         {
-            printf("%d ->\n", i);
+            printf("%d ->\n", idx);
         }
 
         fm.pageRead(
-            root = ((i == -1) ? header.onePageNumber : internal[i].pageNumber),
+            root = ((idx == -1) ? header.onePageNumber : internal[idx].pageNumber),
             *now);
     }
 
     if (verbose_output)
     {
-        auto& header = now->nodePageHeader();
-        auto& records = now->records();
-        printf("Leaf [");
-        int i;
-        for (i = 0; i < static_cast<int>(header.numberOfKeys - 1); ++i)
+        std::cout << "Leaf [";
+        for (auto& record : now->range<Record>())
         {
-            printf("%ld ", records[i].key);
+            std::cout << record.key << " ";
         }
-        printf("%ld] ->\n", records[i].key);
+        std::cout << "] ->\n";
     }
 
     return { root, std::move(now) };
@@ -766,10 +713,10 @@ bool BPTree::start_new_tree(const record& rec)
     auto pagenum = fm.pageCreate();
     CHECK_WITH_LOG(pagenum != EMPTY_PAGE_NUMBER, false,
                    "page creation failure");
-    CHECK_WITH_LOG(fm.pageWrite(pagenum, *root), false, "page write failure");
+    CHECK(commit_node(pagenum, *root));
 
     fm.fileHeader.rootPageNumber = pagenum;
-    CHECK_WITH_LOG(fm.updateFileHeader(), false, "file header update failure");
+    CHECK(fm.updateFileHeader());
 
     return true;
 }

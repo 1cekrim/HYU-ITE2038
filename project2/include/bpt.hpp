@@ -62,7 +62,7 @@ class BPTree
                             node_tuple& neighbor_tuple,
                             node_tuple& parent_tuple, int k_prime,
                             int k_prime_index, int neighbor_index);
-    bool update_parent_with_commit(pagenum_t target, pagenum_t parent);
+    bool update_parent_with_commit(pagenum_t target_pagenum, pagenum_t parent_pagenum);
     std::unique_ptr<node> load_node(pagenum_t pagenum);
     bool commit_node(pagenum_t page, const node& n);
     bool commit_node(const node_tuple& nt);
