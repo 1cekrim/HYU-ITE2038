@@ -24,7 +24,7 @@ bool BPTree::open_table(const std::string& filename)
 int BPTree::char_to_valType(valType& dst, const char* src) const
 {
     std::memset(&dst, 0, sizeof(dst));
-    memcpy(&dst, src, std::max(static_cast<int>(strlen(src)), 119));
+    std::memcpy(&dst, src, std::max(static_cast<int>(strlen(src)), 119));
     return 0;
 }
 
@@ -42,7 +42,7 @@ bool BPTree::insert(keyType key, const valType& value)
     }
 
     // key와 value에 대한 새로운 record 생성
-    auto pointer { make_record(key, value) };
+    auto pointer{ make_record(key, value) };
 
     // case1. root가 비어있으면 start_new_tree 함수를 호출하고 리턴
     auto root = fm.fileHeader.rootPageNumber;
@@ -64,7 +64,7 @@ bool BPTree::insert(keyType key, const valType& value)
 
 bool BPTree::insert_into_leaf(node_tuple& leaf, const record& rec)
 {
-    int insertion_point {};
+    int insertion_point{};
 
     auto& [c, pagenum] = leaf;
 
@@ -205,14 +205,10 @@ bool BPTree::insert_into_new_root(node_tuple& left, keyType key,
 
     auto root = make_node(false);
     auto& root_header = root->nodePageHeader();
-    auto& root_internal = root->internals();
 
     root_header.onePageNumber = left.pagenum;
 
-    // TODO: insert_internal
-    root_internal[0].key = key;
-    root_internal[0].pageNumber = right.pagenum;
-    ++root_header.numberOfKeys;
+    root->push_internal({ key, right.pagenum });
 
     left.n->nodePageHeader().parentPageNumber = root_pagenum;
     right.n->nodePageHeader().parentPageNumber = root_pagenum;
@@ -233,8 +229,7 @@ bool BPTree::insert_into_new_root(node_tuple& left, keyType key,
 bool BPTree::insert_into_node(node_tuple& parent, int left_index, keyType key,
                               node_tuple& right)
 {
-    Internal internal;
-    internal.init(key, right.pagenum);
+    Internal internal{ key, right.pagenum };
     parent.n->insert_internal(internal, left_index);
     ASSERT_WITH_LOG(fm.pageWrite(parent.pagenum, *parent.n), false,
                     "parent page write failure: %ld", parent.pagenum);
@@ -245,8 +240,7 @@ bool BPTree::insert_into_node_after_splitting(node_tuple& parent,
                                               int left_index, keyType key,
                                               node_tuple& right)
 {
-    Internal internal;
-    internal.init(key, right.pagenum);
+    Internal internal{ key, right.pagenum };
 
     auto& parent_header = parent.n->nodePageHeader();
     auto& parent_internal = parent.n->internals();
@@ -306,7 +300,7 @@ bool BPTree::insert_into_node_after_splitting(node_tuple& parent,
     ASSERT_WITH_LOG(fm.pageWrite(new_pagenum, *new_node), false,
                     "new page write failure");
 
-    node_tuple new_tuple { std::move(new_node), new_pagenum };
+    node_tuple new_tuple{ std::move(new_node), new_pagenum };
     return insert_into_parent(parent, k_prime, new_tuple);
 }
 
@@ -385,8 +379,8 @@ bool BPTree::delete_entry(node_tuple& target, keyType key)
 
     int capacity = target_header.isLeaf ? leaf_order : internal_order - 1;
 
-    node_tuple parent_tuple { std::move(parent),
-                              target_header.parentPageNumber };
+    node_tuple parent_tuple{ std::move(parent),
+                             target_header.parentPageNumber };
 
     if (static_cast<int>(target_header.numberOfKeys +
                          neighbor_tuple.n->nodePageHeader().numberOfKeys) <
