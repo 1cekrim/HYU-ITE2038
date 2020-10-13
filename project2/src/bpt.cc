@@ -185,14 +185,11 @@ bool BPTree::commit_node(const node_tuple& nt)
 bool BPTree::insert_into_new_root(node_tuple& left_tuple, keyType key,
                                   node_tuple& right_tuple)
 {
-    puts("insert_into_new_root");
     auto root_pagenum = fm.pageCreate();
     CHECK_WITH_LOG(root_pagenum != EMPTY_PAGE_NUMBER, false,
                    "root page creation failure");
 
-    puts("insert_into_new_root");
     auto root = make_node(false);
-    puts("insert_into_new_root");
     auto& root_header = root->nodePageHeader();
 
     root_header.onePageNumber = left_tuple.pagenum;
@@ -226,7 +223,6 @@ bool BPTree::insert_into_node_after_splitting(node_tuple& parent,
                                               int left_index, keyType key,
                                               node_tuple& right)
 {
-    puts("insert_into");
     Internal internal { key, right.pagenum };
 
     auto& parent_header = parent.n->nodePageHeader();

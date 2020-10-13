@@ -191,10 +191,10 @@ void TEST_BPT()
 
      TEST("BPTree  insert many")
     {
-        BPTree tree(true);
+        BPTree tree;
         CHECK_TRUE(tree.open_table("insert.db"));
 
-        for (int i = 100; i > 0; --i)
+        for (int i = 100000; i > 0; --i)
     {
             valType v;
             std::stringstream ss;

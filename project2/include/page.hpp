@@ -384,11 +384,11 @@ struct page_t
     }
 
     template<typename T, typename It>
-    void range_copy(It it, std::size_t begin = 0, std::size_t end = 0)
+    void range_copy(It it, int begin = 0, int end = -1)
     {
         static_assert(std::is_same<Record, T>::value ||
                       std::is_same<Internal, T>::value);
-        if (end == 0)
+        if (end == -1)
         {
             end = getHeader<NodePageHeader>().numberOfKeys;
         }
