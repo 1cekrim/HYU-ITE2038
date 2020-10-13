@@ -449,13 +449,13 @@ bool BPTree::remove_entry_from_node(node_tuple& target, keyType key)
 
 bool BPTree::adjust_root()
 {
-    node root;
+    auto root = make_node(false);
     pagenum_t root_pagenum = fm.fileHeader.rootPageNumber;
 
-    ASSERT_WITH_LOG(fm.pageRead(root_pagenum, root), false,
+    ASSERT_WITH_LOG(fm.pageRead(root_pagenum, *root), false,
                     "read root page failure: %ld", root_pagenum);
 
-    auto& root_header = root.nodePageHeader();
+    auto& root_header = root->nodePageHeader();
 
     if (root_header.numberOfKeys > 0)
     {
@@ -485,11 +485,11 @@ bool BPTree::adjust_root()
 
 bool BPTree::update_parent_with_commit(pagenum_t target, pagenum_t parent)
 {
-    node temp;
-    ASSERT_WITH_LOG(fm.pageRead(target, temp), false,
+    auto temp = make_node(false);
+    ASSERT_WITH_LOG(fm.pageRead(target, *temp), false,
                     "read child page failure: %ld", target);
-    temp.nodePageHeader().parentPageNumber = parent;
-    ASSERT_WITH_LOG(fm.pageWrite(target, temp), false,
+    temp->nodePageHeader().parentPageNumber = parent;
+    ASSERT_WITH_LOG(fm.pageWrite(target, *temp), false,
                     "write child page failure: %ld", target);
 
     return true;
@@ -760,11 +760,7 @@ std::unique_ptr<node> BPTree::make_node(bool is_leaf) const
 
     auto& header = n->nodePageHeader();
 
-    // 어차피 0으로 초기화 되어있는데 필요한가?
     header.isLeaf = is_leaf;
-    header.numberOfKeys = 0;
-    header.onePageNumber = EMPTY_PAGE_NUMBER;
-    header.parentPageNumber = EMPTY_PAGE_NUMBER;
 
     return n;
 }
