@@ -11,7 +11,7 @@
 #define S_COLOR_CYAN "\x1b[36m"
 #define S_COLOR_RESET "\x1b[0m"
 
-#define ASSERT_WITH_LOG(statement, ret_val, fmt, args...)      \
+#define CHECK_WITH_LOG(statement, ret_val, fmt, args...)       \
     do                                                         \
     {                                                          \
         if (!(statement))                                      \
@@ -24,7 +24,7 @@
         }                                                      \
     } while (0)
 
-#define EXIT_WITH_LOG(statement, fmt, args...)      \
+#define EXIT_WITH_LOG(statement, fmt, args...)                 \
     do                                                         \
     {                                                          \
         if (!(statement))                                      \
@@ -33,7 +33,18 @@
             printf("\n    statement: " #statement "\n    " fmt \
                    "\n" S_COLOR_RESET,                         \
                    ##args);                                    \
-            exit(-1);                                    \
+            exit(-1);                                          \
+        }                                                      \
+    } while (0)
+
+#define CHECK(statement)                                       \
+    do                                                         \
+    {                                                          \
+        if (!(statement))                                      \
+        {                                                      \
+            printf(S_COLOR_RED "[-] %s", __PRETTY_FUNCTION__); \
+            printf("\n    statement: " #statement "\n");       \
+            return false;                                      \
         }                                                      \
     } while (0)
 

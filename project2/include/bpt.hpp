@@ -17,11 +17,11 @@ using record = Record;
 
 struct node_tuple
 {
-    std::unique_ptr<node> n;
     pagenum_t pagenum;
+    std::unique_ptr<node> n;
     static node_tuple invalid()
     {
-        return { nullptr, EMPTY_PAGE_NUMBER };
+        return { EMPTY_PAGE_NUMBER, nullptr };
     }
 };
 
@@ -42,7 +42,7 @@ class BPTree
  private:
     std::unique_ptr<record> make_record(keyType key,
                                         const valType& value) const;
-    std::unique_ptr<node> make_node(bool is_leaf) const;
+    std::unique_ptr<node> make_node(bool is_leaf = false) const;
     bool insert_into_leaf(node_tuple& leaf, const record& rec);
     bool insert_into_leaf_after_splitting(node_tuple& leaf_tuple,
                                           const record& rec);
@@ -63,6 +63,9 @@ class BPTree
                             node_tuple& parent_tuple, int k_prime,
                             int k_prime_index, int neighbor_index);
     bool update_parent_with_commit(pagenum_t target, pagenum_t parent);
+    std::unique_ptr<node> load_node(pagenum_t pagenum);
+    bool commit_node(pagenum_t page, const node& n);
+    bool commit_node(const node_tuple& nt);
 
     constexpr int cut(int length)
     {

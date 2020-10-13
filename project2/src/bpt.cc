@@ -17,7 +17,7 @@ BPTree::BPTree(bool verbose_output, int delayed_min)
 
 bool BPTree::open_table(const std::string& filename)
 {
-    ASSERT_WITH_LOG(fm.open(filename), false, "open table failure");
+    CHECK_WITH_LOG(fm.open(filename), false, "open table failure");
     return true;
 }
 
@@ -42,7 +42,7 @@ bool BPTree::insert(keyType key, const valType& value)
     }
 
     // key와 value에 대한 새로운 record 생성
-    auto pointer{ make_record(key, value) };
+    auto pointer { make_record(key, value) };
 
     // case1. root가 비어있으면 start_new_tree 함수를 호출하고 리턴
     auto root = fm.fileHeader.rootPageNumber;
@@ -64,21 +64,19 @@ bool BPTree::insert(keyType key, const valType& value)
 
 bool BPTree::insert_into_leaf(node_tuple& leaf, const record& rec)
 {
-    int insertion_point{};
+    auto& header = leaf.n->nodePageHeader();
+    auto& records = leaf.n->records();
 
-    auto& [c, pagenum] = leaf;
-
-    auto& header = c->nodePageHeader();
-    auto& records = c->records();
-
+    int insertion_point {};
     while (insertion_point < static_cast<int>(header.numberOfKeys) &&
            records[insertion_point].key < rec.key)
     {
         ++insertion_point;
     }
 
-    c->insert(rec, insertion_point);
-    ASSERT_WITH_LOG(fm.pageWrite(pagenum, *c), false, "page write failure");
+    leaf.n->insert(rec, insertion_point);
+
+    CHECK(commit_node(leaf));
 
     return true;
 }
@@ -88,8 +86,8 @@ bool BPTree::insert_into_leaf_after_splitting(node_tuple& leaf_tuple,
 {
     auto new_leaf = make_node(true);
     auto new_pagenum = fm.pageCreate();
-    ASSERT_WITH_LOG(new_pagenum != EMPTY_PAGE_NUMBER, false,
-                    "page create failure");
+    CHECK_WITH_LOG(new_pagenum != EMPTY_PAGE_NUMBER, false,
+                   "page create failure");
 
     auto& leaf = leaf_tuple.n;
     auto pagenum = leaf_tuple.pagenum;
@@ -140,12 +138,12 @@ bool BPTree::insert_into_leaf_after_splitting(node_tuple& leaf_tuple,
     header.onePageNumber = new_pagenum;
     new_header.parentPageNumber = header.parentPageNumber;
 
-    ASSERT_WITH_LOG(fm.pageWrite(pagenum, *leaf), false,
-                    "leaf page write failure");
-    ASSERT_WITH_LOG(fm.pageWrite(new_pagenum, *new_leaf), false,
-                    "new leaf page write failure");
+    CHECK_WITH_LOG(fm.pageWrite(pagenum, *leaf), false,
+                   "leaf page write failure");
+    CHECK_WITH_LOG(fm.pageWrite(new_pagenum, *new_leaf), false,
+                   "new leaf page write failure");
 
-    struct node_tuple right = { std::move(new_leaf), new_pagenum };
+    struct node_tuple right = { new_pagenum, std::move(new_leaf) };
     return insert_into_parent(leaf_tuple, new_records[0].key, right);
 }
 
@@ -161,12 +159,8 @@ bool BPTree::insert_into_parent(node_tuple& left, keyType key,
         return insert_into_new_root(left, key, right);
     }
 
-    node_tuple parent;
-    parent.pagenum = parent_pagenum;
-    parent.n = make_node(false);
-
-    ASSERT_WITH_LOG(fm.pageRead(parent_pagenum, *parent.n), false,
-                    "read parent page failure: %ld", parent_pagenum);
+    node_tuple parent { parent_pagenum, load_node(parent_pagenum) };
+    CHECK(parent.n);
 
     int left_index = get_left_index(*parent.n, left.pagenum);
     if (static_cast<int>(parent.n->nodePageHeader().numberOfKeys) <
@@ -196,32 +190,51 @@ int BPTree::get_left_index(const node& parent, pagenum_t left_pagenum) const
     return left_index + 1;
 }
 
-bool BPTree::insert_into_new_root(node_tuple& left, keyType key,
-                                  node_tuple& right)
+std::unique_ptr<node> BPTree::load_node(pagenum_t pagenum)
+{
+    auto node = make_node();
+    CHECK_WITH_LOG(fm.pageRead(pagenum, *node), nullptr,
+                   "read page failure: %ld", pagenum);
+    return node;
+}
+
+bool BPTree::commit_node(pagenum_t page, const node& n)
+{
+    CHECK_WITH_LOG(fm.pageWrite(page, n), false, "write page failure: %ld",
+                   page);
+    return true;
+}
+
+bool BPTree::commit_node(const node_tuple& nt)
+{
+    CHECK_WITH_LOG(fm.pageWrite(nt.pagenum, *nt.n), false,
+                   "write page failure: %ld", nt.pagenum);
+    return true;
+}
+
+bool BPTree::insert_into_new_root(node_tuple& left_tuple, keyType key,
+                                  node_tuple& right_tuple)
 {
     auto root_pagenum = fm.pageCreate();
-    ASSERT_WITH_LOG(root_pagenum != EMPTY_PAGE_NUMBER, false,
-                    "root page creation failure");
+    CHECK_WITH_LOG(root_pagenum != EMPTY_PAGE_NUMBER, false,
+                   "root page creation failure");
 
     auto root = make_node(false);
     auto& root_header = root->nodePageHeader();
 
-    root_header.onePageNumber = left.pagenum;
+    root_header.onePageNumber = left_tuple.pagenum;
 
-    root->emplace_back<Internal>(key, right.pagenum);
+    root->emplace_back<Internal>(key, right_tuple.pagenum);
 
-    left.n->nodePageHeader().parentPageNumber = root_pagenum;
-    right.n->nodePageHeader().parentPageNumber = root_pagenum;
+    left_tuple.n->nodePageHeader().parentPageNumber = root_pagenum;
+    right_tuple.n->nodePageHeader().parentPageNumber = root_pagenum;
 
-    ASSERT_WITH_LOG(fm.pageWrite(left.pagenum, *left.n), false,
-                    "left page write failure: %ld", left.pagenum);
-    ASSERT_WITH_LOG(fm.pageWrite(right.pagenum, *right.n), false,
-                    "right page write failure: %ld", right.pagenum);
-    ASSERT_WITH_LOG(fm.pageWrite(root_pagenum, *root), false,
-                    "root page write failure: %ld", root_pagenum);
+    CHECK(commit_node(left_tuple));
+    CHECK(commit_node(right_tuple));
+    CHECK(commit_node(root_pagenum, *root));
 
     fm.fileHeader.rootPageNumber = root_pagenum;
-    ASSERT_WITH_LOG(fm.updateFileHeader(), false, "update file header failure");
+    CHECK_WITH_LOG(fm.updateFileHeader(), false, "update file header failure");
 
     return true;
 }
@@ -229,10 +242,10 @@ bool BPTree::insert_into_new_root(node_tuple& left, keyType key,
 bool BPTree::insert_into_node(node_tuple& parent, int left_index, keyType key,
                               node_tuple& right)
 {
-    Internal internal{ key, right.pagenum };
+    Internal internal { key, right.pagenum };
     parent.n->insert(internal, left_index);
-    ASSERT_WITH_LOG(fm.pageWrite(parent.pagenum, *parent.n), false,
-                    "parent page write failure: %ld", parent.pagenum);
+    CHECK_WITH_LOG(fm.pageWrite(parent.pagenum, *parent.n), false,
+                   "parent page write failure: %ld", parent.pagenum);
     return true;
 }
 
@@ -240,14 +253,14 @@ bool BPTree::insert_into_node_after_splitting(node_tuple& parent,
                                               int left_index, keyType key,
                                               node_tuple& right)
 {
-    Internal internal{ key, right.pagenum };
+    Internal internal { key, right.pagenum };
 
     auto& parent_header = parent.n->nodePageHeader();
     auto& parent_internal = parent.n->internals();
 
     auto new_pagenum = fm.pageCreate();
-    ASSERT_WITH_LOG(new_pagenum != EMPTY_PAGE_NUMBER, false,
-                    "new page creation failure");
+    CHECK_WITH_LOG(new_pagenum != EMPTY_PAGE_NUMBER, false,
+                   "new page creation failure");
 
     std::vector<Internal> temp(internal_order);
 
@@ -276,7 +289,6 @@ bool BPTree::insert_into_node_after_splitting(node_tuple& parent,
     keyType k_prime = temp[split - 1].key;
 
     auto& new_header = new_node->nodePageHeader();
-    auto& new_internals = new_node->internals();
 
     new_header.onePageNumber = temp[split - 1].pageNumber;
     for (++i; i < internal_order; ++i)
@@ -285,22 +297,23 @@ bool BPTree::insert_into_node_after_splitting(node_tuple& parent,
     }
     new_header.parentPageNumber = parent_header.parentPageNumber;
 
-    ASSERT_WITH_LOG(
+    CHECK_WITH_LOG(
         update_parent_with_commit(new_header.onePageNumber, new_pagenum), false,
         "update parent with commit failure");
-    for (int i = 0; i < static_cast<int>(new_header.numberOfKeys); ++i)
+
+    for (auto& tmp : new_node->range<Internal>())
     {
-        ASSERT_WITH_LOG(
-            update_parent_with_commit(new_internals[i].pageNumber, new_pagenum),
-            false, "update parent with commit failure: %d", i);
+        CHECK_WITH_LOG(update_parent_with_commit(tmp.pageNumber, new_pagenum),
+                       false, "update parent with commit failure: %ld",
+                       tmp.pageNumber);
     }
 
-    ASSERT_WITH_LOG(fm.pageWrite(parent.pagenum, *parent.n), false,
-                    "parent page write failure");
-    ASSERT_WITH_LOG(fm.pageWrite(new_pagenum, *new_node), false,
-                    "new page write failure");
+    CHECK_WITH_LOG(fm.pageWrite(parent.pagenum, *parent.n), false,
+                   "parent page write failure");
+    CHECK_WITH_LOG(fm.pageWrite(new_pagenum, *new_node), false,
+                   "new page write failure");
 
-    node_tuple new_tuple{ std::move(new_node), new_pagenum };
+    node_tuple new_tuple { new_pagenum, std::move(new_node) };
     return insert_into_parent(parent, k_prime, new_tuple);
 }
 
@@ -308,24 +321,24 @@ bool BPTree::delete_key(keyType key)
 {
     auto record = find(key);
     auto leaf = find_leaf(key);
-    ASSERT_WITH_LOG(leaf.pagenum != EMPTY_PAGE_NUMBER, false,
-                    "find leaf failure: %ld", key);
+    CHECK_WITH_LOG(leaf.pagenum != EMPTY_PAGE_NUMBER, false,
+                   "find leaf failure: %ld", key);
     if (!record)
     {
         return false;
     }
 
-    ASSERT_WITH_LOG(delete_entry(leaf, key), false, "delete entry failure");
+    CHECK_WITH_LOG(delete_entry(leaf, key), false, "delete entry failure");
 
     return true;
 }
 
 bool BPTree::delete_entry(node_tuple& target, keyType key)
 {
-    ASSERT_WITH_LOG(remove_entry_from_node(target, key), false,
-                    "remove entry from node failure: %ld", key);
-    ASSERT_WITH_LOG(fm.pageWrite(target.pagenum, *target.n), false,
-                    "write target page failure: %ld", target.pagenum);
+    CHECK_WITH_LOG(remove_entry_from_node(target, key), false,
+                   "remove entry from node failure: %ld", key);
+    CHECK_WITH_LOG(fm.pageWrite(target.pagenum, *target.n), false,
+                   "write target page failure: %ld", target.pagenum);
 
     if (target.pagenum == fm.fileHeader.rootPageNumber)
     {
@@ -351,14 +364,14 @@ bool BPTree::delete_entry(node_tuple& target, keyType key)
     }
 
     auto parent = make_node(false);
-    ASSERT_WITH_LOG(fm.pageRead(target_header.parentPageNumber, *parent), false,
-                    "read parent page failure: %ld",
-                    target_header.parentPageNumber);
+    CHECK_WITH_LOG(fm.pageRead(target_header.parentPageNumber, *parent), false,
+                   "read parent page failure: %ld",
+                   target_header.parentPageNumber);
 
     auto& parent_header = parent->nodePageHeader();
-    ASSERT_WITH_LOG(parent_header.numberOfKeys != 0, false,
-                    "empty parent: %ld. child: %ld",
-                    target_header.parentPageNumber, target.pagenum);
+    CHECK_WITH_LOG(parent_header.numberOfKeys != 0, false,
+                   "empty parent: %ld. child: %ld",
+                   target_header.parentPageNumber, target.pagenum);
     auto& parent_internals = parent->internals();
 
     int neighbor_index = get_left_index(*parent, target.pagenum) - 1;
@@ -373,14 +386,14 @@ bool BPTree::delete_entry(node_tuple& target, keyType key)
             : neighbor_index == 0
                   ? parent_header.onePageNumber
                   : parent_internals[neighbor_index - 1].pageNumber;
-    ASSERT_WITH_LOG(fm.pageRead(neighbor_tuple.pagenum, *neighbor_tuple.n),
-                    false, "read neighbor_tuple page failure: %ld",
-                    neighbor_tuple.pagenum);
+    CHECK_WITH_LOG(fm.pageRead(neighbor_tuple.pagenum, *neighbor_tuple.n),
+                   false, "read neighbor_tuple page failure: %ld",
+                   neighbor_tuple.pagenum);
 
     int capacity = target_header.isLeaf ? leaf_order : internal_order - 1;
 
-    node_tuple parent_tuple{ std::move(parent),
-                             target_header.parentPageNumber };
+    node_tuple parent_tuple { target_header.parentPageNumber,
+                              std::move(parent) };
 
     if (static_cast<int>(target_header.numberOfKeys +
                          neighbor_tuple.n->nodePageHeader().numberOfKeys) <
@@ -418,13 +431,9 @@ bool BPTree::remove_entry_from_node(node_tuple& target, keyType key)
         {
             ++i;
         }
-        ASSERT_WITH_LOG(i != static_cast<int>(header.numberOfKeys), false,
-                        "invalid key: %ld", key);
-        for (++i; i < static_cast<int>(header.numberOfKeys); ++i)
-        {
-            records[i - 1] = records[i];
-        }
-        --header.numberOfKeys;
+        CHECK_WITH_LOG(i != static_cast<int>(header.numberOfKeys), false,
+                       "invalid key: %ld", key);
+        target.n->erase<Record>(i);
     }
     else
     {
@@ -435,13 +444,9 @@ bool BPTree::remove_entry_from_node(node_tuple& target, keyType key)
         {
             ++i;
         }
-        ASSERT_WITH_LOG(i != static_cast<int>(header.numberOfKeys), false,
-                        "invalid key: %ld", key);
-        for (++i; i < static_cast<int>(header.numberOfKeys); ++i)
-        {
-            internals[i - 1] = internals[i];
-        }
-        --header.numberOfKeys;
+        CHECK_WITH_LOG(i != static_cast<int>(header.numberOfKeys), false,
+                       "invalid key: %ld", key);
+        target.n->erase<Internal>(i);
     }
 
     return true;
@@ -452,8 +457,8 @@ bool BPTree::adjust_root()
     auto root = make_node(false);
     pagenum_t root_pagenum = fm.fileHeader.rootPageNumber;
 
-    ASSERT_WITH_LOG(fm.pageRead(root_pagenum, *root), false,
-                    "read root page failure: %ld", root_pagenum);
+    CHECK_WITH_LOG(fm.pageRead(root_pagenum, *root), false,
+                   "read root page failure: %ld", root_pagenum);
 
     auto& root_header = root->nodePageHeader();
 
@@ -471,14 +476,14 @@ bool BPTree::adjust_root()
         pagenum_t new_root_pagenum = root_header.onePageNumber;
         fm.fileHeader.rootPageNumber = new_root_pagenum;
 
-        ASSERT_WITH_LOG(
+        CHECK_WITH_LOG(
             update_parent_with_commit(new_root_pagenum, EMPTY_PAGE_NUMBER),
             false, "update parent with commit failure");
     }
 
-    ASSERT_WITH_LOG(fm.updateFileHeader(), false, "update file header failure");
-    ASSERT_WITH_LOG(fm.pageFree(root_pagenum), false,
-                    "free old root page failure");
+    CHECK_WITH_LOG(fm.updateFileHeader(), false, "update file header failure");
+    CHECK_WITH_LOG(fm.pageFree(root_pagenum), false,
+                   "free old root page failure");
 
     return true;
 }
@@ -486,11 +491,11 @@ bool BPTree::adjust_root()
 bool BPTree::update_parent_with_commit(pagenum_t target, pagenum_t parent)
 {
     auto temp = make_node(false);
-    ASSERT_WITH_LOG(fm.pageRead(target, *temp), false,
-                    "read child page failure: %ld", target);
+    CHECK_WITH_LOG(fm.pageRead(target, *temp), false,
+                   "read child page failure: %ld", target);
     temp->nodePageHeader().parentPageNumber = parent;
-    ASSERT_WITH_LOG(fm.pageWrite(target, *temp), false,
-                    "write child page failure: %ld", target);
+    CHECK_WITH_LOG(fm.pageWrite(target, *temp), false,
+                   "write child page failure: %ld", target);
 
     return true;
 }
@@ -520,7 +525,7 @@ bool BPTree::coalesce_nodes(node_tuple& target_tuple,
         pagenum_t pagenum;
         neighbor->emplace_back<Internal>(k_prime,
                                          pagenum = target_header.onePageNumber);
-        ASSERT_WITH_LOG(
+        CHECK_WITH_LOG(
             update_parent_with_commit(pagenum, neighbor_tuple.pagenum), false,
             "update parent with commit failure");
         for (auto& internal : target_tuple.n->range<Internal>())
@@ -528,20 +533,19 @@ bool BPTree::coalesce_nodes(node_tuple& target_tuple,
             pagenum = internal.pageNumber;
             neighbor->push_back(internal);
 
-            ASSERT_WITH_LOG(
+            CHECK_WITH_LOG(
                 update_parent_with_commit(pagenum, neighbor_tuple.pagenum),
                 false, "update parent with commit failure");
         }
     }
 
-    ASSERT_WITH_LOG(fm.pageWrite(neighbor_tuple.pagenum, *neighbor_tuple.n),
-                    false, "write neighbor page failure: %ld",
-                    neighbor_tuple.pagenum);
-    ASSERT_WITH_LOG(delete_entry(parent_tuple, k_prime), false,
-                    "delete entry of parent failure: %ld",
-                    parent_tuple.pagenum);
-    ASSERT_WITH_LOG(fm.pageFree(target_tuple.pagenum), false,
-                    "free target page failure: %ld", target_tuple.pagenum);
+    CHECK_WITH_LOG(fm.pageWrite(neighbor_tuple.pagenum, *neighbor_tuple.n),
+                   false, "write neighbor page failure: %ld",
+                   neighbor_tuple.pagenum);
+    CHECK_WITH_LOG(delete_entry(parent_tuple, k_prime), false,
+                   "delete entry of parent failure: %ld", parent_tuple.pagenum);
+    CHECK_WITH_LOG(fm.pageFree(target_tuple.pagenum), false,
+                   "free target page failure: %ld", target_tuple.pagenum);
 
     return true;
 }
@@ -570,9 +574,9 @@ bool BPTree::redistribute_nodes(node_tuple& target_tuple,
             parent_internals[k_prime_index].key = new_one.key;
             target_header.onePageNumber = new_one.pageNumber;
 
-            ASSERT_WITH_LOG(update_parent_with_commit(new_one.pageNumber,
-                                                      target_tuple.pagenum),
-                            false, "update parent with commit failure");
+            CHECK_WITH_LOG(update_parent_with_commit(new_one.pageNumber,
+                                                     target_tuple.pagenum),
+                           false, "update parent with commit failure");
         }
         else
         {
@@ -599,17 +603,13 @@ bool BPTree::redistribute_nodes(node_tuple& target_tuple,
             parent_internals[k_prime_index].key = neighbor_internals[0].key;
             neighbor_header.onePageNumber = neighbor_internals[0].pageNumber;
 
-            ASSERT_WITH_LOG(
+            CHECK_WITH_LOG(
                 update_parent_with_commit(
                     target_internals[target_header.numberOfKeys - 1].pageNumber,
                     target_tuple.pagenum),
                 false, "update parent with commit failure");
 
-            for (int i = 1; i < static_cast<int>(neighbor_header.numberOfKeys);
-                 ++i)
-            {
-                neighbor_internals[i - 1] = neighbor_internals[i];
-            }
+            neighbor_tuple.n->erase<Internal>(0);
         }
         else
         {
@@ -619,23 +619,17 @@ bool BPTree::redistribute_nodes(node_tuple& target_tuple,
 
             parent_internals[k_prime_index].key = neighbor_records[1].key;
 
-            for (int i = 1; i < static_cast<int>(neighbor_header.numberOfKeys);
-                 ++i)
-            {
-                neighbor_records[i - 1] = neighbor_records[i];
-            }
+            neighbor_tuple.n->erase<Record>(0);
         }
     }
 
-    --neighbor_header.numberOfKeys;
-
-    ASSERT_WITH_LOG(fm.pageWrite(target_tuple.pagenum, *target_tuple.n), false,
-                    "wrtie target page failure: %ld", target_tuple.pagenum);
-    ASSERT_WITH_LOG(fm.pageWrite(neighbor_tuple.pagenum, *neighbor_tuple.n),
-                    false, "wrtie neighbor page failure: %ld",
-                    neighbor_tuple.pagenum);
-    ASSERT_WITH_LOG(fm.pageWrite(parent_tuple.pagenum, *parent_tuple.n), false,
-                    "wrtie parent page failure: %ld", parent_tuple.pagenum);
+    CHECK_WITH_LOG(fm.pageWrite(target_tuple.pagenum, *target_tuple.n), false,
+                   "wrtie target page failure: %ld", target_tuple.pagenum);
+    CHECK_WITH_LOG(fm.pageWrite(neighbor_tuple.pagenum, *neighbor_tuple.n),
+                   false, "wrtie neighbor page failure: %ld",
+                   neighbor_tuple.pagenum);
+    CHECK_WITH_LOG(fm.pageWrite(parent_tuple.pagenum, *parent_tuple.n), false,
+                   "wrtie parent page failure: %ld", parent_tuple.pagenum);
 
     return true;
 }
@@ -683,8 +677,8 @@ node_tuple BPTree::find_leaf(keyType key)
     }
 
     auto now = std::make_unique<node>();
-    ASSERT_WITH_LOG(fm.pageRead(root, *now), node_tuple::invalid(),
-                    "page read failure");
+    CHECK_WITH_LOG(fm.pageRead(root, *now), node_tuple::invalid(),
+                   "page read failure");
 
     while (!now->nodePageHeader().isLeaf)
     {
@@ -739,7 +733,7 @@ node_tuple BPTree::find_leaf(keyType key)
         printf("%ld] ->\n", records[i].key);
     }
 
-    return { std::move(now), root };
+    return { root, std::move(now) };
 }
 
 std::unique_ptr<record> BPTree::make_record(keyType key,
@@ -754,7 +748,7 @@ std::unique_ptr<record> BPTree::make_record(keyType key,
 std::unique_ptr<node> BPTree::make_node(bool is_leaf) const
 {
     auto n = std::make_unique<node>();
-    ASSERT_WITH_LOG(n, nullptr, "allocation failure: node");
+    CHECK_WITH_LOG(n, nullptr, "allocation failure: node");
 
     auto& header = n->nodePageHeader();
 
@@ -770,12 +764,12 @@ bool BPTree::start_new_tree(const record& rec)
     root->insert(rec, 0);
 
     auto pagenum = fm.pageCreate();
-    ASSERT_WITH_LOG(pagenum != EMPTY_PAGE_NUMBER, false,
-                    "page creation failure");
-    ASSERT_WITH_LOG(fm.pageWrite(pagenum, *root), false, "page write failure");
+    CHECK_WITH_LOG(pagenum != EMPTY_PAGE_NUMBER, false,
+                   "page creation failure");
+    CHECK_WITH_LOG(fm.pageWrite(pagenum, *root), false, "page write failure");
 
     fm.fileHeader.rootPageNumber = pagenum;
-    ASSERT_WITH_LOG(fm.updateFileHeader(), false, "file header update failure");
+    CHECK_WITH_LOG(fm.updateFileHeader(), false, "file header update failure");
 
     return true;
 }
