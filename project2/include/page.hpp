@@ -146,7 +146,7 @@ struct Internal
 struct Records
 {
     std::array<Record, 31> records;
-    decltype(auto) begin() const
+    constexpr auto begin()
     {
         return std::begin(records);
     }
@@ -163,7 +163,7 @@ struct Records
 struct Internals
 {
     std::array<Internal, 248> internals;
-    decltype(auto) begin() const
+    constexpr auto begin()
     {
         return std::begin(internals);
     }
@@ -182,15 +182,15 @@ template<typename It>
 struct range_t
 {
     It b, e;
-    It begin() const
+    constexpr It begin() const
     {
         return b;
     }
-    It end() const
+    constexpr It end() const
     {
         return e;
     }
-    std::size_t size() const
+    constexpr std::size_t size() const
     {
         return end() - begin();
     }
@@ -381,6 +381,32 @@ struct page_t
                                             Records, Internals>::type;
         return range_t(std::next(std::begin(getEntry<S>()), begin),
                        std::next(std::begin(getEntry<S>()), end));
+    }
+
+    template<typename T, typename It>
+    void range_copy(It it, std::size_t begin = 0, std::size_t end = 0)
+    {
+        static_assert(std::is_same<Record, T>::value ||
+                      std::is_same<Internal, T>::value);
+        if (end == 0)
+        {
+            end = getHeader<NodePageHeader>().numberOfKeys;
+        }
+        using S = typename std::conditional<std::is_same<Record, T>::value,
+                                            Records, Internals>::type;
+        std::copy(std::next(std::begin(getEntry<S>()), begin),
+                  std::next(std::begin(getEntry<S>()), end), it);
+    }
+
+    template<typename T, typename It>
+    void range_assignment(It begin, It end)
+    {
+        static_assert(std::is_same<Record, T>::value ||
+                      std::is_same<Internal, T>::value);
+        using S = typename std::conditional<std::is_same<Record, T>::value,
+                                            Records, Internals>::type;
+        std::copy(begin, end, std::begin(getEntry<S>()));
+        getHeader<NodePageHeader>().numberOfKeys = std::distance(begin, end);
     }
 
     template<typename T>

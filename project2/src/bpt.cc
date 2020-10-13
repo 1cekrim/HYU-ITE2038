@@ -1,5 +1,6 @@
 #include "bpt.hpp"
 
+#include <algorithm>
 #include <cstring>
 #include <iostream>
 #include <vector>
@@ -23,8 +24,8 @@ bool BPTree::open_table(const std::string& filename)
 
 int BPTree::char_to_valType(valType& dst, const char* src) const
 {
-    std::memset(&dst, 0, sizeof(dst));
-    std::memcpy(&dst, src, std::max(static_cast<int>(strlen(src)), 119));
+    std::fill(std::begin(dst), std::end(dst), 0);
+    std::copy(src, src + std::max(static_cast<int>(strlen(src)), 119), dst);
     return 0;
 }
 
@@ -86,45 +87,29 @@ bool BPTree::insert_into_leaf_after_splitting(node_tuple& leaf_tuple,
     auto& leaf_pagenum = leaf_tuple.pagenum;
 
     auto& header = leaf_node->nodePageHeader();
-    auto& records = leaf_node->records();
 
     int insertion_index =
         leaf_node->satisfy_condition_first<Record>([&](auto& now) {
             return now.key >= rec.key;
         });
 
-    std::vector<record> temp(leaf_order + 1);
+    std::vector<record> temp;
+    temp.reserve(leaf_order + 1);
 
-    for (int i = 0, j = 0; i < static_cast<int>(header.numberOfKeys); ++i, ++j)
-    {
-        if (j == insertion_index)
-        {
-            ++j;
-        }
-        temp[j] = records[i];
-    }
-
-    temp[insertion_index] = rec;
-
-    header.numberOfKeys = 0;
+    auto back = std::back_inserter(temp);
+    leaf_node->range_copy<Record>(back, 0, insertion_index);
+    back = rec;
+    leaf_node->range_copy<Record>(back, insertion_index);
 
     int split = cut(leaf_order - 1);
 
-    for (int i = 0; i < split; ++i)
-    {
-        records[i] = temp[i];
-        ++header.numberOfKeys;
-    }
+    leaf_node->range_assignment<Record>(std::begin(temp),
+                                        std::next(std::begin(temp), split));
+    new_leaf->range_assignment<Record>(std::next(std::begin(temp), split),
+                                       std::end(temp));
 
     auto& new_header = new_leaf->nodePageHeader();
     auto& new_records = new_leaf->records();
-
-    for (int i = split, j = 0; i < leaf_order; ++i, ++j)
-    {
-        new_records[j] = temp[i];
-        ++new_header.numberOfKeys;
-    }
-
     new_header.onePageNumber = header.onePageNumber;
     header.onePageNumber = new_pagenum;
     new_header.parentPageNumber = header.parentPageNumber;
@@ -241,24 +226,33 @@ bool BPTree::insert_into_node_after_splitting(node_tuple& parent,
     Internal internal { key, right.pagenum };
 
     auto& parent_header = parent.n->nodePageHeader();
-    auto& parent_internal = parent.n->internals();
 
     auto new_pagenum = fm.pageCreate();
     CHECK_WITH_LOG(new_pagenum != EMPTY_PAGE_NUMBER, false,
                    "new page creation failure");
 
-    std::vector<Internal> temp(internal_order);
+    std::vector<Internal> temp;
+    temp.reserve(internal_order);
 
-    for (int i = 0, j = 0; i < static_cast<int>(parent_header.numberOfKeys);
-         ++i, ++j)
-    {
-        if (j == left_index)
-        {
-            ++j;
-        }
-        temp[j] = parent_internal[i];
-    }
-    temp[left_index] = internal;
+    auto& parent_node = parent.n;
+    auto back = std::back_inserter(temp);
+
+    // std::vector<Internal> temp(internal_order);
+
+    // for (int i = 0, j = 0; i < static_cast<int>(parent_header.numberOfKeys);
+    //      ++i, ++j)
+    // {
+    //     if (j == left_index)
+    //     {
+    //         ++j;
+    //     }
+    //     temp[j] = parent_internal[i];
+    // }
+    // temp[left_index] = internal;
+
+    parent_node->range_copy<Internal>(back, 0, left_index);
+    back = internal;
+    parent_node->range_copy<Internal>(back, left_index);
 
     int split = cut(internal_order);
 
@@ -347,11 +341,8 @@ bool BPTree::delete_entry(node_tuple& target_tuple, keyType key)
         return true;
     }
 
-    auto parent = make_node(false);
-    CHECK_WITH_LOG(fm.pageRead(target_header.parentPageNumber, *parent), false,
-                   "read parent page failure: %ld",
-                   target_header.parentPageNumber);
-
+    auto parent = load_node(target_header.parentPageNumber);
+    CHECK(parent);
     auto& parent_header = parent->nodePageHeader();
     CHECK_WITH_LOG(parent_header.numberOfKeys != 0, false,
                    "empty parent: %ld. child: %ld",
