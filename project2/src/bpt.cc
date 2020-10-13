@@ -77,7 +77,7 @@ bool BPTree::insert_into_leaf(node_tuple& leaf, const record& rec)
         ++insertion_point;
     }
 
-    c->insert_record(rec, insertion_point);
+    c->insert(rec, insertion_point);
     ASSERT_WITH_LOG(fm.pageWrite(pagenum, *c), false, "page write failure");
 
     return true;
@@ -208,7 +208,7 @@ bool BPTree::insert_into_new_root(node_tuple& left, keyType key,
 
     root_header.onePageNumber = left.pagenum;
 
-    root->push_internal({ key, right.pagenum });
+    root->emplace_back<Internal>(key, right.pagenum);
 
     left.n->nodePageHeader().parentPageNumber = root_pagenum;
     right.n->nodePageHeader().parentPageNumber = root_pagenum;
@@ -230,7 +230,7 @@ bool BPTree::insert_into_node(node_tuple& parent, int left_index, keyType key,
                               node_tuple& right)
 {
     Internal internal{ key, right.pagenum };
-    parent.n->insert_internal(internal, left_index);
+    parent.n->insert(internal, left_index);
     ASSERT_WITH_LOG(fm.pageWrite(parent.pagenum, *parent.n), false,
                     "parent page write failure: %ld", parent.pagenum);
     return true;
@@ -271,7 +271,7 @@ bool BPTree::insert_into_node_after_splitting(node_tuple& parent,
     parent_header.numberOfKeys = 0;
     for (i = 0; i < split - 1; ++i)
     {
-        parent.n->push_internal(temp[i]);
+        parent.n->push_back(temp[i]);
     }
     keyType k_prime = temp[split - 1].key;
 
@@ -281,7 +281,7 @@ bool BPTree::insert_into_node_after_splitting(node_tuple& parent,
     new_header.onePageNumber = temp[split - 1].pageNumber;
     for (++i; i < internal_order; ++i)
     {
-        new_node->push_internal(temp[i]);
+        new_node->push_back(temp[i]);
     }
     new_header.parentPageNumber = parent_header.parentPageNumber;
 
@@ -508,32 +508,41 @@ bool BPTree::coalesce_nodes(node_tuple& target_tuple,
         auto& neighbor = neighbor_tuple.n;
         for (int i = 0; i < static_cast<int>(target_header.numberOfKeys); ++i)
         {
-            // TODO: merge record
-            neighbor->push_record(target_records[i]);
+            neighbor->push_back(target_records[i]);
         }
         neighbor_header.onePageNumber = target_header.onePageNumber;
     }
     else
     {
         // internal
-        auto& target_internals = target_tuple.n->internals();
+        // auto& target_internals = target_tuple.n->internals();
         auto& neighbor = neighbor_tuple.n;
 
         pagenum_t pagenum;
-        neighbor->push_internal(
-            { k_prime, pagenum = target_header.onePageNumber });
+        neighbor->emplace_back<Internal>(k_prime,
+                                         pagenum = target_header.onePageNumber);
         ASSERT_WITH_LOG(
             update_parent_with_commit(pagenum, neighbor_tuple.pagenum), false,
             "update parent with commit failure");
-        for (int i = 0; i < static_cast<int>(target_header.numberOfKeys); ++i)
+        for (auto& internal : target_tuple.n->range<Internal>())
         {
-            pagenum = target_internals[i].pageNumber;
-            neighbor->push_internal(target_internals[i]);
+            pagenum = internal.pageNumber;
+            neighbor->push_back(internal);
 
             ASSERT_WITH_LOG(
                 update_parent_with_commit(pagenum, neighbor_tuple.pagenum),
                 false, "update parent with commit failure");
         }
+        // for (int i = 0; i < static_cast<int>(target_header.numberOfKeys);
+        // ++i)
+        // {
+        //     pagenum = target_internals[i].pageNumber;
+        //     neighbor->push_back(target_internals[i]);
+
+        //     ASSERT_WITH_LOG(
+        //         update_parent_with_commit(pagenum, neighbor_tuple.pagenum),
+        //         false, "update parent with commit failure");
+        // }
     }
 
     ASSERT_WITH_LOG(fm.pageWrite(neighbor_tuple.pagenum, *neighbor_tuple.n),
@@ -564,7 +573,7 @@ bool BPTree::redistribute_nodes(node_tuple& target_tuple,
         {
             auto& neighbor_internals = neighbor_tuple.n->internals();
 
-            target_tuple.n->insert_internal(
+            target_tuple.n->insert<Internal>(
                 { k_prime, target_header.onePageNumber }, 0);
 
             Internal& new_one =
@@ -581,7 +590,7 @@ bool BPTree::redistribute_nodes(node_tuple& target_tuple,
             auto& neighbor_records = neighbor_tuple.n->records();
             auto& target_records = target_tuple.n->records();
 
-            target_tuple.n->insert_record(
+            target_tuple.n->insert(
                 neighbor_records[neighbor_header.numberOfKeys - 1], 0);
 
             parent_internals[k_prime_index].key = target_records[0].key;
@@ -595,8 +604,8 @@ bool BPTree::redistribute_nodes(node_tuple& target_tuple,
             auto& neighbor_internals = neighbor_tuple.n->internals();
             auto& target_internals = target_tuple.n->internals();
 
-            target_tuple.n->push_internal(
-                { k_prime, neighbor_header.onePageNumber });
+            target_tuple.n->emplace_back<Internal>(
+                k_prime, neighbor_header.onePageNumber);
 
             parent_internals[k_prime_index].key = neighbor_internals[0].key;
             neighbor_header.onePageNumber = neighbor_internals[0].pageNumber;
@@ -617,7 +626,7 @@ bool BPTree::redistribute_nodes(node_tuple& target_tuple,
         {
             auto& neighbor_records = neighbor_tuple.n->records();
 
-            target_tuple.n->push_record(neighbor_records[0]);
+            target_tuple.n->push_back(neighbor_records[0]);
 
             parent_internals[k_prime_index].key = neighbor_records[1].key;
 
@@ -644,14 +653,14 @@ bool BPTree::redistribute_nodes(node_tuple& target_tuple,
 
 std::unique_ptr<record> BPTree::find(keyType key)
 {
-    auto [c, pagenum] = find_leaf(key);
-    if (!c)
+    auto leaf = find_leaf(key);
+    if (!leaf.n)
     {
         return nullptr;
     }
 
-    auto& header = c->nodePageHeader();
-    auto& records = c->records();
+    auto& header = leaf.n->nodePageHeader();
+    auto& records = leaf.n->records();
 
     int i;
     for (i = 0; i < static_cast<int>(header.numberOfKeys); ++i)
@@ -769,7 +778,7 @@ bool BPTree::start_new_tree(const record& rec)
 {
     auto root = make_node(true);
 
-    root->insert_record(rec, 0);
+    root->insert(rec, 0);
 
     auto pagenum = fm.pageCreate();
     ASSERT_WITH_LOG(pagenum != EMPTY_PAGE_NUMBER, false,
