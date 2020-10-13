@@ -1,5 +1,5 @@
 CC=gcc
-CPP=g++
+CPP=g++-7
 
 MAINDIR=main_src/
 INC=include/
