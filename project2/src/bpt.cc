@@ -185,11 +185,14 @@ bool BPTree::commit_node(const node_tuple& nt)
 bool BPTree::insert_into_new_root(node_tuple& left_tuple, keyType key,
                                   node_tuple& right_tuple)
 {
+    puts("insert_into_new_root");
     auto root_pagenum = fm.pageCreate();
     CHECK_WITH_LOG(root_pagenum != EMPTY_PAGE_NUMBER, false,
                    "root page creation failure");
 
+    puts("insert_into_new_root");
     auto root = make_node(false);
+    puts("insert_into_new_root");
     auto& root_header = root->nodePageHeader();
 
     root_header.onePageNumber = left_tuple.pagenum;
@@ -223,36 +226,38 @@ bool BPTree::insert_into_node_after_splitting(node_tuple& parent,
                                               int left_index, keyType key,
                                               node_tuple& right)
 {
+    puts("insert_into");
     Internal internal { key, right.pagenum };
 
     auto& parent_header = parent.n->nodePageHeader();
+    auto& parent_internal = parent.n->entry.internals;
 
     auto new_pagenum = fm.pageCreate();
     CHECK_WITH_LOG(new_pagenum != EMPTY_PAGE_NUMBER, false,
                    "new page creation failure");
 
-    std::vector<Internal> temp;
-    temp.reserve(internal_order);
+    // std::vector<Internal> temp;
+    // temp.reserve(internal_order);
 
-    auto& parent_node = parent.n;
-    auto back = std::back_inserter(temp);
+    // auto& parent_node = parent.n;
+    // auto back = std::back_inserter(temp);
 
-    // std::vector<Internal> temp(internal_order);
+    std::vector<Internal> temp(internal_order);
 
-    // for (int i = 0, j = 0; i < static_cast<int>(parent_header.numberOfKeys);
-    //      ++i, ++j)
-    // {
-    //     if (j == left_index)
-    //     {
-    //         ++j;
-    //     }
-    //     temp[j] = parent_internal[i];
-    // }
-    // temp[left_index] = internal;
+    for (int i = 0, j = 0; i < static_cast<int>(parent_header.numberOfKeys);
+         ++i, ++j)
+    {
+        if (j == left_index)
+        {
+            ++j;
+        }
+        temp[j] = parent_internal[i];
+    }
+    temp[left_index] = internal;
 
-    parent_node->range_copy<Internal>(back, 0, left_index);
-    back = internal;
-    parent_node->range_copy<Internal>(back, left_index);
+    // parent_node->range_copy<Internal>(back, 0, left_index);
+    // back = internal;
+    // parent_node->range_copy<Internal>(back, left_index);
 
     int split = cut(internal_order);
 

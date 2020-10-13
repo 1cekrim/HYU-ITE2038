@@ -159,32 +159,49 @@ void TEST_FILE_MANAGER()
 
 void TEST_BPT()
 {
-    TEST("BPTree random number insert many")
+    // TEST("BPTree random number insert many")
+    // {
+    //     BPTree tree;
+    //     CHECK_TRUE(tree.open_table("insert.db"));
+
+    //     std::vector<int> keys(100000);
+
+    //     std::random_device rd;
+    //     std::mt19937 mt(rd());
+
+    //     for (int i = 1; i <= 100000; ++i)
+    //     {
+    //         std::uniform_int_distribution<int> range(0, i - 1);
+    //         int pos = range(mt);
+    //         keys[i - 1] = keys[pos];
+    //         keys[pos] = i;
+    //     }
+        
+    //     for (int a : keys)
+    //     {
+    //         valType v;
+    //         std::stringstream ss;
+    //         ss << "test insert " << a;
+    //         tree.char_to_valType(v, ss.str().c_str());
+
+    //         CHECK_TRUE(tree.insert(a, v));
+    //     }
+    // }
+    // END()
+
+     TEST("BPTree  insert many")
     {
-        BPTree tree;
+        BPTree tree(true);
         CHECK_TRUE(tree.open_table("insert.db"));
 
-        std::vector<int> keys(100000);
-
-        std::random_device rd;
-        std::mt19937 mt(rd());
-
-        for (int i = 1; i <= 100000; ++i)
-        {
-            std::uniform_int_distribution<int> range(0, i - 1);
-            int pos = range(mt);
-            keys[i - 1] = keys[pos];
-            keys[pos] = i;
-        }
-        
-        for (int a : keys)
-        {
+        for (int i = 100; i > 0; --i)
+    {
             valType v;
             std::stringstream ss;
-            ss << "test insert " << a;
+            ss << "test insert " << i;
             tree.char_to_valType(v, ss.str().c_str());
 
-            CHECK_TRUE(tree.insert(a, v));
+            CHECK_TRUE(tree.insert(i, v));
         }
     }
     END()
