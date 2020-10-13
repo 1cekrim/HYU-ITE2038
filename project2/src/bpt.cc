@@ -569,11 +569,9 @@ bool BPTree::redistribute_nodes(node_tuple& target_tuple,
             parent_internals[k_prime_index].key = neighbor_internals[0].key;
             neighbor_header.onePageNumber = neighbor_internals[0].pageNumber;
 
-            CHECK_WITH_LOG(
-                update_parent_with_commit(
-                    target_internals[target_header.numberOfKeys - 1].pageNumber,
-                    target_tuple.pagenum),
-                false, "update parent with commit failure");
+            CHECK(update_parent_with_commit(
+                target_internals[target_header.numberOfKeys - 1].pageNumber,
+                target_tuple.pagenum));
 
             neighbor_tuple.n->erase<Internal>(0);
         }
@@ -656,7 +654,7 @@ node_tuple BPTree::find_leaf(keyType key)
             std::cout << "] \n";
         }
 
-        int idx = now->satisfy_condition_first<Internal>([&](auto& now){
+        int idx = now->satisfy_condition_first<Internal>([&](auto& now) {
             return now.key > key;
         }) - 1;
 
@@ -665,9 +663,8 @@ node_tuple BPTree::find_leaf(keyType key)
             printf("%d ->\n", idx);
         }
 
-        fm.pageRead(
-            root = ((idx == -1) ? header.onePageNumber : internal[idx].pageNumber),
-            *now);
+        now = load_node(root = (idx == -1) ? header.onePageNumber
+                                           : internal[idx].pageNumber);
     }
 
     if (verbose_output)
