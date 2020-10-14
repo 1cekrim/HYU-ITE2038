@@ -289,7 +289,8 @@ bool BPTree::delete_entry(node_tuple& target, keyType key)
         return true;
     }
 
-    node_tuple parent = {target.node->parent(), load_node(target.node->parent())};
+    node_tuple parent = { target.node->parent(),
+                          load_node(target.node->parent()) };
     CHECK(parent);
     CHECK(parent.node->number_of_keys() > 0);
 
@@ -310,8 +311,7 @@ bool BPTree::delete_entry(node_tuple& target, keyType key)
     int capacity = target.node->is_leaf() ? leaf_order : internal_order - 1;
 
     if (static_cast<int>(target.node->number_of_keys() +
-                         neighbor.node->number_of_keys()) <
-        capacity)
+                         neighbor.node->number_of_keys()) < capacity)
     {
         node_tuple tmp_neightbor, tmp_target;
         if (neighbor_index == -1)
@@ -328,21 +328,20 @@ bool BPTree::delete_entry(node_tuple& target, keyType key)
     }
     else
     {
-        return redistribute_nodes(target, neighbor, parent,
-                                  k_prime, k_prime_index, neighbor_index);
+        return redistribute_nodes(target, neighbor, parent, k_prime,
+                                  k_prime_index, neighbor_index);
     }
 }
 
 bool BPTree::remove_entry_from_node(node_tuple& target, keyType key)
 {
-    auto& header = target.node->nodePageHeader();
-    if (header.isLeaf)
+    if (target.node->is_leaf())
     {
         int idx =
             target.node->satisfy_condition_first<record_t>([&](auto& now) {
                 return now.key == key;
             });
-        CHECK_WITH_LOG(idx != static_cast<int>(header.numberOfKeys), false,
+        CHECK_WITH_LOG(idx != target.node->number_of_keys(), false,
                        "invalid key: %ld", key);
         target.node->erase<record_t>(idx);
     }
@@ -352,7 +351,7 @@ bool BPTree::remove_entry_from_node(node_tuple& target, keyType key)
             target.node->satisfy_condition_first<internal_t>([&](auto& now) {
                 return now.key == key;
             });
-        CHECK_WITH_LOG(idx != static_cast<int>(header.numberOfKeys), false,
+        CHECK_WITH_LOG(idx != target.node->number_of_keys(), false,
                        "invalid key: %ld", key);
         target.node->erase<internal_t>(idx);
     }
@@ -363,6 +362,7 @@ bool BPTree::remove_entry_from_node(node_tuple& target, keyType key)
 bool BPTree::adjust_root()
 {
     node_tuple root = { manager.root(), load_node(manager.root()) };
+    CHECK(root);
 
     if (root.node->number_of_keys() > 0)
     {
@@ -386,53 +386,43 @@ bool BPTree::adjust_root()
     return true;
 }
 
-bool BPTree::update_parent_with_commit(nodeId_t target_pagenum,
-                                       nodeId_t parent_pagenum)
+bool BPTree::update_parent_with_commit(nodeId_t target_id, nodeId_t parent_id)
 {
-    auto temp = load_node(target_pagenum);
-    temp->nodePageHeader().parentPageNumber = parent_pagenum;
-    CHECK(commit_node(target_pagenum, *temp));
-    
+    auto temp = load_node(target_id);
+    CHECK(temp);
+    temp->set_parent(parent_id);
+    CHECK(commit_node(target_id, *temp));
+
     return true;
 }
 
-bool BPTree::coalesce_nodes(node_tuple& target_tuple,
-                            node_tuple& neighbor_tuple,
-                            node_tuple& parent_tuple, int k_prime)
+bool BPTree::coalesce_nodes(node_tuple& target, node_tuple& neighbor,
+                            node_tuple& parent, int k_prime)
 {
-    auto& target_header = target_tuple.node->nodePageHeader();
-    auto& neighbor_header = neighbor_tuple.node->nodePageHeader();
-
-    if (target_header.isLeaf)
+    if (target.node->is_leaf())
     {
-        auto& neighbor = neighbor_tuple.node;
-        for (auto& rec : target_tuple.node->range<record_t>())
+        for (auto& rec : target.node->range<record_t>())
         {
-            neighbor->push_back(rec);
+            neighbor.node->push_back(rec);
         }
-        neighbor_header.onePageNumber = target_header.onePageNumber;
+        neighbor.node->set_next_leaf(target.node->next_leaf());
     }
     else
     {
-        // internal
-        auto& neighbor = neighbor_tuple.node;
-
-        nodeId_t pagenum;
-        neighbor->emplace_back<internal_t>(
-            k_prime, pagenum = target_header.onePageNumber);
-        CHECK(update_parent_with_commit(pagenum, neighbor_tuple.id));
-        for (auto& internal : target_tuple.node->range<internal_t>())
+        neighbor.node->emplace_back<internal_t>(k_prime,
+                                                target.node->leftmost());
+        CHECK(update_parent_with_commit(target.node->leftmost(), neighbor.id));
+        for (auto& internal : target.node->range<internal_t>())
         {
-            pagenum = internal.node_id;
-            neighbor->push_back(internal);
+            neighbor.node->push_back(internal);
 
-            CHECK(update_parent_with_commit(pagenum, neighbor_tuple.id));
+            CHECK(update_parent_with_commit(internal.node_id, neighbor.id));
         }
     }
 
-    CHECK(commit_node(neighbor_tuple));
-    CHECK(delete_entry(parent_tuple, k_prime));
-    CHECK(free_node(target_tuple.id));
+    CHECK(commit_node(neighbor));
+    CHECK(delete_entry(parent, k_prime));
+    CHECK(free_node(target.id));
 
     return true;
 }
@@ -621,7 +611,7 @@ std::unique_ptr<node_t> BPTree::make_node(bool is_leaf) const
 
 bool BPTree::start_new_tree(const record_t& rec)
 {
-    node_tuple root = {create_node(), make_node(true)};
+    node_tuple root = { create_node(), make_node(true) };
     CHECK(root);
 
     root.node->insert(rec, 0);
