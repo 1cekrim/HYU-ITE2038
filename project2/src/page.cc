@@ -120,7 +120,7 @@ bool page_t::load(FileManager& fm, pagenum_t pagenum)
     return true;
 }
 
-int page_t::size() const
+int page_t::number_of_keys() const
 {
     return static_cast<int>(nodePageHeader().numberOfKeys);
 }

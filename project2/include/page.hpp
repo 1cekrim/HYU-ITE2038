@@ -426,13 +426,23 @@ struct page_t
         return index;
     }
 
+    template <typename T>
+    T& get(std::size_t idx)
+    {
+        static_assert(std::is_same<Record, T>::value ||
+                      std::is_same<Internal, T>::value);
+        using S = typename std::conditional<std::is_same<Record, T>::value,
+                                            Records, Internals>::type;
+        return getEntry<S>()[idx];
+    }
+
     void print_node();
 
-    int size() const;
+    int number_of_keys() const;
     pagenum_t parent() const;
     void set_parent(pagenum_t parent);
     bool is_leaf() const;
-    
+
     pagenum_t leftmost() const;
     void set_leftmost(pagenum_t leftmost);
     pagenum_t next_leaf() const;
