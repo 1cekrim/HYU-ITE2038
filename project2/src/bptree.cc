@@ -255,11 +255,6 @@ bool BPTree::insert_into_node_after_splitting(node_tuple& parent,
     CHECK(commit_node(parent));
     CHECK(commit_node(new_pagenum, *new_node));
 
-    CHECK_WITH_LOG(fm.pageWrite(parent.id, *parent.node), false,
-                   "parent page write failure");
-    CHECK_WITH_LOG(fm.pageWrite(new_pagenum, *new_node), false,
-                   "new page write failure");
-
     node_tuple new_tuple{ new_pagenum, std::move(new_node) };
     return insert_into_parent(parent, k_prime, new_tuple);
 }
