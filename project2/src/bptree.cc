@@ -50,6 +50,7 @@ bool BPTree::insert(keyType key, const valType& value)
     }
 
     auto leaf = find_leaf(key);
+    CHECK(leaf);
 
     if (leaf.node->number_of_keys() < leaf_order - 1)
     {
@@ -104,7 +105,7 @@ bool BPTree::insert_into_leaf_after_splitting(node_tuple& leaf,
     CHECK(commit_node(leaf));
     CHECK(commit_node(new_leaf));
 
-    return insert_into_parent(leaf, new_leaf.node->get<Record>(0).key,
+    return insert_into_parent(leaf, new_leaf.node->get<record_t>(0).key,
                               new_leaf);
 }
 
@@ -204,7 +205,7 @@ bool BPTree::insert_into_new_root(node_tuple& left, keyType key,
 bool BPTree::insert_into_node(node_tuple& parent, int left_index, keyType key,
                               node_tuple& right)
 {
-    parent.node->insert<Internal>({ key, right.id }, left_index);
+    parent.node->insert<internal_t>({ key, right.id }, left_index);
     CHECK(commit_node(parent));
     return true;
 }
@@ -251,11 +252,8 @@ bool BPTree::delete_key(keyType key)
 {
     auto record = find(key);
     auto leaf = find_leaf(key);
-    CHECK_WITH_LOG(is_valid(leaf.id), false, "find leaf failure: %ld", key);
-    if (!record)
-    {
-        return false;
-    }
+    CHECK(leaf);
+    CHECK(record);
 
     CHECK_WITH_LOG(delete_entry(leaf, key), false, "delete entry failure");
 
@@ -296,15 +294,15 @@ bool BPTree::delete_entry(node_tuple& target, keyType key)
 
     int neighbor_index = get_left_index(*parent.node, target.id) - 1;
     int k_prime_index = neighbor_index == -1 ? 0 : neighbor_index;
-    keyType k_prime = parent.node->get<Internal>(k_prime_index).key;
+    keyType k_prime = parent.node->get<internal_t>(k_prime_index).key;
 
     node_tuple neighbor;
     neighbor.id =
         neighbor_index == -1
-            ? parent.node->get<Internal>(0).node_id
+            ? parent.node->get<internal_t>(0).node_id
             : neighbor_index == 0
                   ? parent.node->leftmost()
-                  : parent.node->get<Internal>(neighbor_index - 1).node_id;
+                  : parent.node->get<internal_t>(neighbor_index - 1).node_id;
     neighbor.node = load_node(neighbor.id);
     CHECK(neighbor);
 
@@ -427,8 +425,7 @@ bool BPTree::coalesce_nodes(node_tuple& target, node_tuple& neighbor,
     return true;
 }
 
-bool BPTree::redistribute_nodes(node_tuple& target,
-                                node_tuple& neighbor,
+bool BPTree::redistribute_nodes(node_tuple& target, node_tuple& neighbor,
                                 node_tuple& parent, int k_prime,
                                 int k_prime_index, int neighbor_index)
 {
@@ -451,7 +448,8 @@ bool BPTree::redistribute_nodes(node_tuple& target,
         {
             target.node->insert(neighbor.node->back<record_t>(), 0);
 
-            parent.node->get<record_t>(k_prime_index).key = target.node->first<record_t>().key;
+            parent.node->get<record_t>(k_prime_index).key =
+                target.node->first<record_t>().key;
         }
     }
     else
@@ -459,16 +457,15 @@ bool BPTree::redistribute_nodes(node_tuple& target,
         // right neighbor
         if (!target.node->is_leaf())
         {
-            target.node->emplace_back<internal_t>(
-                k_prime, neighbor.node->leftmost());
+            target.node->emplace_back<internal_t>(k_prime,
+                                                  neighbor.node->leftmost());
 
             auto& leftmost = neighbor.node->first<internal_t>();
             parent.node->get<internal_t>(k_prime_index).key = leftmost.key;
             neighbor.node->set_leftmost(leftmost.node_id);
 
             CHECK(update_parent_with_commit(
-                target.node->back<internal_t>().node_id,
-                target.id));
+                target.node->back<internal_t>().node_id, target.id));
 
             target.node->erase<internal_t>(0);
         }
@@ -476,7 +473,8 @@ bool BPTree::redistribute_nodes(node_tuple& target,
         {
             target.node->push_back(neighbor.node->first<record_t>());
 
-            parent.node->get<record_t>(k_prime_index).key = neighbor.node->get<record_t>(1).key;
+            parent.node->get<record_t>(k_prime_index).key =
+                neighbor.node->get<record_t>(1).key;
 
             neighbor.node->erase<record_t>(0);
         }
@@ -492,92 +490,87 @@ bool BPTree::redistribute_nodes(node_tuple& target,
 std::unique_ptr<record_t> BPTree::find(keyType key)
 {
     auto leaf = find_leaf(key);
-    if (!leaf.node)
+    if (!leaf)
     {
         return nullptr;
     }
 
-    auto& header = leaf.node->nodePageHeader();
-    auto& records = leaf.node->records();
-
     int i;
-    for (i = 0; i < static_cast<int>(header.numberOfKeys); ++i)
+    for (i = 0; i < leaf.node->number_of_keys(); ++i)
     {
-        if (records[i].key == key)
+        if (leaf.node->get<record_t>(i).key == key)
         {
             break;
         }
     }
 
-    if (i == static_cast<int>(header.numberOfKeys))
+    if (i == leaf.node->number_of_keys())
     {
         return nullptr;
     }
     else
     {
-        return std::make_unique<record_t>(records[i]);
+        return std::make_unique<record_t>(leaf.node->get<record_t>(i));
     }
 }
 
 node_tuple BPTree::find_leaf(keyType key)
 {
-    auto root = manager.fileHeader.rootPageNumber;
-    if (!is_valid(root))
+    auto root_id = manager.root();
+    if (!is_valid(root_id))
     {
-        if (verbose_output)
-        {
-            // 로그 출력
-        }
         return node_tuple::invalid();
     }
 
-    auto now = load_node(root);
+    node_tuple root = { root_id, load_node(root_id) };
+    CHECK_RET(root, node_tuple::invalid());
 
-    while (!now->nodePageHeader().isLeaf)
+    while (!root.node->is_leaf())
     {
-        auto& header = now->nodePageHeader();
-        auto& internal = now->internals();
-
         if (verbose_output)
         {
             std::cout << '[';
-            for (auto& internal : now->range<internal_t>())
+            for (auto& internal : root.node->range<internal_t>())
             {
                 std::cout << internal.key << ' ';
             }
             std::cout << "] \n";
         }
 
-        int idx = now->satisfy_condition_first<internal_t>([&](auto& now) {
-            return now.key > key;
-        }) - 1;
+        int idx =
+            root.node->satisfy_condition_first<internal_t>([&](auto& now) {
+                return now.key > key;
+            }) -
+            1;
 
         if (verbose_output)
         {
             printf("%d ->\n", idx);
         }
 
-        now = load_node(root = (idx == -1) ? header.onePageNumber
-                                           : internal[idx].node_id);
+        root.node = load_node(
+            root.id = (idx == -1) ? root.node->leftmost()
+                                  : root.node->get<internal_t>(idx).node_id);
     }
 
     if (verbose_output)
     {
         std::cout << "Leaf [";
-        for (auto& record : now->range<record_t>())
+        for (auto& record : root.node->range<record_t>())
         {
             std::cout << record.key << " ";
         }
         std::cout << "] ->\n";
     }
 
-    return { root, std::move(now) };
+    return root;
 }
 
 std::unique_ptr<record_t> BPTree::make_record(keyType key,
                                               const valType& value) const
 {
     auto rec = std::make_unique<record_t>();
+    CHECK_RET(rec, nullptr);
     rec->init(key, value);
 
     return rec;
