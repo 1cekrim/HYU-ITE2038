@@ -226,55 +226,32 @@ bool BPTree::insert_into_node_after_splitting(node_tuple& parent,
     Internal internal { key, right.pagenum };
 
     auto& parent_header = parent.n->nodePageHeader();
-    auto& parent_internal = parent.n->entry.internals;
 
     auto new_pagenum = fm.pageCreate();
     CHECK_WITH_LOG(new_pagenum != EMPTY_PAGE_NUMBER, false,
                    "new page creation failure");
 
-    // std::vector<Internal> temp;
-    // temp.reserve(internal_order);
+    std::vector<Internal> temp;
+    temp.reserve(internal_order);
 
-    // auto& parent_node = parent.n;
-    // auto back = std::back_inserter(temp);
-
-    std::vector<Internal> temp(internal_order);
-
-    for (int i = 0, j = 0; i < static_cast<int>(parent_header.numberOfKeys);
-         ++i, ++j)
-    {
-        if (j == left_index)
-        {
-            ++j;
-        }
-        temp[j] = parent_internal[i];
-    }
-    temp[left_index] = internal;
-
-    // parent_node->range_copy<Internal>(back, 0, left_index);
-    // back = internal;
-    // parent_node->range_copy<Internal>(back, left_index);
+    auto& parent_node = parent.n;
+    auto back = std::back_inserter(temp);
+    parent_node->range_copy<Internal>(back, 0, left_index);
+    back = internal;
+    parent_node->range_copy<Internal>(back, left_index);
 
     int split = cut(internal_order);
 
     auto new_node = make_node(false);
 
-    // parent의 onePageNumber는 변경되지 않음이 보장되니 고려하지 않음
-    int i;
-    parent_header.numberOfKeys = 0;
-    for (i = 0; i < split - 1; ++i)
-    {
-        parent.n->push_back(temp[i]);
-    }
     keyType k_prime = temp[split - 1].key;
+
+    parent_node->range_assignment<Internal>(std::begin(temp), std::next(std::begin(temp), split - 1));
 
     auto& new_header = new_node->nodePageHeader();
 
     new_header.onePageNumber = temp[split - 1].pageNumber;
-    for (++i; i < internal_order; ++i)
-    {
-        new_node->push_back(temp[i]);
-    }
+    new_node->range_assignment<Internal>(std::next(std::begin(temp), split), std::end(temp));
     new_header.parentPageNumber = parent_header.parentPageNumber;
 
     CHECK_WITH_LOG(

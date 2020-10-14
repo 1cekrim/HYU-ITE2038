@@ -3,15 +3,15 @@
 #include <cstdio>
 
 #include <iostream>
-#include <string>
-#include <sstream>
-#include <vector>
 #include <list>
 #include <random>
+#include <sstream>
+#include <string>
+#include <vector>
 
+#include "bpt.hpp"
 #include "file_api.hpp"
 #include "file_manager.hpp"
-#include "bpt.hpp"
 #include "logger.hpp"
 
 int success, cnt, allSuccess, allCnt;
@@ -29,7 +29,8 @@ int main()
 
     std::string testNames[] = { "file_manager", "bpt", "test_file", "TESTS" };
 
-    for (int i = 0; i < static_cast<int>((sizeof(tests) / sizeof(void (*)(void)))); ++i)
+    for (int i = 0;
+         i < static_cast<int>((sizeof(tests) / sizeof(void (*)(void)))); ++i)
     {
         success = cnt = 0;
 
@@ -100,8 +101,7 @@ void TEST_FILE_MANAGER()
 
         for (int i = 0; i < 248; ++i)
         {
-            CHECK_TRUE(page.internals()[i].key ==
-                       readPage.internals()[i].key);
+            CHECK_TRUE(page.internals()[i].key == readPage.internals()[i].key);
             CHECK_TRUE(page.internals()[i].pageNumber ==
                        readPage.internals()[i].pageNumber);
         }
@@ -159,52 +159,52 @@ void TEST_FILE_MANAGER()
 
 void TEST_BPT()
 {
-    // TEST("BPTree random number insert many")
-    // {
-    //     BPTree tree;
-    //     CHECK_TRUE(tree.open_table("insert.db"));
-
-    //     std::vector<int> keys(100000);
-
-    //     std::random_device rd;
-    //     std::mt19937 mt(rd());
-
-    //     for (int i = 1; i <= 100000; ++i)
-    //     {
-    //         std::uniform_int_distribution<int> range(0, i - 1);
-    //         int pos = range(mt);
-    //         keys[i - 1] = keys[pos];
-    //         keys[pos] = i;
-    //     }
-        
-    //     for (int a : keys)
-    //     {
-    //         valType v;
-    //         std::stringstream ss;
-    //         ss << "test insert " << a;
-    //         tree.char_to_valType(v, ss.str().c_str());
-
-    //         CHECK_TRUE(tree.insert(a, v));
-    //     }
-    // }
-    // END()
-
-     TEST("BPTree  insert many")
+    TEST("BPTree random number insert many")
     {
         BPTree tree;
         CHECK_TRUE(tree.open_table("insert.db"));
 
-        for (int i = 100000; i > 0; --i)
-    {
+        std::vector<int> keys(100000);
+
+        std::random_device rd;
+        std::mt19937 mt(rd());
+
+        for (int i = 1; i <= 100000; ++i)
+        {
+            std::uniform_int_distribution<int> range(0, i - 1);
+            int pos = range(mt);
+            keys[i - 1] = keys[pos];
+            keys[pos] = i;
+        }
+
+        for (int a : keys)
+        {
             valType v;
             std::stringstream ss;
-            ss << "test insert " << i;
+            ss << "test insert " << a;
             tree.char_to_valType(v, ss.str().c_str());
 
-            CHECK_TRUE(tree.insert(i, v));
+            CHECK_TRUE(tree.insert(a, v));
         }
     }
     END()
+
+    //  TEST("BPTree  insert many")
+    // {
+    //     BPTree tree;
+    //     CHECK_TRUE(tree.open_table("insert.db"));
+
+    //     for (int i = 100000; i > 0; --i)
+    // {
+    //         valType v;
+    //         std::stringstream ss;
+    //         ss << "test insert " << i;
+    //         tree.char_to_valType(v, ss.str().c_str());
+
+    //         CHECK_TRUE(tree.insert(i, v));
+    //     }
+    // }
+    // END()
 
     TEST("BPTree find key")
     {
@@ -227,7 +227,7 @@ void TEST_BPT()
     {
         BPTree tree;
         CHECK_TRUE(tree.open_table("insert.db"));
-        
+
         for (int i = 1; i <= 50000; ++i)
         {
             CHECK_TRUE(tree.delete_key(i));
@@ -245,7 +245,7 @@ void TEST_BPT()
     {
         BPTree tree;
         CHECK_TRUE(tree.open_table("insert.db"));
-        
+
         for (int i = 50001; i <= 100000; ++i)
         {
             // std::cout << i << '\n';
