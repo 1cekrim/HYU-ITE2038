@@ -25,7 +25,7 @@ bool BPTree::open_table(const std::string& filename)
 int BPTree::char_to_valType(valType& dst, const char* src) const
 {
     std::fill(std::begin(dst), std::end(dst), 0);
-    std::copy(src, src + std::max(static_cast<int>(strlen(src)), 119), dst);
+    std::copy_n(src, std::min(static_cast<int>(strlen(src)), 119), std::begin(dst));
     return 0;
 }
 

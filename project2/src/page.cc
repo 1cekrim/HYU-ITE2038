@@ -29,7 +29,7 @@ void page_t::print_node()
         for (int i = 0; i < static_cast<int>(head.numberOfKeys); ++i)
         {
             std::cout << "[" << i << "] (" << body[i].key << ", "
-                      << body[i].value << ")\n";
+                      << body[i].value.data() << ")\n";
         }
     }
     else

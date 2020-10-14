@@ -13,7 +13,7 @@ class FileManager;
 #define PAGESIZE 4096
 
 constexpr auto value_size = 120;
-using valType = uint8_t[120];
+using valType = std::array<uint8_t, 120>;
 using keyType = int64_t;
 using pagenum_t = uint64_t;
 
@@ -115,7 +115,8 @@ struct Record
     valType value;
     Record& operator=(const Record& rhs)
     {
-        memcpy(this, &rhs, sizeof(Record));
+        this->key = rhs.key;
+        this->value = rhs.value;
         return *this;
     }
     void init(keyType key, const valType& val)
@@ -131,7 +132,8 @@ struct Internal
     pagenum_t node_id;
     Internal& operator=(const Internal& rhs)
     {
-        memcpy(this, &rhs, sizeof(Internal));
+        this->key = rhs.key;
+        this->node_id = rhs.node_id;
         return *this;
     }
     void init(keyType key, pagenum_t node_id)
@@ -228,6 +230,10 @@ struct page_t
     {
         Records records;
         Internals internals;
+        Entry() : records()
+        {
+            // Do nothing
+        }
     } entry;
 
     template <typename T>
