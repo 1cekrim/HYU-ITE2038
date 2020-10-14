@@ -156,3 +156,18 @@ int FileManager::getFileDescriptor() const
     }
     return fileno(fp.get());
 }
+
+pagenum_t FileManager::root() const
+{
+    return fileHeader.rootPageNumber;
+}
+
+void FileManager::set_root(pagenum_t pagenum)
+{
+    fileHeader.rootPageNumber = pagenum;
+}
+
+bool FileManager::commit()
+{
+    return updateFileHeader();
+}

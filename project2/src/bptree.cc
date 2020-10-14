@@ -18,7 +18,7 @@ BPTree::BPTree(bool verbose_output, int delayed_min)
 
 bool BPTree::open_table(const std::string& filename)
 {
-    CHECK_WITH_LOG(fm.open(filename), false, "open table failure");
+    CHECK_WITH_LOG(manager.open(filename), false, "open table failure");
     return true;
 }
 
@@ -31,7 +31,7 @@ int BPTree::char_to_valType(valType& dst, const char* src) const
 
 int BPTree::get_table_id() const
 {
-    return fm.getFileDescriptor();
+    return manager.getFileDescriptor();
 }
 
 bool BPTree::insert(keyType key, const valType& value)
@@ -44,7 +44,7 @@ bool BPTree::insert(keyType key, const valType& value)
 
     auto record = make_record(key, value);
 
-    if (fm.fileHeader.rootPageNumber == EMPTY_PAGE_NUMBER)
+    if (!is_valid(manager.fileHeader.rootPageNumber))
     {
         return start_new_tree(*record);
     }
@@ -61,8 +61,10 @@ bool BPTree::insert(keyType key, const valType& value)
 
 bool BPTree::insert_into_leaf(node_tuple& leaf, const record_t& rec)
 {
-    int insertion_point = leaf.node->satisfy_condition_first<record_t>(
-        [&](auto& now) { return now.key >= rec.key; });
+    int insertion_point =
+        leaf.node->satisfy_condition_first<record_t>([&](auto& now) {
+            return now.key >= rec.key;
+        });
 
     leaf.node->insert(rec, insertion_point);
 
@@ -74,10 +76,12 @@ bool BPTree::insert_into_leaf(node_tuple& leaf, const record_t& rec)
 bool BPTree::insert_into_leaf_after_splitting(node_tuple& leaf,
                                               const record_t& rec)
 {
-    auto new_leaf = node_tuple{ create_node(), make_node(true) };
+    auto new_leaf = node_tuple { create_node(), make_node(true) };
 
-    int insertion_index = leaf.node->satisfy_condition_first<record_t>(
-        [&](auto& now) { return now.key >= rec.key; });
+    int insertion_index =
+        leaf.node->satisfy_condition_first<record_t>([&](auto& now) {
+            return now.key >= rec.key;
+        });
 
     std::vector<record_t> temp;
     temp.reserve(leaf_order + 1);
@@ -106,16 +110,13 @@ bool BPTree::insert_into_leaf_after_splitting(node_tuple& leaf,
 bool BPTree::insert_into_parent(node_tuple& left, keyType key,
                                 node_tuple& right)
 {
-    auto& left_header = left.node->nodePageHeader();
-
-    auto parent_pagenum = left_header.parentPageNumber;
-
-    if (parent_pagenum == EMPTY_PAGE_NUMBER)
+    auto parent_id = left.node->parent();
+    if (!is_valid(parent_id))
     {
         return insert_into_new_root(left, key, right);
     }
 
-    node_tuple parent{ parent_pagenum, load_node(parent_pagenum) };
+    node_tuple parent { parent_id, load_node(parent_id) };
     CHECK(parent.node);
 
     int left_index = get_left_index(*parent.node, left.id);
@@ -128,68 +129,62 @@ bool BPTree::insert_into_parent(node_tuple& left, keyType key,
     return insert_into_node_after_splitting(parent, left_index, key, right);
 }
 
-int BPTree::get_left_index(const node_t& parent, nodeId_t left_pagenum) const
+int BPTree::get_left_index(const node_t& parent, nodeId_t left_id) const
 {
-    const auto& header = parent.nodePageHeader();
-    if (header.onePageNumber == left_pagenum)
+    if (parent.leftmost() == left_id)
     {
         return 0;
     }
 
-    int left_index = parent.satisfy_condition_first<internal_t>(
-        [&](auto& now) { return now.pageNumber == left_pagenum; });
+    int left_index = parent.satisfy_condition_first<internal_t>([&](auto& now) {
+        return now.node_id == left_id;
+    });
     return left_index + 1;
 }
 
 std::unique_ptr<node_t> BPTree::load_node(nodeId_t node_id)
 {
     auto node = make_node();
-    node->load(fm, node_id);
+    node->load(manager, node_id);
     return node;
 }
 
 bool BPTree::commit_node(nodeId_t node_id, const node_t& node)
 {
-    CHECK(node.commit(fm, node_id));
+    CHECK(node.commit(manager, node_id));
     return true;
 }
 
 bool BPTree::commit_node(const node_tuple& nt)
 {
-    CHECK(nt.node->commit(fm, nt.id));
+    CHECK(nt.node->commit(manager, nt.id));
     return true;
 }
 
 nodeId_t BPTree::create_node()
 {
-    nodeId_t t = fm.pageCreate();
-    EXIT_WITH_LOG(t != EMPTY_PAGE_NUMBER, "create page failure");
+    nodeId_t t = manager.pageCreate();
+    EXIT_WITH_LOG(is_valid(t), "create page failure");
     return t;
 }
 
-bool BPTree::insert_into_new_root(node_tuple& left_tuple, keyType key,
-                                  node_tuple& right_tuple)
+bool BPTree::insert_into_new_root(node_tuple& left, keyType key,
+                                  node_tuple& right)
 {
-    auto root_pagenum = fm.pageCreate();
-    CHECK_WITH_LOG(root_pagenum != EMPTY_PAGE_NUMBER, false,
-                   "root page creation failure");
+    node_tuple root = { create_node(), make_node() };
 
-    auto root = make_node(false);
-    auto& root_header = root->nodePageHeader();
+    root.node->set_leftmost(left.id);
+    root.node->emplace_back<internal_t>(key, right.id);
 
-    root_header.onePageNumber = left_tuple.id;
+    left.node->set_parent(root.id);
+    right.node->set_parent(root.id);
 
-    root->emplace_back<internal_t>(key, right_tuple.id);
+    CHECK(commit_node(left));
+    CHECK(commit_node(right));
+    CHECK(commit_node(root));
 
-    left_tuple.node->nodePageHeader().parentPageNumber = root_pagenum;
-    right_tuple.node->nodePageHeader().parentPageNumber = root_pagenum;
-
-    CHECK(commit_node(left_tuple));
-    CHECK(commit_node(right_tuple));
-    CHECK(commit_node(root_pagenum, *root));
-
-    fm.fileHeader.rootPageNumber = root_pagenum;
-    CHECK_WITH_LOG(fm.updateFileHeader(), false, "update file header failure");
+    manager.fileHeader.rootPageNumber = root.id;
+    CHECK(manager.updateFileHeader());
 
     return true;
 }
@@ -197,74 +192,53 @@ bool BPTree::insert_into_new_root(node_tuple& left_tuple, keyType key,
 bool BPTree::insert_into_node(node_tuple& parent, int left_index, keyType key,
                               node_tuple& right)
 {
-    Internal internal{ key, right.id };
-    parent.node->insert(internal, left_index);
-    CHECK_WITH_LOG(fm.pageWrite(parent.id, *parent.node), false,
-                   "parent page write failure: %ld", parent.id);
+    parent.node->insert<Internal>({ key, right.id }, left_index);
+    CHECK(commit_node(parent));
     return true;
 }
 
 bool BPTree::insert_into_node_after_splitting(node_tuple& parent,
                                               int left_index, keyType key,
-                                              node_tuple& right)
+                                              node_tuple& target)
 {
-    Internal internal{ key, right.id };
-
-    auto& parent_header = parent.node->nodePageHeader();
-
-    auto new_pagenum = create_node();
-    CHECK_WITH_LOG(new_pagenum != EMPTY_PAGE_NUMBER, false,
-                   "new page creation failure");
+    node_tuple right = { create_node(), make_node() };
 
     std::vector<internal_t> temp;
     temp.reserve(internal_order);
 
-    auto& parent_node = parent.node;
     auto back = std::back_inserter(temp);
-    parent_node->range_copy<internal_t>(back, 0, left_index);
-    back = internal;
-    parent_node->range_copy<internal_t>(back, left_index);
+    parent.node->range_copy<internal_t>(back, 0, left_index);
+    back = { key, target.id };
+    parent.node->range_copy<internal_t>(back, left_index);
 
     int split = cut(internal_order);
 
-    auto new_node = make_node(false);
-
     keyType k_prime = temp[split - 1].key;
 
-    parent_node->range_assignment<internal_t>(
-        std::begin(temp), std::next(std::begin(temp), split - 1));
+    parent.node->range_assignment<internal_t>(temp.begin(),
+                                              temp.begin() + split - 1);
 
-    auto& new_header = new_node->nodePageHeader();
+    right.node->set_leftmost(temp[split - 1].node_id);
+    right.node->range_assignment<internal_t>(temp.begin() + split, temp.end());
+    right.node->set_parent(parent.node->parent());
 
-    new_header.onePageNumber = temp[split - 1].pageNumber;
-    new_node->range_assignment<internal_t>(std::next(std::begin(temp), split),
-                                           std::end(temp));
-    new_header.parentPageNumber = parent_header.parentPageNumber;
-
-    CHECK_WITH_LOG(
-        update_parent_with_commit(new_header.onePageNumber, new_pagenum), false,
-        "update parent with commit failure");
-
-    for (auto& tmp : new_node->range<internal_t>())
+    CHECK(update_parent_with_commit(right.node->leftmost(), right.id));
+    for (auto& tmp : right.node->range<internal_t>())
     {
-        CHECK_WITH_LOG(update_parent_with_commit(tmp.pageNumber, new_pagenum),
-                       false, "update parent with commit failure: %ld",
-                       tmp.pageNumber);
+        CHECK(update_parent_with_commit(tmp.node_id, right.id));
     }
 
     CHECK(commit_node(parent));
-    CHECK(commit_node(new_pagenum, *new_node));
+    CHECK(commit_node(right));
 
-    node_tuple new_tuple{ new_pagenum, std::move(new_node) };
-    return insert_into_parent(parent, k_prime, new_tuple);
+    return insert_into_parent(parent, k_prime, right);
 }
 
 bool BPTree::delete_key(keyType key)
 {
     auto record = find(key);
     auto leaf = find_leaf(key);
-    CHECK_WITH_LOG(leaf.id != EMPTY_PAGE_NUMBER, false,
-                   "find leaf failure: %ld", key);
+    CHECK_WITH_LOG(is_valid(leaf.id), false, "find leaf failure: %ld", key);
     if (!record)
     {
         return false;
@@ -281,7 +255,7 @@ bool BPTree::delete_entry(node_tuple& target_tuple, keyType key)
                    "remove entry from node failure: %ld", key);
     CHECK(commit_node(target_tuple));
 
-    if (target_tuple.id == fm.fileHeader.rootPageNumber)
+    if (target_tuple.id == manager.fileHeader.rootPageNumber)
     {
         return adjust_root();
     }
@@ -319,17 +293,17 @@ bool BPTree::delete_entry(node_tuple& target_tuple, keyType key)
     node_tuple neighbor_tuple;
     neighbor_tuple.id =
         neighbor_index == -1
-            ? parent_internals[0].pageNumber
+            ? parent_internals[0].node_id
             : neighbor_index == 0
                   ? parent_header.onePageNumber
-                  : parent_internals[neighbor_index - 1].pageNumber;
+                  : parent_internals[neighbor_index - 1].node_id;
     neighbor_tuple.node = load_node(neighbor_tuple.id);
     CHECK(neighbor_tuple.node);
 
     int capacity = target_header.isLeaf ? leaf_order : internal_order - 1;
 
-    node_tuple parent_tuple{ target_header.parentPageNumber,
-                             std::move(parent) };
+    node_tuple parent_tuple { target_header.parentPageNumber,
+                              std::move(parent) };
 
     if (static_cast<int>(target_header.numberOfKeys +
                          neighbor_tuple.node->nodePageHeader().numberOfKeys) <
@@ -360,16 +334,20 @@ bool BPTree::remove_entry_from_node(node_tuple& target, keyType key)
     auto& header = target.node->nodePageHeader();
     if (header.isLeaf)
     {
-        int idx = target.node->satisfy_condition_first<record_t>(
-            [&](auto& now) { return now.key == key; });
+        int idx =
+            target.node->satisfy_condition_first<record_t>([&](auto& now) {
+                return now.key == key;
+            });
         CHECK_WITH_LOG(idx != static_cast<int>(header.numberOfKeys), false,
                        "invalid key: %ld", key);
         target.node->erase<record_t>(idx);
     }
     else
     {
-        int idx = target.node->satisfy_condition_first<internal_t>(
-            [&](auto& now) { return now.key == key; });
+        int idx =
+            target.node->satisfy_condition_first<internal_t>([&](auto& now) {
+                return now.key == key;
+            });
         CHECK_WITH_LOG(idx != static_cast<int>(header.numberOfKeys), false,
                        "invalid key: %ld", key);
         target.node->erase<internal_t>(idx);
@@ -381,9 +359,9 @@ bool BPTree::remove_entry_from_node(node_tuple& target, keyType key)
 bool BPTree::adjust_root()
 {
     auto root = make_node(false);
-    nodeId_t root_pagenum = fm.fileHeader.rootPageNumber;
+    nodeId_t root_pagenum = manager.fileHeader.rootPageNumber;
 
-    CHECK_WITH_LOG(fm.pageRead(root_pagenum, *root), false,
+    CHECK_WITH_LOG(manager.pageRead(root_pagenum, *root), false,
                    "read root page failure: %ld", root_pagenum);
 
     auto& root_header = root->nodePageHeader();
@@ -395,20 +373,20 @@ bool BPTree::adjust_root()
 
     if (root_header.isLeaf)
     {
-        fm.fileHeader.rootPageNumber = EMPTY_PAGE_NUMBER;
+        manager.fileHeader.rootPageNumber = INVALID_NODE_ID;
     }
     else
     {
         nodeId_t new_root_pagenum = root_header.onePageNumber;
-        fm.fileHeader.rootPageNumber = new_root_pagenum;
+        manager.fileHeader.rootPageNumber = new_root_pagenum;
 
         CHECK_WITH_LOG(
-            update_parent_with_commit(new_root_pagenum, EMPTY_PAGE_NUMBER),
-            false, "update parent with commit failure");
+            update_parent_with_commit(new_root_pagenum, INVALID_NODE_ID), false,
+            "update parent with commit failure");
     }
 
-    CHECK_WITH_LOG(fm.updateFileHeader(), false, "update file header failure");
-    CHECK_WITH_LOG(fm.pageFree(root_pagenum), false,
+    CHECK_WITH_LOG(manager.updateFileHeader(), false, "update file header failure");
+    CHECK_WITH_LOG(manager.pageFree(root_pagenum), false,
                    "free old root page failure");
 
     return true;
@@ -452,7 +430,7 @@ bool BPTree::coalesce_nodes(node_tuple& target_tuple,
         CHECK(update_parent_with_commit(pagenum, neighbor_tuple.id));
         for (auto& internal : target_tuple.node->range<internal_t>())
         {
-            pagenum = internal.pageNumber;
+            pagenum = internal.node_id;
             neighbor->push_back(internal);
 
             CHECK(update_parent_with_commit(pagenum, neighbor_tuple.id));
@@ -462,7 +440,7 @@ bool BPTree::coalesce_nodes(node_tuple& target_tuple,
     CHECK(commit_node(neighbor_tuple));
     CHECK_WITH_LOG(delete_entry(parent_tuple, k_prime), false,
                    "delete entry of parent failure: %ld", parent_tuple.id);
-    CHECK_WITH_LOG(fm.pageFree(target_tuple.id), false,
+    CHECK_WITH_LOG(manager.pageFree(target_tuple.id), false,
                    "free target page failure: %ld", target_tuple.id);
 
     return true;
@@ -490,10 +468,10 @@ bool BPTree::redistribute_nodes(node_tuple& target_tuple,
             Internal& new_one =
                 neighbor_internals[neighbor_header.numberOfKeys - 1];
             parent_internals[k_prime_index].key = new_one.key;
-            target_header.onePageNumber = new_one.pageNumber;
+            target_header.onePageNumber = new_one.node_id;
 
             CHECK_WITH_LOG(
-                update_parent_with_commit(new_one.pageNumber, target_tuple.id),
+                update_parent_with_commit(new_one.node_id, target_tuple.id),
                 false, "update parent with commit failure");
         }
         else
@@ -519,10 +497,10 @@ bool BPTree::redistribute_nodes(node_tuple& target_tuple,
                 k_prime, neighbor_header.onePageNumber);
 
             parent_internals[k_prime_index].key = neighbor_internals[0].key;
-            neighbor_header.onePageNumber = neighbor_internals[0].pageNumber;
+            neighbor_header.onePageNumber = neighbor_internals[0].node_id;
 
             CHECK(update_parent_with_commit(
-                target_internals[target_header.numberOfKeys - 1].pageNumber,
+                target_internals[target_header.numberOfKeys - 1].node_id,
                 target_tuple.id));
 
             neighbor_tuple.node->erase<internal_t>(0);
@@ -578,8 +556,8 @@ std::unique_ptr<record_t> BPTree::find(keyType key)
 
 node_tuple BPTree::find_leaf(keyType key)
 {
-    auto root = fm.fileHeader.rootPageNumber;
-    if (root == EMPTY_PAGE_NUMBER)
+    auto root = manager.fileHeader.rootPageNumber;
+    if (!is_valid(root))
     {
         if (verbose_output)
         {
@@ -616,7 +594,7 @@ node_tuple BPTree::find_leaf(keyType key)
         }
 
         now = load_node(root = (idx == -1) ? header.onePageNumber
-                                           : internal[idx].pageNumber);
+                                           : internal[idx].node_id);
     }
 
     if (verbose_output)
@@ -659,13 +637,16 @@ bool BPTree::start_new_tree(const record_t& rec)
 
     root->insert(rec, 0);
 
-    auto pagenum = fm.pageCreate();
-    CHECK_WITH_LOG(pagenum != EMPTY_PAGE_NUMBER, false,
-                   "page creation failure");
+    auto pagenum = manager.pageCreate();
     CHECK(commit_node(pagenum, *root));
 
-    fm.fileHeader.rootPageNumber = pagenum;
-    CHECK(fm.updateFileHeader());
+    manager.fileHeader.rootPageNumber = pagenum;
+    CHECK(manager.updateFileHeader());
 
     return true;
+}
+
+bool BPTree::is_valid(nodeId_t node_id) const
+{
+    return node_id != INVALID_NODE_ID;
 }

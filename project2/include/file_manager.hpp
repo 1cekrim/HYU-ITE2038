@@ -43,6 +43,10 @@ class FileManager
 
     HeaderPageHeader fileHeader;
 
+    pagenum_t root() const;
+    void set_root(pagenum_t pagenum);
+    bool commit();
+
     int getFileDescriptor() const;
 
     inline static FileManager* lastOpenedFileManager;

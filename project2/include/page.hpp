@@ -128,16 +128,16 @@ struct Record
 struct Internal
 {
     keyType key;
-    pagenum_t pageNumber;
+    pagenum_t node_id;
     Internal& operator=(const Internal& rhs)
     {
         memcpy(this, &rhs, sizeof(Internal));
         return *this;
     }
-    void init(keyType key, pagenum_t pageNumber)
+    void init(keyType key, pagenum_t node_id)
     {
         this->key = key;
-        this->pageNumber = pageNumber;
+        this->node_id = node_id;
     }
 };
 
@@ -292,8 +292,8 @@ struct page_t
         return entry.internals;
     }
 
-    bool commit(FileManager& fm, pagenum_t pagenum) const;
-    bool load(FileManager& fm, pagenum_t pagenum);
+    bool commit(FileManager& manager, pagenum_t pagenum) const;
+    bool load(FileManager& manager, pagenum_t pagenum);
 
     template <typename T>
     void push_back(const T& value)
@@ -324,7 +324,7 @@ struct page_t
             auto& entry = getEntry<Internals>()[static_cast<int>(
                 getHeader<NodePageHeader>().numberOfKeys++)];
             entry.key = key;
-            entry.pageNumber = v;
+            entry.node_id = v;
         }
     }
 

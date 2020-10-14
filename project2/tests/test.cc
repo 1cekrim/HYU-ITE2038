@@ -91,7 +91,7 @@ void TEST_FILE_MANAGER()
         for (int i = 0; i < 248; ++i)
         {
             page.internals()[i].key = i;
-            page.internals()[i].pageNumber = i;
+            page.internals()[i].node_id = i;
         }
 
         fm.pageWrite(0, page);
@@ -102,8 +102,8 @@ void TEST_FILE_MANAGER()
         for (int i = 0; i < 248; ++i)
         {
             CHECK_TRUE(page.internals()[i].key == readPage.internals()[i].key);
-            CHECK_TRUE(page.internals()[i].pageNumber ==
-                       readPage.internals()[i].pageNumber);
+            CHECK_TRUE(page.internals()[i].node_id ==
+                       readPage.internals()[i].node_id);
         }
     }
     END()
@@ -116,7 +116,7 @@ void TEST_FILE_MANAGER()
         for (int i = 0; i < 248; ++i)
         {
             page.internals()[i].key = i;
-            page.internals()[i].pageNumber = i;
+            page.internals()[i].node_id = i;
         }
         std::vector<pagenum_t> nums;
         for (int i = 0; i < 100; ++i)
