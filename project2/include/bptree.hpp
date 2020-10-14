@@ -12,13 +12,15 @@ constexpr auto INTERNAL_ORDER = 249;
 constexpr auto VERBOSE_OUTPUT = false;
 constexpr auto DELAYED_MIN = 1;
 
-using node = page_t;
-using record = Record;
+using node_t = page_t;
+using nodeId_t = pagenum_t;
+using record_t = Record;
+using internal_t = Internal;
 
 struct node_tuple
 {
-    pagenum_t pagenum;
-    std::unique_ptr<node> n;
+    nodeId_t id;
+    std::unique_ptr<node_t> node;
     static node_tuple invalid()
     {
         return { EMPTY_PAGE_NUMBER, nullptr };
@@ -36,16 +38,16 @@ class BPTree
     bool insert(keyType key, const valType& value);
     bool delete_key(keyType key);
 
-    std::unique_ptr<record> find(keyType key);
+    std::unique_ptr<record_t> find(keyType key);
     node_tuple find_leaf(keyType key);
 
  private:
-    std::unique_ptr<record> make_record(keyType key,
+    std::unique_ptr<record_t> make_record(keyType key,
                                         const valType& value) const;
-    std::unique_ptr<node> make_node(bool is_leaf = false) const;
-    bool insert_into_leaf(node_tuple& leaf, const record& rec);
+    std::unique_ptr<node_t> make_node(bool is_leaf = false) const;
+    bool insert_into_leaf(node_tuple& leaf, const record_t& rec);
     bool insert_into_leaf_after_splitting(node_tuple& leaf_tuple,
-                                          const record& rec);
+                                          const record_t& rec);
     bool insert_into_new_root(node_tuple& left, keyType key, node_tuple& right);
     bool insert_into_node(node_tuple& parent, int left_index, keyType key,
                           node_tuple& right);
@@ -62,10 +64,11 @@ class BPTree
                             node_tuple& neighbor_tuple,
                             node_tuple& parent_tuple, int k_prime,
                             int k_prime_index, int neighbor_index);
-    bool update_parent_with_commit(pagenum_t target_pagenum, pagenum_t parent_pagenum);
-    std::unique_ptr<node> load_node(pagenum_t pagenum);
-    bool commit_node(pagenum_t page, const node& n);
+    bool update_parent_with_commit(nodeId_t target_id, nodeId_t parent_id);
+    std::unique_ptr<node_t> load_node(nodeId_t pagenum);
+    bool commit_node(nodeId_t page, const node_t& n);
     bool commit_node(const node_tuple& nt);
+    nodeId_t create_node();
 
     constexpr int cut(int length)
     {
@@ -78,8 +81,8 @@ class BPTree
             return length / 2;
         }
     }
-    int get_left_index(const node& parent, pagenum_t left) const;
-    bool start_new_tree(const record& rec);
+    int get_left_index(const node_t& parent, nodeId_t left) const;
+    bool start_new_tree(const record_t& rec);
     FileManager fm;
     int leaf_order;
     int internal_order;

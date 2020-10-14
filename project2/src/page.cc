@@ -1,6 +1,7 @@
 #include "page.hpp"
-
 #include <iostream>
+#include "file_manager.hpp"
+#include "logger.hpp"
 
 std::ostream& operator<<(std::ostream& os, const NodePageHeader& nph)
 {
@@ -42,65 +43,120 @@ void page_t::print_node()
     }
 }
 
-template<>
+template <>
 const Records& page_t::getEntry() const
 {
     return entry.records;
 }
 
-template<>
+template <>
 const Internals& page_t::getEntry() const
 {
     return entry.internals;
 }
 
-template<>
+template <>
 const HeaderPageHeader& page_t::getHeader() const
 {
     return header.headerPageHeader;
 }
 
-template<>
+template <>
 const NodePageHeader& page_t::getHeader() const
 {
     return header.nodePageHeader;
 }
 
-template<>
+template <>
 const FreePageHeader& page_t::getHeader() const
 {
     return header.freePageHeader;
 }
 
-template<>
+template <>
 Records& page_t::getEntry()
 {
     return const_cast<Records&>(std::as_const(*this).getEntry<Records>());
 }
 
-template<>
+template <>
 Internals& page_t::getEntry()
 {
     return const_cast<Internals&>(std::as_const(*this).getEntry<Internals>());
 }
 
-template<>
+template <>
 HeaderPageHeader& page_t::getHeader()
 {
     return const_cast<HeaderPageHeader&>(
         std::as_const(*this).getHeader<HeaderPageHeader>());
 }
 
-template<>
+template <>
 NodePageHeader& page_t::getHeader()
 {
     return const_cast<NodePageHeader&>(
         std::as_const(*this).getHeader<NodePageHeader>());
 }
 
-template<>
+template <>
 FreePageHeader& page_t::getHeader()
 {
     return const_cast<FreePageHeader&>(
         std::as_const(*this).getHeader<FreePageHeader>());
+}
+
+bool page_t::commit(FileManager& fm, pagenum_t pagenum) const
+{
+    CHECK_WITH_LOG(fm.pageWrite(pagenum, *this), false,
+                   "write page failure: %ld", pagenum);
+    return true;
+}
+
+bool page_t::load(FileManager& fm, pagenum_t pagenum)
+{
+    CHECK_WITH_LOG(fm.pageRead(pagenum, *this), false, "read page failure: %ld",
+                   pagenum);
+    return true;
+}
+
+int page_t::size() const
+{
+    return static_cast<int>(nodePageHeader().numberOfKeys);
+}
+
+pagenum_t page_t::parent() const
+{
+    return nodePageHeader().parentPageNumber;
+}
+
+void page_t::set_parent(pagenum_t parent)
+{
+    nodePageHeader().parentPageNumber = parent;
+}
+
+bool page_t::is_leaf() const
+{
+    return nodePageHeader().isLeaf;
+}
+
+pagenum_t page_t::leftmost() const
+{
+    // Check isleaf
+    return nodePageHeader().onePageNumber;
+}
+
+void page_t::set_leftmost(pagenum_t leftmost)
+{
+    nodePageHeader().onePageNumber = leftmost;
+}
+
+pagenum_t page_t::next_leaf() const
+{
+    return nodePageHeader().onePageNumber;
+}
+
+void page_t::set_next_leaf(pagenum_t next_leaf)
+{
+    nodePageHeader().onePageNumber = next_leaf;
 }

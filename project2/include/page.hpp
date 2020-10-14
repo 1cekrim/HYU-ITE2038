@@ -8,6 +8,8 @@
 #include <iostream>
 #include <memory>
 
+class FileManager;
+
 #define PAGESIZE 4096
 
 constexpr auto value_size = 120;
@@ -66,10 +68,7 @@ struct HeaderPageHeader
     std::array<uint8_t, sizeof(struct NodePageHeader) - 24> reserved;
 
     HeaderPageHeader()
-        : freePageNumber(0),
-          rootPageNumber(0),
-          numberOfPages(0),
-          reserved()
+        : freePageNumber(0), rootPageNumber(0), numberOfPages(0), reserved()
     {
         // Do nothing
     }
@@ -104,8 +103,7 @@ struct FreePageHeader
     }
 
     FreePageHeader(const FreePageHeader& header)
-        : nextFreePageNumber(header.nextFreePageNumber),
-          reserved()
+        : nextFreePageNumber(header.nextFreePageNumber), reserved()
     {
         // Do nothing
     }
@@ -178,7 +176,7 @@ struct Internals
     }
 };
 
-template<typename It>
+template <typename It>
 struct range_t
 {
     It b, e;
@@ -232,16 +230,16 @@ struct page_t
         Internals internals;
     } entry;
 
-    template<typename T>
+    template <typename T>
     const T& getEntry() const;
 
-    template<typename T>
+    template <typename T>
     T& getEntry();
 
-    template<typename T>
+    template <typename T>
     const T& getHeader() const;
 
-    template<typename T>
+    template <typename T>
     T& getHeader();
 
     HeaderPageHeader& headerPageHeader()
@@ -294,7 +292,10 @@ struct page_t
         return entry.internals;
     }
 
-    template<typename T>
+    bool commit(FileManager& fm, pagenum_t pagenum) const;
+    bool load(FileManager& fm, pagenum_t pagenum);
+
+    template <typename T>
     void push_back(const T& value)
     {
         static_assert(std::is_same<Record, T>::value ||
@@ -305,7 +306,7 @@ struct page_t
             getHeader<NodePageHeader>().numberOfKeys++)] = value;
     }
 
-    template<typename T, typename K, typename B>
+    template <typename T, typename K, typename B>
     void emplace_back(const K& key, const B& v)
     {
         static_assert(std::is_same<Record, T>::value ||
@@ -327,7 +328,7 @@ struct page_t
         }
     }
 
-    template<typename T>
+    template <typename T>
     void insert(const T& entry, int insertion_point)
     {
         static_assert(std::is_same<Record, T>::value ||
@@ -347,7 +348,7 @@ struct page_t
         entries[insertion_point] = entry;
     }
 
-    template<typename T>
+    template <typename T>
     void erase(int erase_point)
     {
         static_assert(std::is_same<Record, T>::value ||
@@ -367,7 +368,7 @@ struct page_t
         --header.numberOfKeys;
     }
 
-    template<typename T>
+    template <typename T>
     decltype(auto) range(std::size_t begin = 0, std::size_t end = 0)
     {
         static_assert(std::is_same<Record, T>::value ||
@@ -383,7 +384,7 @@ struct page_t
                        std::next(std::begin(getEntry<S>()), end));
     }
 
-    template<typename T, typename It>
+    template <typename T, typename It>
     void range_copy(It it, int begin = 0, int end = -1)
     {
         static_assert(std::is_same<Record, T>::value ||
@@ -398,7 +399,7 @@ struct page_t
                   std::next(std::begin(getEntry<S>()), end), it);
     }
 
-    template<typename T, typename It>
+    template <typename T, typename It>
     void range_assignment(It begin, It end)
     {
         static_assert(std::is_same<Record, T>::value ||
@@ -409,14 +410,14 @@ struct page_t
         getHeader<NodePageHeader>().numberOfKeys = std::distance(begin, end);
     }
 
-    template<typename T>
+    template <typename T>
     int satisfy_condition_first(std::function<bool(const T&)> condition) const
     {
         static_assert(std::is_same<Record, T>::value ||
                       std::is_same<Internal, T>::value);
         using S = typename std::conditional<std::is_same<Record, T>::value,
                                             Records, Internals>::type;
-        int index {};
+        int index{};
         auto n = static_cast<int>(getHeader<NodePageHeader>().numberOfKeys);
         while (index < n && !condition(getEntry<S>()[index]))
         {
@@ -426,6 +427,16 @@ struct page_t
     }
 
     void print_node();
+
+    int size() const;
+    pagenum_t parent() const;
+    void set_parent(pagenum_t parent);
+    bool is_leaf() const;
+    
+    pagenum_t leftmost() const;
+    void set_leftmost(pagenum_t leftmost);
+    pagenum_t next_leaf() const;
+    void set_next_leaf(pagenum_t next_leaf);
 };
 
 #endif /* __PAGE_HPP__*/
