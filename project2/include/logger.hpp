@@ -47,5 +47,15 @@
             return false;                                      \
         }                                                      \
     } while (0)
+#define CHECK_RET(statement, ret)                              \
+    do                                                         \
+    {                                                          \
+        if (!(statement))                                      \
+        {                                                      \
+            printf(S_COLOR_RED "[-] %s", __PRETTY_FUNCTION__); \
+            printf("\n    statement: " #statement "\n");       \
+            return (ret);                                      \
+        }                                                      \
+    } while (0)
 
 #endif /* __LOGGER_HPP__*/

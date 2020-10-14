@@ -165,9 +165,5 @@ pagenum_t FileManager::root() const
 void FileManager::set_root(pagenum_t pagenum)
 {
     fileHeader.rootPageNumber = pagenum;
-}
-
-bool FileManager::commit()
-{
-    return updateFileHeader();
+    EXIT_WITH_LOG(updateFileHeader(), "update file header failure");
 }

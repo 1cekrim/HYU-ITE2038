@@ -27,6 +27,10 @@ struct node_tuple
     {
         return { EMPTY_PAGE_NUMBER, nullptr };
     }
+    operator bool() const
+    {
+        return id != INVALID_NODE_ID && node;
+    }
 };
 
 class BPTree
