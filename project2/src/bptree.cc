@@ -427,78 +427,64 @@ bool BPTree::coalesce_nodes(node_tuple& target, node_tuple& neighbor,
     return true;
 }
 
-bool BPTree::redistribute_nodes(node_tuple& target_tuple,
-                                node_tuple& neighbor_tuple,
-                                node_tuple& parent_tuple, int k_prime,
+bool BPTree::redistribute_nodes(node_tuple& target,
+                                node_tuple& neighbor,
+                                node_tuple& parent, int k_prime,
                                 int k_prime_index, int neighbor_index)
 {
-    auto& target_header = target_tuple.node->nodePageHeader();
-    auto& neighbor_header = neighbor_tuple.node->nodePageHeader();
-    auto& parent_internals = parent_tuple.node->internals();
-
     if (neighbor_index != -1)
     {
         // left neighbor
-        if (!target_header.isLeaf)
+        if (!target.node->is_leaf())
         {
-            auto& neighbor_internals = neighbor_tuple.node->internals();
+            target.node->insert<internal_t>(
+                { k_prime, target.node->leftmost() }, 0);
 
-            target_tuple.node->insert<internal_t>(
-                { k_prime, target_header.onePageNumber }, 0);
+            auto& new_one = neighbor.node->back<internal_t>();
 
-            Internal& new_one =
-                neighbor_internals[neighbor_header.numberOfKeys - 1];
-            parent_internals[k_prime_index].key = new_one.key;
-            target_header.onePageNumber = new_one.node_id;
+            parent.node->get<internal_t>(k_prime_index).key = new_one.key;
+            target.node->set_leftmost(new_one.node_id);
 
-            CHECK(update_parent_with_commit(new_one.node_id, target_tuple.id));
+            CHECK(update_parent_with_commit(new_one.node_id, target.id));
         }
         else
         {
-            auto& neighbor_records = neighbor_tuple.node->records();
-            auto& target_records = target_tuple.node->records();
+            target.node->insert(neighbor.node->back<record_t>(), 0);
 
-            target_tuple.node->insert(
-                neighbor_records[neighbor_header.numberOfKeys - 1], 0);
-
-            parent_internals[k_prime_index].key = target_records[0].key;
+            parent.node->get<record_t>(k_prime_index).key = target.node->first<record_t>().key;
         }
     }
     else
     {
         // right neighbor
-        if (!target_header.isLeaf)
+        if (!target.node->is_leaf())
         {
-            auto& neighbor_internals = neighbor_tuple.node->internals();
-            auto& target_internals = target_tuple.node->internals();
+            target.node->emplace_back<internal_t>(
+                k_prime, neighbor.node->leftmost());
 
-            target_tuple.node->emplace_back<internal_t>(
-                k_prime, neighbor_header.onePageNumber);
-
-            parent_internals[k_prime_index].key = neighbor_internals[0].key;
-            neighbor_header.onePageNumber = neighbor_internals[0].node_id;
+            auto& leftmost = neighbor.node->first<internal_t>();
+            parent.node->get<internal_t>(k_prime_index).key = leftmost.key;
+            neighbor.node->set_leftmost(leftmost.node_id);
 
             CHECK(update_parent_with_commit(
-                target_internals[target_header.numberOfKeys - 1].node_id,
-                target_tuple.id));
+                target.node->back<internal_t>().node_id,
+                target.id));
 
-            neighbor_tuple.node->erase<internal_t>(0);
+            target.node->erase<internal_t>(0);
         }
         else
         {
-            auto& neighbor_records = neighbor_tuple.node->records();
+            target.node->push_back(neighbor.node->first<record_t>());
 
-            target_tuple.node->push_back(neighbor_records[0]);
+            parent.node->get<record_t>(k_prime_index).key = neighbor.node->get<record_t>(1).key;
 
-            parent_internals[k_prime_index].key = neighbor_records[1].key;
-
-            neighbor_tuple.node->erase<record_t>(0);
+            neighbor.node->erase<record_t>(0);
         }
     }
 
-    CHECK(commit_node(target_tuple));
-    CHECK(commit_node(neighbor_tuple));
-    CHECK(commit_node(parent_tuple));
+    CHECK(commit_node(target));
+    CHECK(commit_node(neighbor));
+    CHECK(commit_node(parent));
 
     return true;
 }

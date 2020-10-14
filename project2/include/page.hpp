@@ -436,6 +436,18 @@ struct page_t
         return getEntry<S>()[idx];
     }
 
+    template <typename T>
+    T& first()
+    {
+        return get<T>(0);
+    }
+
+    template <typename T>
+    T& back()
+    {
+        return get<T>(number_of_keys() - 1);
+    }
+
     void print_node();
 
     int number_of_keys() const;
