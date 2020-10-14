@@ -40,7 +40,7 @@ bool FileManager::open(const std::string& name)
     if (access(name.c_str(), F_OK) == -1)
     {
         std::unique_ptr<std::FILE, decltype(&std::fclose)> p(
-            fdopen(::open(name.c_str(), O_RDWR | O_CREAT | O_TRUNC | O_DSYNC,
+            fdopen(::open(name.c_str(), O_RDWR | O_CREAT | O_TRUNC | O_SYNC,
                           0755),
                    "r+"),
             &std::fclose);
@@ -56,7 +56,7 @@ bool FileManager::open(const std::string& name)
     else
     {
         std::unique_ptr<std::FILE, decltype(&std::fclose)> p(
-            fdopen(::open(name.c_str(), O_RDWR | O_DSYNC), "r+"), &std::fclose);
+            fdopen(::open(name.c_str(), O_RDWR | O_SYNC), "r+"), &std::fclose);
         fp = std::move(p);
         CHECK_WITH_LOG(fp, false, "open file failure");
 
