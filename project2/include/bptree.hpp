@@ -1,5 +1,5 @@
-#ifndef __BPT_HPP__
-#define __BPT_HPP__
+#ifndef __BPTREE_HPP__
+#define __BPTREE_HPP__
 
 #include <memory>
 #include <string_view>
@@ -87,4 +87,4 @@ class BPTree
     int delayed_min;
 };
 
-#endif /* __BPT_HPP__*/
+#endif /* __BPTREE_HPP__*/

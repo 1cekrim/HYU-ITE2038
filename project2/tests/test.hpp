@@ -1,12 +1,13 @@
 #ifndef __TEST_H__
 #define __TEST_H__
 
-#define TEST(name)        \
-    do                    \
-    {                     \
-        testName = name;  \
-        testFlag = false; \
-        std::cout << "  [" << testName << "]...";
+#define TEST(name)                                \
+    do                                            \
+    {                                             \
+        testName = name;                          \
+        testFlag = false;                         \
+        std::cout << "  [" << testName << "]..."; \
+        std::cout.flush();
 
 #define END()                      \
     }                              \

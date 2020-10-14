@@ -1,4 +1,4 @@
-#include "bpt.hpp"
+#include "bptree.hpp"
 
 #include <algorithm>
 #include <cstring>
@@ -42,23 +42,22 @@ bool BPTree::insert(keyType key, const valType& value)
         return false;
     }
 
-    auto pointer { make_record(key, value) };
+    auto pointer = make_record(key, value);
 
-    auto root = fm.fileHeader.rootPageNumber;
-    if (root == EMPTY_PAGE_NUMBER)
+    if (fm.fileHeader.rootPageNumber == EMPTY_PAGE_NUMBER)
     {
         return start_new_tree(*pointer);
     }
 
-    auto nodePair = find_leaf(key);
+    auto node_tuple = find_leaf(key);
 
-    auto& header = nodePair.n->nodePageHeader();
+    auto& header = node_tuple.n->nodePageHeader();
     if (static_cast<int>(header.numberOfKeys) < leaf_order - 1)
     {
-        return insert_into_leaf(nodePair, *pointer);
+        return insert_into_leaf(node_tuple, *pointer);
     }
 
-    return insert_into_leaf_after_splitting(nodePair, *pointer);
+    return insert_into_leaf_after_splitting(node_tuple, *pointer);
 }
 
 bool BPTree::insert_into_leaf(node_tuple& leaf, const record& rec)

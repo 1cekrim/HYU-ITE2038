@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-#include "bpt.hpp"
+#include "bptree.hpp"
 #include "file_api.hpp"
 #include "file_manager.hpp"
 #include "logger.hpp"

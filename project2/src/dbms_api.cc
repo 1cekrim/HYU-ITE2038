@@ -3,7 +3,7 @@
 #include <cstdio>
 #include <memory>
 
-#include "bpt.hpp"
+#include "bptree.hpp"
 #include "file_manager.hpp"
 
 auto bpt = std::make_unique<BPTree>();
