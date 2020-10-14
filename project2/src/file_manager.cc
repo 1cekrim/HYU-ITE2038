@@ -51,7 +51,7 @@ bool FileManager::open(const std::string& name)
         headerPage.headerPageHeader().numberOfPages = 1;
         fileHeader.numberOfPages = 1;
         CHECK_WITH_LOG(pageWrite(0, headerPage), false,
-                        "write header page failure: 0");
+                       "write header page failure: 0");
     }
     else
     {
@@ -62,7 +62,7 @@ bool FileManager::open(const std::string& name)
 
         page_t headerPage;
         CHECK_WITH_LOG(pageRead(0, headerPage), false,
-                        "read header page failure: 0");
+                       "read header page failure: 0");
 
         fileHeader = headerPage.headerPageHeader();
     }
@@ -97,22 +97,21 @@ pagenum_t FileManager::pageCreate()
         pagenum = fileHeader.numberOfPages;
         page_t page;
         CHECK_WITH_LOG(pageWrite(pagenum, page), EMPTY_PAGE_NUMBER,
-                        "write page failure: %ld", pagenum);
+                       "write page failure: %ld", pagenum);
         CHECK_WITH_LOG(pageRead(pagenum, page), EMPTY_PAGE_NUMBER,
-                        "write page failure: %ld", pagenum);
+                       "write page failure: %ld", pagenum);
         ++fileHeader.numberOfPages;
     }
     else
     {
         page_t page;
         CHECK_WITH_LOG(pageRead(pagenum, page), EMPTY_PAGE_NUMBER,
-                        "read page failure: %ld", pagenum);
-        fileHeader.freePageNumber =
-            page.freePageHeader().nextFreePageNumber;
+                       "read page failure: %ld", pagenum);
+        fileHeader.freePageNumber = page.freePageHeader().nextFreePageNumber;
     }
 
     CHECK_WITH_LOG(updateFileHeader(), EMPTY_PAGE_NUMBER,
-                    "update file header failure");
+                   "update file header failure");
 
     return pagenum;
 }
@@ -134,10 +133,10 @@ bool FileManager::pageFree(pagenum_t pagenum)
 {
     page_t page;
     CHECK_WITH_LOG(pageRead(pagenum, page), false, "page read failure: %ld",
-                    pagenum);
+                   pagenum);
     page.freePageHeader().nextFreePageNumber = fileHeader.freePageNumber;
     CHECK_WITH_LOG(pageWrite(pagenum, page), false, "page write failure: %ld",
-                    pagenum);
+                   pagenum);
     fileHeader.freePageNumber = pagenum;
     CHECK_WITH_LOG(updateFileHeader(), false, "update file header failure");
     return true;
@@ -162,8 +161,10 @@ pagenum_t FileManager::root() const
     return fileHeader.rootPageNumber;
 }
 
-void FileManager::set_root(pagenum_t pagenum)
+bool FileManager::set_root(pagenum_t pagenum)
 {
     fileHeader.rootPageNumber = pagenum;
-    EXIT_WITH_LOG(updateFileHeader(), "update file header failure");
+    CHECK_WITH_LOG(updateFileHeader(), false, "update file header failure");
+
+    return true;
 }

@@ -44,7 +44,7 @@ class FileManager
     HeaderPageHeader fileHeader;
 
     pagenum_t root() const;
-    void set_root(pagenum_t pagenum);
+    bool set_root(pagenum_t pagenum);
 
     int getFileDescriptor() const;
 

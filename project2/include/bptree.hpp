@@ -72,7 +72,8 @@ class BPTree
     bool update_parent_with_commit(nodeId_t target_id, nodeId_t parent_id);
     std::unique_ptr<node_t> load_node(nodeId_t node_id);
     bool commit_node(nodeId_t page, const node_t& n);
-    bool commit_node(const node_tuple& nt);
+    bool commit_node(const node_tuple& target);
+    bool free_node(const nodeId_t target);
     nodeId_t create_node();
     bool is_valid(nodeId_t node_id) const;
 
