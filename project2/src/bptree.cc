@@ -25,7 +25,8 @@ bool BPTree::open_table(const std::string& filename)
 int BPTree::char_to_valType(valType& dst, const char* src) const
 {
     std::fill(std::begin(dst), std::end(dst), 0);
-    std::copy_n(src, std::min(static_cast<int>(strlen(src)), 119), std::begin(dst));
+    std::copy_n(src, std::min(static_cast<int>(strlen(src)), 119),
+                std::begin(dst));
     return 0;
 }
 
@@ -62,10 +63,8 @@ bool BPTree::insert(keyType key, const valType& value)
 
 bool BPTree::insert_into_leaf(node_tuple& leaf, const record_t& rec)
 {
-    int insertion_point =
-        leaf.node->satisfy_condition_first<record_t>([&](auto& now) {
-            return now.key >= rec.key;
-        });
+    int insertion_point = leaf.node->satisfy_condition_first<record_t>(
+        [&rec](auto& now) { return now.key >= rec.key; });
 
     leaf.node->insert(rec, insertion_point);
 
@@ -77,13 +76,11 @@ bool BPTree::insert_into_leaf(node_tuple& leaf, const record_t& rec)
 bool BPTree::insert_into_leaf_after_splitting(node_tuple& leaf,
                                               const record_t& rec)
 {
-    auto new_leaf = node_tuple { create_node(), make_node(true) };
+    auto new_leaf = node_tuple{ create_node(), make_node(true) };
     CHECK(new_leaf);
 
-    int insertion_index =
-        leaf.node->satisfy_condition_first<record_t>([&](auto& now) {
-            return now.key >= rec.key;
-        });
+    int insertion_index = leaf.node->satisfy_condition_first<record_t>(
+        [&rec](auto& now) { return now.key >= rec.key; });
 
     std::vector<record_t> temp;
     temp.reserve(leaf_order + 1);
@@ -118,7 +115,7 @@ bool BPTree::insert_into_parent(node_tuple& left, keyType key,
         return insert_into_new_root(left, key, right);
     }
 
-    node_tuple parent { parent_id, load_node(parent_id) };
+    node_tuple parent{ parent_id, load_node(parent_id) };
     CHECK(parent.node);
 
     int left_index = get_left_index(*parent.node, left.id);
@@ -138,9 +135,8 @@ int BPTree::get_left_index(const node_t& parent, nodeId_t left_id) const
         return 0;
     }
 
-    int left_index = parent.satisfy_condition_first<internal_t>([&](auto& now) {
-        return now.node_id == left_id;
-    });
+    int left_index = parent.satisfy_condition_first<internal_t>(
+        [&left_id](auto& now) { return now.node_id == left_id; });
     return left_index + 1;
 }
 
@@ -251,9 +247,10 @@ bool BPTree::insert_into_node_after_splitting(node_tuple& parent,
 bool BPTree::delete_key(keyType key)
 {
     auto record = find(key);
+    CHECK(record);
+
     auto leaf = find_leaf(key);
     CHECK(leaf);
-    CHECK(record);
 
     CHECK_WITH_LOG(delete_entry(leaf, key), false, "delete entry failure");
 
@@ -335,20 +332,16 @@ bool BPTree::remove_entry_from_node(node_tuple& target, keyType key)
 {
     if (target.node->is_leaf())
     {
-        int idx =
-            target.node->satisfy_condition_first<record_t>([&](auto& now) {
-                return now.key == key;
-            });
+        int idx = target.node->satisfy_condition_first<record_t>(
+            [&key](auto& now) { return now.key == key; });
         CHECK_WITH_LOG(idx != target.node->number_of_keys(), false,
                        "invalid key: %ld", key);
         target.node->erase<record_t>(idx);
     }
     else
     {
-        int idx =
-            target.node->satisfy_condition_first<internal_t>([&](auto& now) {
-                return now.key == key;
-            });
+        int idx = target.node->satisfy_condition_first<internal_t>(
+            [&key](auto& now) { return now.key == key; });
         CHECK_WITH_LOG(idx != target.node->number_of_keys(), false,
                        "invalid key: %ld", key);
         target.node->erase<internal_t>(idx);
@@ -537,11 +530,9 @@ node_tuple BPTree::find_leaf(keyType key)
             std::cout << "] \n";
         }
 
-        int idx =
-            root.node->satisfy_condition_first<internal_t>([&](auto& now) {
-                return now.key > key;
-            }) -
-            1;
+        int idx = root.node->satisfy_condition_first<internal_t>(
+                      [&key](auto& now) { return now.key > key; }) -
+                  1;
 
         if (verbose_output)
         {
