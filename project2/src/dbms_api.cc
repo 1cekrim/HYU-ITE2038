@@ -52,6 +52,7 @@ int db_find(int64_t key, char* ret_val)
     {
         if (!rec->value[i])
         {
+            ret_val[i] = '\0';
             break;
         }
         ret_val[i] = rec->value[i];
