@@ -22,14 +22,16 @@ using manager_t = FileManager;
 struct node_tuple
 {
     nodeId_t id;
-    std::unique_ptr<node_t> node;
-    static node_tuple invalid()
+    node_t node;
+    node_tuple& operator=(const node_tuple& rhs)
     {
-        return { EMPTY_PAGE_NUMBER, nullptr };
+        id = rhs.id;
+        node = rhs.node;
+        return *this;
     }
     operator bool() const
     {
-        return id != INVALID_NODE_ID && node;
+        return id != INVALID_NODE_ID;
     }
 };
 
@@ -44,13 +46,10 @@ class BPTree
     bool insert(keyType key, const valType& value);
     bool delete_key(keyType key);
 
-    std::unique_ptr<record_t> find(keyType key);
-    node_tuple find_leaf(keyType key);
+    bool find(keyType key, record_t& ret);
+    bool find_leaf(keyType key, node_tuple& ret);
 
  private:
-    std::unique_ptr<record_t> make_record(keyType key,
-                                          const valType& value) const;
-    std::unique_ptr<node_t> make_node(bool is_leaf = false) const;
     bool insert_into_leaf(node_tuple& leaf, const record_t& rec);
     bool insert_into_leaf_after_splitting(node_tuple& leaf,
                                           const record_t& rec);
@@ -70,7 +69,7 @@ class BPTree
                             node_tuple& parent, int k_prime, int k_prime_index,
                             int neighbor_index);
     bool update_parent_with_commit(nodeId_t target_id, nodeId_t parent_id);
-    std::unique_ptr<node_t> load_node(nodeId_t node_id);
+    bool load_node(nodeId_t node_id, node_t& node);
     bool commit_node(nodeId_t page, const node_t& n);
     bool commit_node(const node_tuple& target);
     bool free_node(const nodeId_t target);

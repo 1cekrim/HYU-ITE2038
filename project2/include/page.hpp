@@ -236,6 +236,19 @@ struct page_t
         }
     } entry;
 
+    page_t& operator=(const page_t& rhs)
+    {
+        std::memcpy(this, &rhs, sizeof(page_t));
+        return *this;
+    }
+
+    page_t() = default;
+    page_t(bool isLeaf)
+    {
+        header.nodePageHeader.isLeaf = isLeaf;
+    }
+    page_t(const page_t& p) = default;
+
     template <typename T>
     const T& getEntry() const;
 

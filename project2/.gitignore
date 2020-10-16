@@ -5,3 +5,4 @@ lib/
 *.o
 *.db
 *.png
+*.txt

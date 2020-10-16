@@ -211,14 +211,12 @@ void TEST_BPT()
         BPTree tree;
         CHECK_TRUE(tree.open_table("insert.db"));
 
+        record_t record;
+
         for (int i = 1; i <= 100000; ++i)
         {
-            auto record = tree.find(i);
-            if (!record)
-            {
-                std::cout << i << '\n';
-            }
-            CHECK_TRUE(record);
+            CHECK_TRUE(tree.find(i, record));
+            CHECK_VALUE(record.key, i);
         }
     }
     END()
@@ -228,15 +226,18 @@ void TEST_BPT()
         BPTree tree;
         CHECK_TRUE(tree.open_table("insert.db"));
 
+        record_t record;
+
         for (int i = 1; i <= 50000; ++i)
         {
             CHECK_TRUE(tree.delete_key(i));
-            CHECK_FALSE(tree.find(i));
+            CHECK_FALSE(tree.find(i, record));
         }
 
         for (int i = 50001; i <= 100000; ++i)
         {
-            CHECK_TRUE(tree.find(i));
+            CHECK_TRUE(tree.find(i, record));
+            CHECK_VALUE(record.key, i);
         }
     }
     END()
@@ -246,11 +247,12 @@ void TEST_BPT()
         BPTree tree;
         CHECK_TRUE(tree.open_table("insert.db"));
 
+        record_t record;
+
         for (int i = 50001; i <= 100000; ++i)
         {
-            // std::cout << i << '\n';
             CHECK_TRUE(tree.delete_key(i));
-            CHECK_FALSE(tree.find(i));
+            CHECK_FALSE(tree.find(i, record));
         }
     }
     END()

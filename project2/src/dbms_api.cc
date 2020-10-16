@@ -42,20 +42,20 @@ int db_find(int64_t key, char* ret_val)
         return -1;
     }
 
-    auto rec = bpt->find(key);
-    if (!rec)
+    record_t rec;
+    if (!bpt->find(key, rec))
     {
         return 1;
     }
 
     for (int i = 0; i < value_size; ++i)
     {
-        if (!rec->value[i])
+        if (!rec.value[i])
         {
             ret_val[i] = '\0';
             break;
         }
-        ret_val[i] = rec->value[i];
+        ret_val[i] = rec.value[i];
     }
 
     return 0;
