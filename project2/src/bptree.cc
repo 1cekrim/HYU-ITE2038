@@ -332,18 +332,14 @@ bool BPTree::remove_entry_from_node(node_tuple& target, keyType key)
 {
     if (target.node->is_leaf())
     {
-        int idx = target.node->satisfy_condition_first<record_t>(
-            [&key](auto& now) { return now.key == key; });
-        CHECK_WITH_LOG(idx != target.node->number_of_keys(), false,
-                       "invalid key: %ld", key);
+        int idx = target.node->index_key<record_t>(key);
+        CHECK_WITH_LOG(idx != -1, false, "invalid key: %ld", key);
         target.node->erase<record_t>(idx);
     }
     else
     {
-        int idx = target.node->satisfy_condition_first<internal_t>(
-            [&key](auto& now) { return now.key == key; });
-        CHECK_WITH_LOG(idx != target.node->number_of_keys(), false,
-                       "invalid key: %ld", key);
+        int idx = target.node->index_key<internal_t>(key);
+        CHECK_WITH_LOG(idx != -1, false, "invalid key: %ld", key);
         target.node->erase<internal_t>(idx);
     }
 
@@ -488,23 +484,9 @@ std::unique_ptr<record_t> BPTree::find(keyType key)
         return nullptr;
     }
 
-    int i;
-    for (i = 0; i < leaf.node->number_of_keys(); ++i)
-    {
-        if (leaf.node->get<record_t>(i).key == key)
-        {
-            break;
-        }
-    }
+    int i = leaf.node->index_key<record_t>(key);
 
-    if (i == leaf.node->number_of_keys())
-    {
-        return nullptr;
-    }
-    else
-    {
-        return std::make_unique<record_t>(leaf.node->get<record_t>(i));
-    }
+    return i == -1 ? nullptr : std::make_unique<record_t>(leaf.node->get<record_t>(i));
 }
 
 node_tuple BPTree::find_leaf(keyType key)
@@ -530,8 +512,7 @@ node_tuple BPTree::find_leaf(keyType key)
             std::cout << "] \n";
         }
 
-        int idx = root.node->satisfy_condition_first<internal_t>(
-                      [&key](auto& now) { return now.key > key; }) -
+        int idx = root.node->key_grt(key) -
                   1;
 
         if (verbose_output)

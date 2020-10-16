@@ -425,7 +425,37 @@ struct page_t
                                             Records, Internals>::type;
         int index{};
         auto n = static_cast<int>(getHeader<NodePageHeader>().numberOfKeys);
-        while (index < n && !condition(getEntry<S>()[index]))
+        auto& arr = getEntry<S>();
+        while (index < n && !condition(arr[index]))
+        {
+            ++index;
+        }
+        return index;
+    }
+
+    template <typename T>
+    int index_key(keyType key) const
+    {
+        static_assert(std::is_same<Record, T>::value ||
+                      std::is_same<Internal, T>::value);
+        using S = typename std::conditional<std::is_same<Record, T>::value,
+                                            Records, Internals>::type;
+        int index{};
+        auto n = static_cast<int>(getHeader<NodePageHeader>().numberOfKeys);
+        auto& arr = getEntry<S>();
+        while (index < n && arr[index].key != key)
+        {
+            ++index;
+        }
+        return index == n ? -1 : index;
+    }
+
+    int key_grt(keyType key) const
+    {
+        int index{};
+        auto n = number_of_keys();
+        auto& arr = internals();
+        while (index < n && arr[index].key <= key)
         {
             ++index;
         }
