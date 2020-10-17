@@ -8,16 +8,16 @@
 
 #include "logger.hpp"
 
-FileManager::FileManager() : fp(nullptr, &std::fclose)
+FileManager::FileManager() : fd(-1)
 {
+    // Do nothing
 }
 
 FileManager::~FileManager()
 {
-    if (fp)
+    if (fd > 2)
     {
         updateFileHeader();
-        fp.reset();
     }
 
     if (lastOpenedFileManager == this)
@@ -39,12 +39,8 @@ bool FileManager::open(const std::string& name)
     // 파일 없음
     if (access(name.c_str(), F_OK) == -1)
     {
-        std::unique_ptr<std::FILE, decltype(&std::fclose)> p(
-            fdopen(::open(name.c_str(), O_RDWR | O_CREAT | O_TRUNC, 0755),
-                   "r+"),
-            &std::fclose);
-        fp = std::move(p);
-        CHECK_WITH_LOG(fp, false, "create file failure");
+        fd = ::open(name.c_str(), O_RDWR | O_CREAT | O_TRUNC, 0666);
+        CHECK_WITH_LOG(fd != -1, false, "create file failure");
 
         page_t headerPage;
         headerPage.headerPageHeader().numberOfPages = 1;
@@ -54,10 +50,8 @@ bool FileManager::open(const std::string& name)
     }
     else
     {
-        std::unique_ptr<std::FILE, decltype(&std::fclose)> p(
-            fdopen(::open(name.c_str(), O_RDWR), "r+"), &std::fclose);
-        fp = std::move(p);
-        CHECK_WITH_LOG(fp, false, "open file failure");
+        fd = ::open(name.c_str(), O_RDWR);
+        CHECK_WITH_LOG(fd != -1, false, "open file failure");
 
         page_t headerPage;
         CHECK_WITH_LOG(pageRead(0, headerPage), false,
@@ -74,16 +68,15 @@ bool FileManager::open(const std::string& name)
 
 bool FileManager::write(long int seek, const void* payload, std::size_t size)
 {
-    long count = pwrite(fileno(fp.get()), payload, size, seek);
-    std::fflush(fp.get());
-    int result = fsync(fileno(fp.get()));
+    long count = pwrite(fd, payload, size, seek);
+    int result = fsync(fd);
 
     return !result && count != -1;
 }
 
 bool FileManager::read(long int seek, void* target, size_t size)
 {
-    long count = pread(fileno(fp.get()), target, size, seek);
+    long count = pread(fd, target, size, seek);
 
     return count != -1;
 }
@@ -149,11 +142,11 @@ bool FileManager::updateFileHeader()
 
 int FileManager::get_manager_id() const
 {
-    if (!fp)
+    if (fd == -1)
     {
         return -1;
     }
-    return fileno(fp.get());
+    return fd;
 }
 
 pagenum_t FileManager::root() const

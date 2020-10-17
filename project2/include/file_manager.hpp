@@ -32,7 +32,7 @@ class FileManager
 
  private:
     HeaderPageHeader fileHeader;
-    std::unique_ptr<std::FILE, decltype(&std::fclose)> fp;
+    int fd;
     bool updateFileHeader();
     // payload 포인터가 가리키는 공간부터 size만큼 읽어와 File의 seek 위치에
     // 쓰기
