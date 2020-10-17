@@ -47,9 +47,9 @@ class BPTree
     bool delete_key(keyType key);
 
     bool find(keyType key, record_t& ret);
-    bool find_leaf(keyType key, node_tuple& ret);
 
  private:
+    bool find_leaf(keyType key, node_tuple& ret);
     bool insert_into_leaf(node_tuple& leaf, const record_t& rec);
     bool insert_into_leaf_after_splitting(node_tuple& leaf,
                                           const record_t& rec);
