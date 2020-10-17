@@ -106,20 +106,6 @@ FreePageHeader& page_t::getHeader()
         std::as_const(*this).getHeader<FreePageHeader>());
 }
 
-bool page_t::commit(FileManager& fm, pagenum_t pagenum) const
-{
-    CHECK_WITH_LOG(fm.pageWrite(pagenum, *this), false,
-                   "write page failure: %ld", pagenum);
-    return true;
-}
-
-bool page_t::load(FileManager& fm, pagenum_t pagenum)
-{
-    CHECK_WITH_LOG(fm.pageRead(pagenum, *this), false, "read page failure: %ld",
-                   pagenum);
-    return true;
-}
-
 int page_t::number_of_keys() const
 {
     return static_cast<int>(nodePageHeader().numberOfKeys);

@@ -51,7 +51,7 @@ void TEST_FILE_MANAGER()
     {
         FileManager fm;
 
-        const HeaderPageHeader& ph = fm.fileHeader;
+        const HeaderPageHeader& ph = fm.getFileHeader();
 
         CHECK_VALUE(ph.freePageNumber, 0);
         CHECK_VALUE(ph.numberOfPages, 0);
@@ -69,7 +69,7 @@ void TEST_FILE_MANAGER()
         FileManager fm;
         fm.open("test.db");
 
-        const HeaderPageHeader& ph = fm.fileHeader;
+        const HeaderPageHeader& ph = fm.getFileHeader();
 
         CHECK_VALUE(ph.freePageNumber, 0);
         CHECK_VALUE(ph.numberOfPages, 1);
@@ -94,10 +94,10 @@ void TEST_FILE_MANAGER()
             page.internals()[i].node_id = i;
         }
 
-        fm.pageWrite(0, page);
+        fm.commit(0, page);
 
         page_t readPage;
-        fm.pageRead(0, readPage);
+        fm.load(0, readPage);
 
         for (int i = 0; i < 248; ++i)
         {
@@ -121,16 +121,16 @@ void TEST_FILE_MANAGER()
         std::vector<pagenum_t> nums;
         for (int i = 0; i < 100; ++i)
         {
-            pagenum_t num = fm.pageCreate();
+            pagenum_t num = fm.create();
             CHECK_TRUE(num != EMPTY_PAGE_NUMBER);
 
-            CHECK_TRUE(fm.pageWrite(num, page));
+            CHECK_TRUE(fm.commit(num, page));
             nums.push_back(num);
         }
 
         for (auto n : nums)
         {
-            CHECK_TRUE(fm.pageRead(n, page));
+            CHECK_TRUE(fm.load(n, page));
         }
     }
     END()
@@ -141,14 +141,14 @@ void TEST_FILE_MANAGER()
         fm.open("qqq.db");
         for (int i = 1; i <= 100; ++i)
         {
-            fm.pageFree(i);
+            fm.free(i);
         }
-        pagenum_t now = fm.fileHeader.freePageNumber;
+        pagenum_t now = fm.getFileHeader().freePageNumber;
         CHECK_VALUE(now, 100);
         while (now != EMPTY_PAGE_NUMBER)
         {
             page_t page;
-            CHECK_TRUE(fm.pageRead(now, page));
+            CHECK_TRUE(fm.load(now, page));
             auto& header = page.freePageHeader();
             CHECK_VALUE(header.nextFreePageNumber + 1, now);
             now = header.nextFreePageNumber;
@@ -164,12 +164,12 @@ void TEST_BPT()
         BPTree tree;
         CHECK_TRUE(tree.open_table("insert.db"));
 
-        std::vector<int> keys(100000);
+        std::vector<int> keys(1000000);
 
         std::random_device rd;
         std::mt19937 mt(rd());
 
-        for (int i = 1; i <= 100000; ++i)
+        for (int i = 1; i <= 1000000; ++i)
         {
             std::uniform_int_distribution<int> range(0, i - 1);
             int pos = range(mt);
@@ -213,7 +213,7 @@ void TEST_BPT()
 
         record_t record;
 
-        for (int i = 1; i <= 100000; ++i)
+        for (int i = 1; i <= 1000000; ++i)
         {
             CHECK_TRUE(tree.find(i, record));
             CHECK_VALUE(record.key, i);
@@ -228,13 +228,13 @@ void TEST_BPT()
 
         record_t record;
 
-        for (int i = 1; i <= 50000; ++i)
+        for (int i = 1; i <= 500000; ++i)
         {
             CHECK_TRUE(tree.delete_key(i));
             CHECK_FALSE(tree.find(i, record));
         }
 
-        for (int i = 50001; i <= 100000; ++i)
+        for (int i = 500001; i <= 1000000; ++i)
         {
             CHECK_TRUE(tree.find(i, record));
             CHECK_VALUE(record.key, i);
@@ -249,7 +249,7 @@ void TEST_BPT()
 
         record_t record;
 
-        for (int i = 50001; i <= 100000; ++i)
+        for (int i = 500001; i <= 1000000; ++i)
         {
             CHECK_TRUE(tree.delete_key(i));
             CHECK_FALSE(tree.find(i, record));

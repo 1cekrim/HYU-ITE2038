@@ -16,9 +16,24 @@ class FileManager
     FileManager();
     ~FileManager();
 
-    // name 명으로 File 열기
+    // node manager interface
     bool open(const std::string& name);
+    bool commit(pagenum_t pagenum, const page_t& page);
+    bool load(pagenum_t pagenum, page_t& page);
+    pagenum_t create();
+    bool free(pagenum_t pagenum);
+    int get_manager_id() const;
+    pagenum_t root() const;
+    bool set_root(pagenum_t pagenum);
 
+    const HeaderPageHeader& getFileHeader() const;
+    inline static FileManager* lastOpenedFileManager;
+    inline static std::vector<FileManager*> openedFileManager;
+
+ private:
+    HeaderPageHeader fileHeader;
+    std::unique_ptr<std::FILE, decltype(&std::fclose)> fp;
+    bool updateFileHeader();
     // payload 포인터가 가리키는 공간부터 size만큼 읽어와 File의 seek 위치에
     // 쓰기
     bool write(long int seek, const void* payload, std::size_t size);
@@ -35,24 +50,8 @@ class FileManager
     // pagenum에 해당하는 Page free. 성공하면 true 반환.
     bool pageFree(pagenum_t pagenum);
 
-    // update file header
-    bool updateFileHeader();
-
     // 새 페이지 추가
     pagenum_t pageCreate();
-
-    HeaderPageHeader fileHeader;
-
-    pagenum_t root() const;
-    bool set_root(pagenum_t pagenum);
-
-    int getFileDescriptor() const;
-
-    inline static FileManager* lastOpenedFileManager;
-    inline static std::vector<FileManager*> openedFileManager;
-
- private:
-    std::unique_ptr<std::FILE, decltype(&std::fclose)> fp;
 };
 
 #endif /* __FILE_MANAGER_HPP__*/

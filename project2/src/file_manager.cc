@@ -40,8 +40,7 @@ bool FileManager::open(const std::string& name)
     if (access(name.c_str(), F_OK) == -1)
     {
         std::unique_ptr<std::FILE, decltype(&std::fclose)> p(
-            fdopen(::open(name.c_str(), O_RDWR | O_CREAT | O_TRUNC,
-                          0755),
+            fdopen(::open(name.c_str(), O_RDWR | O_CREAT | O_TRUNC, 0755),
                    "r+"),
             &std::fclose);
         fp = std::move(p);
@@ -148,7 +147,7 @@ bool FileManager::updateFileHeader()
     return write(0, &fileHeader, sizeof(HeaderPageHeader));
 }
 
-int FileManager::getFileDescriptor() const
+int FileManager::get_manager_id() const
 {
     if (!fp)
     {
@@ -168,4 +167,33 @@ bool FileManager::set_root(pagenum_t pagenum)
     CHECK_WITH_LOG(updateFileHeader(), false, "update file header failure");
 
     return true;
+}
+
+bool FileManager::commit(pagenum_t pagenum, const page_t& page)
+{
+    CHECK_WITH_LOG(pageWrite(pagenum, page), false, "write page failure: %ld",
+                   pagenum);
+    return true;
+}
+
+bool FileManager::load(pagenum_t pagenum, page_t& page)
+{
+    CHECK_WITH_LOG(pageRead(pagenum, page), false, "read page failure: %ld",
+                   pagenum);
+    return true;
+}
+
+pagenum_t FileManager::create()
+{
+    return pageCreate();
+}
+
+bool FileManager::free(pagenum_t pagenum)
+{
+    return pageFree(pagenum);
+}
+
+const HeaderPageHeader& FileManager::getFileHeader() const
+{
+    return fileHeader;
 }

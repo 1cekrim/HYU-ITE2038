@@ -311,9 +311,6 @@ struct page_t
         return entry.internals;
     }
 
-    bool commit(FileManager& manager, pagenum_t pagenum) const;
-    bool load(FileManager& manager, pagenum_t pagenum);
-
     template <typename T>
     void push_back(const T& value)
     {

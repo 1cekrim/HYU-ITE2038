@@ -32,7 +32,7 @@ int BPTree::char_to_valType(valType& dst, const char* src) const
 
 int BPTree::get_table_id() const
 {
-    return manager.getFileDescriptor();
+    return manager.get_manager_id();
 }
 
 bool BPTree::insert(keyType key, const valType& value)
@@ -142,35 +142,35 @@ int BPTree::get_left_index(const node_t& parent, nodeId_t left_id) const
 
 bool BPTree::load_node(nodeId_t node_id, node_t& node)
 {
-    CHECK_WITH_LOG(node.load(manager, node_id), false, "load node failure: %ld",
+    CHECK_WITH_LOG(manager.load(node_id, node), false, "load node failure: %ld",
                    node_id);
     return true;
 }
 
 bool BPTree::commit_node(nodeId_t node_id, const node_t& node)
 {
-    CHECK_WITH_LOG(node.commit(manager, node_id), false,
+    CHECK_WITH_LOG(manager.commit(node_id, node), false,
                    "commit node failure: %ld", node_id);
     return true;
 }
 
 bool BPTree::commit_node(const node_tuple& target)
 {
-    CHECK_WITH_LOG(target.node.commit(manager, target.id), false,
+    CHECK_WITH_LOG(manager.commit(target.id, target.node), false,
                    "commit node failure: %ld", target.id);
     return true;
 }
 
 bool BPTree::free_node(const nodeId_t target)
 {
-    CHECK_WITH_LOG(manager.pageFree(target), false, "free page failure: %ld",
+    CHECK_WITH_LOG(manager.free(target), false, "free page failure: %ld",
                    target);
     return true;
 }
 
 nodeId_t BPTree::create_node()
 {
-    nodeId_t t = manager.pageCreate();
+    nodeId_t t = manager.create();
     return t;
 }
 
