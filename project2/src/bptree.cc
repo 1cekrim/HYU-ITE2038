@@ -244,7 +244,10 @@ bool BPTree::insert_into_node_after_splitting(node_tuple& parent,
 bool BPTree::delete_key(keyType key)
 {
     record_t record;
-    CHECK(find(key, record));
+    if (!find(key, record))
+    {
+        return false;
+    }
 
     node_tuple leaf;
     CHECK(find_leaf(key, leaf));
