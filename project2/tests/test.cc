@@ -1,7 +1,6 @@
 #include "test.hpp"
 
 #include <cstdio>
-
 #include <iostream>
 #include <list>
 #include <random>
@@ -189,23 +188,6 @@ void TEST_BPT()
     }
     END()
 
-    //  TEST("BPTree  insert many")
-    // {
-    //     BPTree tree;
-    //     CHECK_TRUE(tree.open_table("insert.db"));
-
-    //     for (int i = 100000; i > 0; --i)
-    // {
-    //         valType v;
-    //         std::stringstream ss;
-    //         ss << "test insert " << i;
-    //         tree.char_to_valType(v, ss.str().c_str());
-
-    //         CHECK_TRUE(tree.insert(i, v));
-    //     }
-    // }
-    // END()
-
     TEST("BPTree find key")
     {
         BPTree tree;
@@ -250,6 +232,53 @@ void TEST_BPT()
         record_t record;
 
         for (int i = 500001; i <= 1000000; ++i)
+        {
+            CHECK_TRUE(tree.delete_key(i));
+            CHECK_FALSE(tree.find(i, record));
+        }
+    }
+    END()
+
+    TEST("BPTree insert after delete")
+    {
+        BPTree tree;
+        CHECK_TRUE(tree.open_table("insert.db"));
+
+        for (int i = 1000000; i > 0; --i)
+        {
+            valType v;
+            std::stringstream ss;
+            ss << "test insert " << i;
+            tree.char_to_valType(v, ss.str().c_str());
+
+            CHECK_TRUE(tree.insert(i, v));
+        }
+    }
+    END()
+
+    TEST("BPTree find after delete and insert")
+    {
+        BPTree tree;
+        CHECK_TRUE(tree.open_table("insert.db"));
+
+        record_t record;
+
+        for (int i = 1; i <= 1000000; ++i)
+        {
+            CHECK_TRUE(tree.find(i, record));
+            CHECK_VALUE(record.key, i);
+        }
+    }
+    END()
+
+    TEST("BPTree delete all")
+    {
+        BPTree tree;
+        CHECK_TRUE(tree.open_table("insert.db"));
+
+        record_t record;
+
+        for (int i = 1000000; i >= 1; --i)
         {
             CHECK_TRUE(tree.delete_key(i));
             CHECK_FALSE(tree.find(i, record));
