@@ -308,18 +308,6 @@ bool BPTree::delete_entry(node_tuple& target, keyType key)
     if (static_cast<int>(target.node.number_of_keys() +
                          neighbor.node.number_of_keys()) < capacity)
     {
-        // node_tuple tmp_neightbor, tmp_target;
-        // if (neighbor_index == -1)
-        // {
-        //     tmp_neightbor = target;
-        //     tmp_target = neighbor;
-        // }
-        // else
-        // {
-        //     tmp_neightbor = neighbor;
-        //     tmp_target = target;
-        // }
-        // return coalesce_nodes(tmp_target, tmp_neightbor, parent, k_prime);
         if (neighbor_index == -1)
         {
             return coalesce_nodes(neighbor, target, parent, k_prime);
@@ -410,7 +398,6 @@ bool BPTree::coalesce_nodes(node_tuple& target, node_tuple& neighbor,
         for (auto& internal : target.node.range<internal_t>())
         {
             neighbor.node.push_back(internal);
-
             CHECK(update_parent_with_commit(internal.node_id, neighbor.id));
         }
     }
