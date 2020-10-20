@@ -1,0 +1,8 @@
+builds/
+lib/
+.clang-format
+.vscode/
+*.o
+*.db
+*.png
+*.txt
