@@ -1,4 +1,5 @@
 #include "buffer_manager.hpp"
+#include "frame.hpp"
 
 BufferManager::BufferManager() : fileManager()
 {
@@ -18,15 +19,15 @@ bool BufferManager::open(const std::string& name)
     return fileManager.open(name);
 }
 
-bool BufferManager::commit(pagenum_t pagenum, const page_t& page)
+bool BufferManager::commit(pagenum_t pagenum, const frame_t& frame)
 {
     // TODO: 구현
-    return fileManager.commit(pagenum, page);
+    return fileManager.commit(pagenum, frame);
 }
 
-bool BufferManager::load(pagenum_t pagenum, page_t& page)
+bool BufferManager::load(pagenum_t pagenum, frame_t& frame)
 {
-    return fileManager.load(pagenum, page);
+    return fileManager.load(pagenum, frame);
 }
 
 pagenum_t BufferManager::create()

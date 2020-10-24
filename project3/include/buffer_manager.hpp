@@ -8,8 +8,8 @@
 #include <string_view>
 #include <vector>
 
-#include "page.hpp"
 #include "file_manager.hpp"
+#include "frame.hpp"
 
 class BufferManager
 {
@@ -19,8 +19,8 @@ class BufferManager
 
     // node manager interface
     bool open(const std::string& name);
-    bool commit(pagenum_t pagenum, const page_t& page);
-    bool load(pagenum_t pagenum, page_t& page);
+    bool commit(pagenum_t pagenum, const frame_t& frame);
+    bool load(pagenum_t pagenum, frame_t& frame);
     pagenum_t create();
     bool free(pagenum_t pagenum);
     int get_manager_id() const;

@@ -6,6 +6,7 @@
 
 #include "buffer_manager.hpp"
 #include "page.hpp"
+#include "frame.hpp"
 
 constexpr auto LEAF_ORDER = 32;
 constexpr auto INTERNAL_ORDER = 249;
@@ -13,7 +14,7 @@ constexpr auto VERBOSE_OUTPUT = false;
 constexpr auto DELAYED_MIN = 1;
 constexpr auto INVALID_NODE_ID = EMPTY_PAGE_NUMBER;
 
-using node_t = page_t;
+using node_t = frame_t;
 using nodeId_t = pagenum_t;
 using record_t = Record;
 using internal_t = Internal;
