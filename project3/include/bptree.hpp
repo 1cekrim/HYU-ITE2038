@@ -4,7 +4,7 @@
 #include <memory>
 #include <string_view>
 
-#include "file_manager.hpp"
+#include "buffer_manager.hpp"
 #include "page.hpp"
 
 constexpr auto LEAF_ORDER = 32;
@@ -17,7 +17,7 @@ using node_t = page_t;
 using nodeId_t = pagenum_t;
 using record_t = Record;
 using internal_t = Internal;
-using manager_t = FileManager;
+using manager_t = BufferManager;
 
 struct node_tuple
 {
