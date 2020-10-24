@@ -6,13 +6,14 @@
 #include <random>
 #include <sstream>
 #include <string>
-#include <vector>
 #include <type_traits>
+#include <vector>
 
 #include "bptree.hpp"
 #include "file_api.hpp"
 #include "file_manager.hpp"
 #include "logger.hpp"
+#include "table_manager.hpp"
 
 int success, cnt, allSuccess, allCnt;
 bool testFlag;
@@ -23,12 +24,15 @@ void TEST_POD();
 void TEST_BPT();
 void TEST_FILE();
 void TESTS();
+void TEST_TABLE();
 
 int main()
 {
-    void (*tests[])() = { TEST_POD, TEST_FILE_MANAGER, TEST_BPT, TEST_FILE, TESTS };
+    void (*tests[])() = { TEST_POD, TEST_FILE_MANAGER, TEST_TABLE,
+                          TEST_BPT, TEST_FILE,         TESTS };
 
-    std::string testNames[] = { "test pod", "file_manager", "bpt", "test_file", "TESTS" };
+    std::string testNames[] = { "test pod", "file_manager", "table",
+                                "bpt",      "test_file",    "TESTS" };
 
     for (int i = 0;
          i < static_cast<int>((sizeof(tests) / sizeof(void (*)(void)))); ++i)
@@ -44,6 +48,91 @@ int main()
     std::cout << "\n[Tests are over] success: " << allSuccess << " / " << allCnt
               << "\n";
     return 0;
+}
+
+void TEST_TABLE()
+{
+    for (int j = 0; j < 3; ++j)
+    {
+        std::vector<int> tables;
+        TEST("open 10 tables")
+        {
+            for (int i = 0; i < 10; ++i)
+            {
+                std::stringstream ss;
+                ss << "table_" << i << ".db";
+
+                int id = TableManager::instance().open_table(ss.str());
+                CHECK_TRUE(id != INVALID_TABLE_ID);
+                tables.push_back(id);
+            }
+        }
+        END()
+
+        TEST("insert 10000 to 10 tables")
+        {
+            for (int i = 0; i < 10000; ++i)
+            {
+                valType v;
+                std::stringstream ss;
+                ss << "test insert " << i;
+                TableManager::char_to_valType(v, ss.str().c_str());
+
+                int mul = 0;
+                for (auto id : tables)
+                {
+                    CHECK_TRUE(TableManager::instance().insert(
+                        id, i + mul * 10000, v));
+                    ++mul;
+                }
+            }
+        }
+        END()
+
+        TEST("find 10000 to 10 tables")
+        {
+            for (int i = 0; i < 10000; ++i)
+            {
+                int mul = 0;
+                for (auto id : tables)
+                {
+                    record_t record;
+                    CHECK_TRUE(TableManager::instance().find(
+                        id, i + mul * 10000, record));
+                    CHECK_VALUE(record.key, i + mul * 10000);
+                    ++mul;
+                }
+            }
+        }
+        END()
+
+        TEST("delete 10000 to 10 tables")
+        {
+            for (int i = 0; i < 10000; ++i)
+            {
+                int mul = 0;
+                for (auto id : tables)
+                {
+                    record_t record;
+                    CHECK_TRUE(TableManager::instance().delete_key(
+                        id, i + mul * 10000));
+                    CHECK_FALSE(TableManager::instance().find(
+                        id, i + mul * 10000, record));
+                    ++mul;
+                }
+            }
+        }
+        END()
+
+        TEST("close 10 tables")
+        {
+            for (auto id : tables)
+            {
+                CHECK_TRUE(TableManager::instance().close_table(id));
+            }
+        }
+        END()
+    }
 }
 
 void TEST_POD()
@@ -94,8 +183,6 @@ void TEST_POD()
         CHECK_TRUE(std::is_standard_layout<Internals>::value);
     }
     END()
-
-
 
     TEST("is_trivial std::array")
     {

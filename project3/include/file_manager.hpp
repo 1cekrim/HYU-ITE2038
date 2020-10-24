@@ -27,8 +27,6 @@ class FileManager
     bool set_root(pagenum_t pagenum);
 
     const HeaderPageHeader& getFileHeader() const;
-    inline static FileManager* lastOpenedFileManager;
-    inline static std::vector<FileManager*> openedFileManager;
 
  private:
     HeaderPageHeader fileHeader;

@@ -19,19 +19,6 @@ FileManager::~FileManager()
     {
         updateFileHeader();
     }
-
-    if (lastOpenedFileManager == this)
-    {
-        if (openedFileManager.empty())
-        {
-            lastOpenedFileManager = nullptr;
-        }
-        else
-        {
-            lastOpenedFileManager = openedFileManager.back();
-            openedFileManager.pop_back();
-        }
-    }
 }
 
 bool FileManager::open(const std::string& name)
@@ -59,9 +46,6 @@ bool FileManager::open(const std::string& name)
 
         fileHeader = headerPage.headerPageHeader();
     }
-
-    lastOpenedFileManager = this;
-    openedFileManager.emplace_back(this);
 
     return true;
 }
