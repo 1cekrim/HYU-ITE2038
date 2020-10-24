@@ -64,8 +64,10 @@ bool BPTree::insert(keyType key, const valType& value)
 
 bool BPTree::insert_into_leaf(node_tuple& leaf, const record_t& rec)
 {
-    int insertion_point = leaf.node.satisfy_condition_first<record_t>(
-        [&rec](auto& now) { return now.key >= rec.key; });
+    int insertion_point =
+        leaf.node.satisfy_condition_first<record_t>([&rec](auto& now) {
+            return now.key >= rec.key;
+        });
 
     leaf.node.insert(rec, insertion_point);
 
@@ -77,10 +79,13 @@ bool BPTree::insert_into_leaf(node_tuple& leaf, const record_t& rec)
 bool BPTree::insert_into_leaf_after_splitting(node_tuple& leaf,
                                               const record_t& rec)
 {
-    node_tuple new_leaf{ create_node(), true };
+    node_tuple new_leaf { create_node() };
+    new_leaf.node.set_is_leaf(true);
 
-    int insertion_index = leaf.node.satisfy_condition_first<record_t>(
-        [&rec](auto& now) { return now.key >= rec.key; });
+    int insertion_index =
+        leaf.node.satisfy_condition_first<record_t>([&rec](auto& now) {
+            return now.key >= rec.key;
+        });
 
     std::vector<record_t> temp;
     temp.reserve(leaf_order + 1);
@@ -135,8 +140,10 @@ int BPTree::get_left_index(const node_t& parent, nodeId_t left_id) const
         return 0;
     }
 
-    int left_index = parent.satisfy_condition_first<internal_t>(
-        [&left_id](auto& now) { return now.node_id == left_id; });
+    int left_index =
+        parent.satisfy_condition_first<internal_t>([&left_id](auto& now) {
+            return now.node_id == left_id;
+        });
     return left_index + 1;
 }
 
@@ -372,7 +379,7 @@ bool BPTree::adjust_root()
 
 bool BPTree::update_parent_with_commit(nodeId_t target_id, nodeId_t parent_id)
 {
-    node_t temp;
+    node_t temp {};
     CHECK(load_node(target_id, temp));
     temp.set_parent(parent_id);
     CHECK(commit_node(target_id, temp));
@@ -539,7 +546,8 @@ bool BPTree::find_leaf(keyType key, node_tuple& node)
 
 bool BPTree::start_new_tree(const record_t& rec)
 {
-    node_tuple root = { create_node(), true };
+    node_tuple root = { create_node() };
+    root.node.set_is_leaf(true);
     CHECK(root);
 
     root.node.insert(rec, 0);

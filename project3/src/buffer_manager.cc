@@ -26,7 +26,7 @@ bool BufferManager::commit(pagenum_t pagenum, const page_t& page)
 
 bool BufferManager::load(pagenum_t pagenum, page_t& page)
 {
-    return fileManager.commit(pagenum, page);
+    return fileManager.load(pagenum, page);
 }
 
 pagenum_t BufferManager::create()

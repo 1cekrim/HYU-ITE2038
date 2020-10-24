@@ -126,6 +126,11 @@ bool page_t::is_leaf() const
     return nodePageHeader().isLeaf;
 }
 
+void page_t::set_is_leaf(bool is_leaf)
+{
+    nodePageHeader().isLeaf = is_leaf;
+}
+
 pagenum_t page_t::leftmost() const
 {
     // Check isleaf

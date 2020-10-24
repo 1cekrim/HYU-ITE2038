@@ -8,7 +8,7 @@
 
 #include "logger.hpp"
 
-FileManager::FileManager() : fd(-1)
+FileManager::FileManager() : fileHeader {}, fd(-1)
 {
     // Do nothing
 }
@@ -42,7 +42,7 @@ bool FileManager::open(const std::string& name)
         fd = ::open(name.c_str(), O_RDWR | O_CREAT | O_TRUNC, 0666);
         CHECK_WITH_LOG(fd != -1, false, "create file failure");
 
-        page_t headerPage;
+        page_t headerPage {};
         headerPage.headerPageHeader().numberOfPages = 1;
         fileHeader.numberOfPages = 1;
         CHECK_WITH_LOG(pageWrite(0, headerPage), false,
@@ -53,7 +53,7 @@ bool FileManager::open(const std::string& name)
         fd = ::open(name.c_str(), O_RDWR);
         CHECK_WITH_LOG(fd != -1, false, "open file failure");
 
-        page_t headerPage;
+        page_t headerPage {};
         CHECK_WITH_LOG(pageRead(0, headerPage), false,
                        "read header page failure: 0");
 
@@ -88,7 +88,7 @@ pagenum_t FileManager::pageCreate()
     if (pagenum == EMPTY_PAGE_NUMBER)
     {
         pagenum = fileHeader.numberOfPages;
-        page_t page;
+        page_t page {};
         CHECK_WITH_LOG(pageWrite(pagenum, page), EMPTY_PAGE_NUMBER,
                        "write page failure: %ld", pagenum);
         CHECK_WITH_LOG(pageRead(pagenum, page), EMPTY_PAGE_NUMBER,
@@ -97,7 +97,7 @@ pagenum_t FileManager::pageCreate()
     }
     else
     {
-        page_t page;
+        page_t page {};
         CHECK_WITH_LOG(pageRead(pagenum, page), EMPTY_PAGE_NUMBER,
                        "read page failure: %ld", pagenum);
         fileHeader.freePageNumber = page.freePageHeader().nextFreePageNumber;
@@ -124,7 +124,7 @@ bool FileManager::pageRead(pagenum_t pagenum, page_t& page)
 // pagenum에 해당하는 Page free. 성공하면 true 반환.
 bool FileManager::pageFree(pagenum_t pagenum)
 {
-    page_t page;
+    page_t page {};
     CHECK_WITH_LOG(pageRead(pagenum, page), false, "page read failure: %ld",
                    pagenum);
     page.freePageHeader().nextFreePageNumber = fileHeader.freePageNumber;

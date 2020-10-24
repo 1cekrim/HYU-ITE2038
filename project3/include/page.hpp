@@ -26,36 +26,7 @@ struct NodePageHeader
     uint32_t numberOfKeys;
     std::array<uint8_t, 104> reserved;
     pagenum_t onePageNumber;
-
-    NodePageHeader()
-        : parentPageNumber(0),
-          isLeaf(0),
-          numberOfKeys(0),
-          reserved(),
-          onePageNumber(0)
-    {
-        // Do nothing
-    }
-
-    NodePageHeader(const NodePageHeader& header)
-        : parentPageNumber(header.parentPageNumber),
-          isLeaf(header.isLeaf),
-          numberOfKeys(header.numberOfKeys),
-          reserved(),
-          onePageNumber(header.onePageNumber)
-    {
-        // Do nothing
-    }
-
-    NodePageHeader& operator=(const NodePageHeader& header)
-    {
-        parentPageNumber = header.parentPageNumber;
-        isLeaf = header.isLeaf;
-        numberOfKeys = header.numberOfKeys;
-        onePageNumber = header.onePageNumber;
-        return *this;
-    }
-
+    
     friend std::ostream& operator<<(std::ostream& os,
                                     const NodePageHeader& nph);
 };
@@ -67,27 +38,6 @@ struct HeaderPageHeader
     pagenum_t numberOfPages;
     std::array<uint8_t, sizeof(struct NodePageHeader) - 24> reserved;
 
-    HeaderPageHeader()
-        : freePageNumber(0), rootPageNumber(0), numberOfPages(0), reserved()
-    {
-        // Do nothing
-    }
-
-    HeaderPageHeader(const HeaderPageHeader& header)
-        : freePageNumber(header.freePageNumber),
-          rootPageNumber(header.rootPageNumber),
-          numberOfPages(header.numberOfPages)
-    {
-        // Do nothing
-    }
-
-    HeaderPageHeader& operator=(const HeaderPageHeader& header)
-    {
-        freePageNumber = header.freePageNumber;
-        rootPageNumber = header.rootPageNumber;
-        numberOfPages = header.numberOfPages;
-        return *this;
-    }
     friend std::ostream& operator<<(std::ostream& os,
                                     const HeaderPageHeader& hph);
 };
@@ -96,29 +46,12 @@ struct FreePageHeader
 {
     pagenum_t nextFreePageNumber;
     std::array<uint8_t, sizeof(struct NodePageHeader) - 8> reserved;
-
-    FreePageHeader() : nextFreePageNumber(0), reserved()
-    {
-        // Do nothing
-    }
-
-    FreePageHeader(const FreePageHeader& header)
-        : nextFreePageNumber(header.nextFreePageNumber), reserved()
-    {
-        // Do nothing
-    }
 };
 
 struct Record
 {
     keyType key;
     valType value;
-    Record& operator=(const Record& rhs)
-    {
-        this->key = rhs.key;
-        this->value = rhs.value;
-        return *this;
-    }
     void init(keyType key, const valType& val)
     {
         this->key = key;
@@ -130,12 +63,6 @@ struct Internal
 {
     keyType key;
     pagenum_t node_id;
-    Internal& operator=(const Internal& rhs)
-    {
-        this->key = rhs.key;
-        this->node_id = rhs.node_id;
-        return *this;
-    }
     void init(keyType key, pagenum_t node_id)
     {
         this->key = key;
@@ -220,35 +147,14 @@ struct page_t
         HeaderPageHeader headerPageHeader;
         NodePageHeader nodePageHeader;
         FreePageHeader freePageHeader;
-        Header() : freePageHeader()
-        {
-            // Do nothing
-        }
     } header;
 
     union Entry
     {
         Records records;
         Internals internals;
-        Entry() : records()
-        {
-            // Do nothing
-        }
     } entry;
-
-    page_t& operator=(const page_t& rhs)
-    {
-        std::memcpy(this, &rhs, sizeof(page_t));
-        return *this;
-    }
-
-    page_t() = default;
-    page_t(bool isLeaf)
-    {
-        header.nodePageHeader.isLeaf = isLeaf;
-    }
-    page_t(const page_t& p) = default;
-
+    
     template <typename T>
     const T& getEntry() const;
 
@@ -500,6 +406,7 @@ struct page_t
     pagenum_t parent() const;
     void set_parent(pagenum_t parent);
     bool is_leaf() const;
+    void set_is_leaf(bool is_leaf);
 
     pagenum_t leftmost() const;
     void set_leftmost(pagenum_t leftmost);

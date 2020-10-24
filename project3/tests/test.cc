@@ -7,6 +7,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <type_traits>
 
 #include "bptree.hpp"
 #include "file_api.hpp"
@@ -18,15 +19,16 @@ bool testFlag;
 std::string testName;
 
 void TEST_FILE_MANAGER();
+void TEST_POD();
 void TEST_BPT();
 void TEST_FILE();
 void TESTS();
 
 int main()
 {
-    void (*tests[])() = { TEST_FILE_MANAGER, TEST_BPT, TEST_FILE, TESTS };
+    void (*tests[])() = { TEST_POD, TEST_FILE_MANAGER, TEST_BPT, TEST_FILE, TESTS };
 
-    std::string testNames[] = { "file_manager", "bpt", "test_file", "TESTS" };
+    std::string testNames[] = { "test pod", "file_manager", "bpt", "test_file", "TESTS" };
 
     for (int i = 0;
          i < static_cast<int>((sizeof(tests) / sizeof(void (*)(void)))); ++i)
@@ -42,6 +44,104 @@ int main()
     std::cout << "\n[Tests are over] success: " << allSuccess << " / " << allCnt
               << "\n";
     return 0;
+}
+
+void TEST_POD()
+{
+    using array = std::array<uint8_t, 1>;
+    TEST("is_standard_layout std::array")
+    {
+        CHECK_TRUE(std::is_standard_layout<array>::value);
+    }
+    END()
+    TEST("is_standard_layout HeaderPageHeader")
+    {
+        CHECK_TRUE(std::is_standard_layout<HeaderPageHeader>::value);
+    }
+    END()
+    TEST("is_standard_layout NodePageHeader")
+    {
+        CHECK_TRUE(std::is_standard_layout<NodePageHeader>::value);
+    }
+    END()
+    TEST("is_standard_layout FreePageHeader")
+    {
+        CHECK_TRUE(std::is_standard_layout<FreePageHeader>::value);
+    }
+    END()
+    TEST("is_standard_layout page_t")
+    {
+        CHECK_TRUE(std::is_standard_layout<page_t>::value);
+    }
+    END()
+    TEST("is_standard_layout Record")
+    {
+        CHECK_TRUE(std::is_standard_layout<Record>::value);
+    }
+    END()
+    TEST("is_standard_layout Internal")
+    {
+        CHECK_TRUE(std::is_standard_layout<Internal>::value);
+    }
+    END()
+    TEST("is_standard_layout Records")
+    {
+        CHECK_TRUE(std::is_standard_layout<Records>::value);
+    }
+    END()
+    TEST("is_standard_layout Internals")
+    {
+        CHECK_TRUE(std::is_standard_layout<Internals>::value);
+    }
+    END()
+
+
+
+    TEST("is_trivial std::array")
+    {
+        CHECK_TRUE(std::is_standard_layout<array>::value);
+    }
+    END()
+    TEST("is_trivial HeaderPageHeader")
+    {
+        CHECK_TRUE(std::is_trivial<HeaderPageHeader>::value);
+    }
+    END()
+    TEST("is_trivial NodePageHeader")
+    {
+        CHECK_TRUE(std::is_trivial<NodePageHeader>::value);
+    }
+    END()
+    TEST("is_trivial FreePageHeader")
+    {
+        CHECK_TRUE(std::is_trivial<FreePageHeader>::value);
+    }
+    END()
+    TEST("is_trivial page_t")
+    {
+        CHECK_TRUE(std::is_trivial<page_t>::value);
+    }
+    END()
+    TEST("is_trivial Record")
+    {
+        CHECK_TRUE(std::is_trivial<Record>::value);
+    }
+    END()
+    TEST("is_trivial Internal")
+    {
+        CHECK_TRUE(std::is_trivial<Internal>::value);
+    }
+    END()
+    TEST("is_trivial Records")
+    {
+        CHECK_TRUE(std::is_trivial<Records>::value);
+    }
+    END()
+    TEST("is_trivial Internals")
+    {
+        CHECK_TRUE(std::is_trivial<Internals>::value);
+    }
+    END()
 }
 
 void TEST_FILE_MANAGER()
@@ -86,7 +186,7 @@ void TEST_FILE_MANAGER()
         FileManager fm;
         fm.open("test.db");
 
-        page_t page;
+        page_t page {};
         for (int i = 0; i < 248; ++i)
         {
             page.internals()[i].key = i;
@@ -95,7 +195,7 @@ void TEST_FILE_MANAGER()
 
         fm.commit(0, page);
 
-        page_t readPage;
+        page_t readPage {};
         fm.load(0, readPage);
 
         for (int i = 0; i < 248; ++i)
@@ -111,7 +211,7 @@ void TEST_FILE_MANAGER()
     {
         FileManager fm;
         fm.open("qqq.db");
-        page_t page;
+        page_t page {};
         for (int i = 0; i < 248; ++i)
         {
             page.internals()[i].key = i;
@@ -146,7 +246,7 @@ void TEST_FILE_MANAGER()
         CHECK_VALUE(now, 100);
         while (now != EMPTY_PAGE_NUMBER)
         {
-            page_t page;
+            page_t page {};
             CHECK_TRUE(fm.load(now, page));
             auto& header = page.freePageHeader();
             CHECK_VALUE(header.nextFreePageNumber + 1, now);
