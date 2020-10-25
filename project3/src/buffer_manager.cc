@@ -99,7 +99,7 @@ bool BufferController::get(int file_id, pagenum_t pagenum, frame_t& frame)
                    "Buffer load failure. file: %d / pagenum: %ld", file_id,
                    pagenum);
     frame = (*buffer)[index];
-    
+
     CHECK(unlink_frame(index, frame));
     CHECK(update_recently_used(index, frame));
     return true;
@@ -145,7 +145,7 @@ int BufferController::create(int file_id)
 
 pagenum_t BufferController::frame_id_to_pagenum(int frame_id) const
 {
-    pagenum_t result =  buffer->at(frame_id).pagenum;
+    pagenum_t result = buffer->at(frame_id).pagenum;
     return result;
 }
 
@@ -192,26 +192,8 @@ bool BufferController::update_recently_used(int buffer_index, frame_t& frame)
 
 bool BufferController::unlink_frame(int buffer_index, frame_t& frame)
 {
-    // frame.next;
-    if (frame.next != INVALID_BUFFER_INDEX)
-    {
-        // auto& target = buffer->at(frame.next);
-        // CHECK_WITH_LOG(target.prev == buffer_index, false, "logical error
-        // detected");
-        buffer->at(frame.next).prev = frame.prev;
-    }
-    else
-    {
-        CHECK_WITH_LOG(mru == buffer_index, false,
-                       "logical error detected: mru: %d, buffer_index: %d", mru,
-                       buffer_index);
-        mru = frame.prev;
-    }
     if (frame.prev != INVALID_BUFFER_INDEX)
     {
-        // auto& target = buffer->at(frame.prev);
-        // CHECK_WITH_LOG(target.next == buffer_index, false, "logical error
-        // detected");
         buffer->at(frame.prev).next = frame.next;
     }
     else
@@ -220,6 +202,18 @@ bool BufferController::unlink_frame(int buffer_index, frame_t& frame)
                        "logical error detected: lru: %d, buffer_index: %d", lru,
                        buffer_index);
         lru = frame.next;
+    }
+
+    if (frame.next != INVALID_BUFFER_INDEX)
+    {
+        buffer->at(frame.next).prev = frame.prev;
+    }
+    else
+    {
+        CHECK_WITH_LOG(mru == buffer_index, false,
+                       "logical error detected: mru: %d, buffer_index: %d", mru,
+                       buffer_index);
+        mru = frame.prev;
     }
 
     return true;
@@ -236,6 +230,19 @@ int BufferController::find(int file_id, pagenum_t pagenum)
         }
     }
     return INVALID_BUFFER_INDEX;
+}
+
+bool BufferController::sync()
+{
+    for (std::size_t i = 0; i < capacity(); ++i)
+    {
+        auto& frame = buffer->at(i);
+        if (frame.valid() && frame.is_dirty)
+        {
+            commit(frame.file_id, frame);
+        }
+    }
+    return true;
 }
 
 int BufferController::frame_alloc()
@@ -256,7 +263,8 @@ int BufferController::frame_alloc()
     int index = select_victim<BufferLRUTraversalPolicy>();
     CHECK_WITH_LOG(index != INVALID_BUFFER_INDEX, INVALID_BUFFER_INDEX,
                    "alloc frame failure");
-
+    CHECK_WITH_LOG(frame_free(index), INVALID_BUFFER_INDEX,
+                   "frame free failure");
     auto& frame = buffer->at(index);
     frame.init();
 

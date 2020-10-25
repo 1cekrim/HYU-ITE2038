@@ -53,6 +53,7 @@ class BufferController
     bool put(int file_id, pagenum_t pagenum, const frame_t& frame);
     int create(int file_id);
     bool free(int file_id, pagenum_t pagenum);
+    bool sync();
     pagenum_t frame_id_to_pagenum(int frame_id) const;
     std::size_t size() const;
     std::size_t capacity() const;

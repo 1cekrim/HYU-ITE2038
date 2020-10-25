@@ -23,7 +23,18 @@ using manager_t = BufferManager;
 struct node_tuple
 {
     nodeId_t id;
-    node_t node {};
+    node_t* node;
+    node_tuple() : id(), node()
+    {
+        node->retain();
+    }
+    ~node_tuple()
+    {
+        if (node)
+        {
+            node->release();
+        }
+    }
     node_tuple& operator=(const node_tuple& rhs)
     {
         id = rhs.id;
