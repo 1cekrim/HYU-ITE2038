@@ -58,6 +58,7 @@ class BufferController
     std::size_t capacity() const;
 
     friend class BufferCircularLinearTraversalPolicy;
+    friend class BufferLRUTraversalPolicy;
 
  private:
     std::unique_ptr<std::vector<frame_t>> buffer;
@@ -103,7 +104,72 @@ class BufferController
 
 class BufferLRUTraversalPolicy
 {
-    // TODO: 구현
+public:
+    using It = std::vector<frame_t>::iterator;
+    int now_index() const
+    {
+        return ptr;
+    }
+
+    It begin() const
+    {
+        return buffer.begin() + now_index();
+    }
+
+    It end() const
+    {
+        return buffer.end();
+    }
+
+    bool empty() const
+    {
+        // Traversal Policy
+        return false;
+    }
+
+    std::size_t size() const
+    {
+        // Traversal Policy
+        return buffer.size();
+    }
+
+    frame_t& front() const
+    {
+        return *begin();
+    }
+
+    frame_t& back() const
+    {
+        return *(std::prev(end()));
+    }
+
+    void operator++()
+    {
+        ptr = buffer[ptr].next;
+        if (ptr == -1)
+        {
+            ptr = BufferController::instance().lru;
+        }
+    }
+
+    void operator--() = delete;
+
+    void operator++(int) = delete;
+    void operator--(int) = delete;
+
+    frame_t& operator*()
+    {
+        return front();
+    }
+
+    BufferLRUTraversalPolicy()
+        : buffer(*BufferController::instance().buffer), ptr(BufferController::instance().lru)
+    {
+        // Do nothing
+    }
+private:
+std::vector<frame_t>& buffer;
+int ptr;
 };
 
 // TODO: unittest BufferCircularLinearTraversalPolicy

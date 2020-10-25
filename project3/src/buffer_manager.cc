@@ -253,7 +253,7 @@ int BufferController::frame_alloc()
                        "BUFFER CORRUPTION DETECTED");
     }
 
-    int index = select_victim<BufferCircularLinearTraversalPolicy>();
+    int index = select_victim<BufferLRUTraversalPolicy>();
     CHECK_WITH_LOG(index != INVALID_BUFFER_INDEX, INVALID_BUFFER_INDEX,
                    "alloc frame failure");
 
