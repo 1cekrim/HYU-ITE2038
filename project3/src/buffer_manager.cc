@@ -95,30 +95,19 @@ bool BufferController::get(int file_id, pagenum_t pagenum, frame_t& frame)
     {
         index = load(file_id, pagenum);
     }
-    std::cout << "get start. pagenum: " << pagenum << ", mru: " << mru
-              << ", lru: " << lru << '\n';
     CHECK_WITH_LOG(index != INVALID_BUFFER_INDEX, false,
                    "Buffer load failure. file: %d / pagenum: %ld", file_id,
                    pagenum);
     frame = (*buffer)[index];
-    frame.file_id = file_id;
-    frame.retain();
-    // std::cout << "index: " << index << ", pagenum: " << pagenum << "file_id:
-    // " << file_id <<"mru: " << mru << ", lru: " << lru << ", prev: " <<
-    // frame.prev << ", next: " << frame.next << '\n';
+    
     CHECK(unlink_frame(index, frame));
     CHECK(update_recently_used(index, frame));
-    // std::cout << "after index: " << index << ", pagenum: " << pagenum <<
-    // "file_id: " << file_id <<"mru: " << mru << ", lru: " << lru << ", prev: "
-    // << frame.prev << ", next: " << frame.next << '\n';
     return true;
 }
 
 bool BufferController::put(int file_id, pagenum_t pagenum, const frame_t& frame)
 {
     int index = find(file_id, pagenum);
-    std::cout << "put start. pagenum: " << pagenum << ", mru: " << mru
-              << ", lru: " << lru << '\n';
     if (index == INVALID_BUFFER_INDEX)
     {
         index = load(file_id, pagenum);
@@ -130,27 +119,17 @@ bool BufferController::put(int file_id, pagenum_t pagenum, const frame_t& frame)
 
     // 지금은 병렬 x
     CHECK_WITH_LOG(buffer_frame.pin != 1, false, "concurrency not supported");
-
-    buffer_frame = frame;
+    buffer_frame.change_page(frame);
     buffer_frame.is_dirty = true;
-    buffer_frame.release();
-
-    // std::cout << "index: " << index << ", pagenum: " << pagenum << "file_id:
-    // " << file_id <<"mru: " << mru << ", lru: " << lru << ", prev: " <<
-    // buffer_frame.prev << ", next: " << buffer_frame.next << '\n';
 
     CHECK(unlink_frame(index, buffer_frame));
     CHECK(update_recently_used(index, buffer_frame));
 
-    // std::cout << "after index: " << index << ", pagenum: " << pagenum <<
-    // "file_id: " << file_id <<"mru: " << mru << ", lru: " << lru << ", prev: "
-    // << buffer_frame.prev << ", next: " << buffer_frame.next << '\n';
     return true;
 }
 
 int BufferController::create(int file_id)
 {
-    std::cout << "create call\n";
     auto& fileManager = getFileManager(file_id);
     auto pagenum = fileManager.create();
     CHECK_WITH_LOG(pagenum != EMPTY_PAGE_NUMBER, INVALID_BUFFER_INDEX,
@@ -158,7 +137,6 @@ int BufferController::create(int file_id)
 
     int result = load(file_id, pagenum);
 
-    std::cout << "pagenum: " << pagenum << ", result: " << result << '\n';
     CHECK_RET(result != INVALID_BUFFER_INDEX, INVALID_BUFFER_INDEX);
     CHECK_RET(update_recently_used(result, buffer->at(result)),
               INVALID_BUFFER_INDEX);
@@ -167,7 +145,8 @@ int BufferController::create(int file_id)
 
 pagenum_t BufferController::frame_id_to_pagenum(int frame_id) const
 {
-    return buffer->at(frame_id).pagenum;
+    pagenum_t result =  buffer->at(frame_id).pagenum;
+    return result;
 }
 
 bool BufferController::free(int file_id, pagenum_t pagenum)
@@ -194,8 +173,6 @@ std::size_t BufferController::capacity() const
 
 bool BufferController::update_recently_used(int buffer_index, frame_t& frame)
 {
-    std::cout << "update: mru:" << mru << ", lru: " << lru
-              << ", prev: " << frame.prev << ", next: " << frame.next << '\n';
     frame.prev = mru;
     frame.next = INVALID_BUFFER_INDEX;
 
@@ -215,7 +192,6 @@ bool BufferController::update_recently_used(int buffer_index, frame_t& frame)
 
 bool BufferController::unlink_frame(int buffer_index, frame_t& frame)
 {
-    // std::cout << "unlink frame: prev: " << frame.prev << ", next: " <<
     // frame.next;
     if (frame.next != INVALID_BUFFER_INDEX)
     {
@@ -246,10 +222,6 @@ bool BufferController::unlink_frame(int buffer_index, frame_t& frame)
         lru = frame.next;
     }
 
-    if (lru == buffer_index)
-    {
-    }
-
     return true;
 }
 
@@ -270,7 +242,7 @@ int BufferController::frame_alloc()
 {
     if (size() < capacity())
     {
-        for (std::size_t i = 0; i < capacity(); ++i)
+        for (std::size_t i = mru + 1; i < capacity(); ++i)
         {
             if (!(*buffer)[i].valid())
             {
@@ -317,7 +289,6 @@ int BufferController::load(int file_id, pagenum_t pagenum)
 {
     auto& fileManager = getFileManager(file_id);
     int index = frame_alloc();
-    std::cout << "index: " << index << '\n';
 
     CHECK_RET(index != INVALID_BUFFER_INDEX, INVALID_BUFFER_INDEX);
     auto& frame = buffer->at(index);
@@ -340,5 +311,5 @@ bool BufferController::commit(int file_id, const frame_t& frame)
     auto& fileManager = getFileManager(file_id);
     CHECK_WITH_LOG(fileManager.commit(frame.pagenum, frame), false,
                    "commit frame failure: %ld", frame.pagenum);
-    return false;
+    return true;
 }

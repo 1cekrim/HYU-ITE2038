@@ -22,6 +22,23 @@ struct frame_t : public page_t
     int prev;
     bool is_dirty;
 
+    void change_page(const frame_t& frame)
+    {
+        const auto tpagenum = pagenum;
+        const auto tfile_id = file_id;
+        const auto tpin = pin;
+        const auto tnext = next;
+        const auto tprev = prev;
+        const auto tis_dirty = is_dirty;
+        *this = frame;
+        pagenum = tpagenum;
+        file_id = tfile_id;
+        pin = tpin;
+        next = tnext;
+        prev = tprev;
+        is_dirty = tis_dirty;
+    }
+
     void retain()
     {
         ++pin;

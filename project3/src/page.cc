@@ -19,7 +19,7 @@ std::ostream& operator<<(std::ostream& os, const HeaderPageHeader& hph)
     return os;
 }
 
-void page_t::print_node()
+void page_t::print_node() const
 {
     auto& head = nodePageHeader();
     std::cout << head;

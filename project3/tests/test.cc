@@ -346,17 +346,18 @@ void TEST_FILE_MANAGER()
 
 void TEST_BPT()
 {
+    constexpr auto count = 10000;
     TEST("BPTree random number insert many")
     {
         BPTree tree;
         CHECK_TRUE(tree.open_table("insert.db"));
 
-        std::vector<int> keys(1000000);
+        std::vector<int> keys(count);
 
         std::random_device rd;
         std::mt19937 mt(rd());
 
-        for (int i = 1; i <= 1000000; ++i)
+        for (int i = 1; i <= count; ++i)
         {
             std::uniform_int_distribution<int> range(0, i - 1);
             int pos = range(mt);
@@ -365,14 +366,13 @@ void TEST_BPT()
         }
 
         // for (int a : keys)
-        for (int a = 1; a <= 1000000; ++a)
+        for (int a = 1; a <= count; ++a)
         {
             valType v;
             std::stringstream ss;
             ss << "test insert " << a;
             tree.char_to_valType(v, ss.str().c_str());
 
-            std::cout << a << '\n';
             CHECK_TRUE(tree.insert(a, v));
         }
     }
@@ -385,7 +385,7 @@ void TEST_BPT()
 
         record_t record;
 
-        for (int i = 1; i <= 1000000; ++i)
+        for (int i = 1; i <= count; ++i)
         {
             CHECK_TRUE(tree.find(i, record));
             CHECK_VALUE(record.key, i);
@@ -400,13 +400,13 @@ void TEST_BPT()
 
         record_t record;
 
-        for (int i = 1; i <= 500000; ++i)
+        for (int i = 1; i <= count / 2; ++i)
         {
             CHECK_TRUE(tree.delete_key(i));
             CHECK_FALSE(tree.find(i, record));
         }
 
-        for (int i = 500001; i <= 1000000; ++i)
+        for (int i = count / 2 + 1; i <= count; ++i)
         {
             CHECK_TRUE(tree.find(i, record));
             CHECK_VALUE(record.key, i);
@@ -421,7 +421,7 @@ void TEST_BPT()
 
         record_t record;
 
-        for (int i = 500001; i <= 1000000; ++i)
+        for (int i = count / 2 + 1; i <= count; ++i)
         {
             CHECK_TRUE(tree.delete_key(i));
             CHECK_FALSE(tree.find(i, record));
@@ -434,7 +434,7 @@ void TEST_BPT()
         BPTree tree;
         CHECK_TRUE(tree.open_table("insert.db"));
 
-        for (int i = 1000000; i > 0; --i)
+        for (int i = count; i > 0; --i)
         {
             valType v;
             std::stringstream ss;
@@ -453,7 +453,7 @@ void TEST_BPT()
 
         record_t record;
 
-        for (int i = 1; i <= 1000000; ++i)
+        for (int i = 1; i <= count; ++i)
         {
             CHECK_TRUE(tree.find(i, record));
             CHECK_VALUE(record.key, i);
@@ -468,7 +468,7 @@ void TEST_BPT()
 
         record_t record;
 
-        for (int i = 1000000; i >= 1; --i)
+        for (int i = count; i >= 1; --i)
         {
             CHECK_TRUE(tree.delete_key(i));
             CHECK_FALSE(tree.find(i, record));

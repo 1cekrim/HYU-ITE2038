@@ -400,7 +400,7 @@ struct page_t
         return get<T>(number_of_keys() - 1);
     }
 
-    void print_node();
+    void print_node() const;
 
     int number_of_keys() const;
     pagenum_t parent() const;
