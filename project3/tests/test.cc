@@ -52,6 +52,7 @@ int main()
 
 void TEST_TABLE()
 {
+    return;
     for (int j = 0; j < 3; ++j)
     {
         std::vector<int> tables;
@@ -363,13 +364,15 @@ void TEST_BPT()
             keys[pos] = i;
         }
 
-        for (int a : keys)
+        // for (int a : keys)
+        for (int a = 1; a <= 1000000; ++a)
         {
             valType v;
             std::stringstream ss;
             ss << "test insert " << a;
             tree.char_to_valType(v, ss.str().c_str());
 
+            std::cout << a << '\n';
             CHECK_TRUE(tree.insert(a, v));
         }
     }
