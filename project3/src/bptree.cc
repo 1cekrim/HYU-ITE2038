@@ -121,7 +121,7 @@ bool BPTree::insert_into_parent(node_tuple& left, keyType key,
         return insert_into_new_root(left, key, right);
     }
 
-    CHECK(load_node(parent.id, parent.node));
+    CHECK(load_node(parent));
 
     int left_index = get_left_index(parent.node, left.id);
     if (static_cast<int>(parent.node.nodePageHeader().numberOfKeys) <
@@ -147,10 +147,12 @@ int BPTree::get_left_index(const node_t& parent, nodeId_t left_id) const
     return left_index + 1;
 }
 
-bool BPTree::load_node(nodeId_t node_id, node_t& node)
+bool BPTree::load_node(node_tuple& target)
 {
-    CHECK_WITH_LOG(manager.load(node_id, node), false, "load node failure: %ld",
-                   node_id);
+    int result = manager.load(target.id, target.node);
+    CHECK_WITH_LOG(result != INVALID_BUFFER_INDEX, false, "load node failure: %ld",
+                   target.id);
+    target.set_buffer_index(result);
     return true;
 }
 
@@ -168,10 +170,11 @@ bool BPTree::commit_node(const node_tuple& target)
     return true;
 }
 
-bool BPTree::free_node(const nodeId_t target)
+bool BPTree::free_node(node_tuple& target)
 {
-    CHECK_WITH_LOG(manager.free(target), false, "free page failure: %ld",
-                   target);
+    target.release();
+    CHECK_WITH_LOG(manager.free(target.id), false, "free page failure: %ld",
+                   target.id);
     return true;
 }
 
@@ -272,7 +275,7 @@ bool BPTree::delete_entry(node_tuple& target, keyType key)
 
     if (target.id == manager.root())
     {
-        return adjust_root();
+        return adjust_root(target);
     }
 
     int min_keys;
@@ -293,7 +296,7 @@ bool BPTree::delete_entry(node_tuple& target, keyType key)
 
     node_tuple parent;
     parent.id = target.node.parent();
-    CHECK(load_node(parent.id, parent.node));
+    CHECK(load_node(parent));
     CHECK(parent);
     CHECK(parent.node.number_of_keys() > 0);
 
@@ -308,7 +311,7 @@ bool BPTree::delete_entry(node_tuple& target, keyType key)
             : neighbor_index == 0
                   ? parent.node.leftmost()
                   : parent.node.get<internal_t>(neighbor_index - 1).node_id;
-    CHECK(load_node(neighbor.id, neighbor.node));
+    CHECK(load_node(neighbor));
 
     int capacity = target.node.is_leaf() ? leaf_order : internal_order - 1;
 
@@ -349,12 +352,8 @@ bool BPTree::remove_entry_from_node(node_tuple& target, keyType key)
     return true;
 }
 
-bool BPTree::adjust_root()
+bool BPTree::adjust_root(node_tuple& root)
 {
-    node_tuple root;
-    root.id = manager.root();
-    CHECK(load_node(root.id, root.node));
-
     if (root.node.number_of_keys() > 0)
     {
         return true;
@@ -372,17 +371,17 @@ bool BPTree::adjust_root()
         CHECK(update_parent_with_commit(new_root_id, INVALID_NODE_ID));
     }
 
-    CHECK(free_node(root.id));
+    CHECK(free_node(root));
 
     return true;
 }
 
 bool BPTree::update_parent_with_commit(nodeId_t target_id, nodeId_t parent_id)
 {
-    node_t temp {};
-    CHECK(load_node(target_id, temp));
-    temp.set_parent(parent_id);
-    CHECK(commit_node(target_id, temp));
+    node_tuple temp {target_id};
+    CHECK(load_node(temp));
+    temp.node.set_parent(parent_id);
+    CHECK(commit_node(temp));
 
     return true;
 }
@@ -411,7 +410,7 @@ bool BPTree::coalesce_nodes(node_tuple& target, node_tuple& neighbor,
 
     CHECK(commit_node(neighbor));
     CHECK(delete_entry(parent, k_prime));
-    CHECK(free_node(target.id));
+    CHECK(free_node(target));
 
     return true;
 }
@@ -504,7 +503,7 @@ bool BPTree::find_leaf(keyType key, node_tuple& node)
         return false;
     }
 
-    CHECK(load_node(node.id, node.node));
+    CHECK(load_node(node));
 
     while (!node.node.is_leaf())
     {
@@ -524,11 +523,10 @@ bool BPTree::find_leaf(keyType key, node_tuple& node)
         {
             printf("%d ->\n", idx);
         }
-
-        CHECK(load_node(node.id = (idx == -1)
+        node.id = (idx == -1)
                                       ? node.node.leftmost()
-                                      : node.node.get<internal_t>(idx).node_id,
-                        node.node));
+                                      : node.node.get<internal_t>(idx).node_id;
+        CHECK(load_node(node));
     }
 
     if (verbose_output)

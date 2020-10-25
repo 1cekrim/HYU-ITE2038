@@ -24,7 +24,7 @@ class BufferManager
     // node manager interface
     bool open(const std::string& name);
     bool commit(pagenum_t pagenum, const frame_t& frame);
-    bool load(pagenum_t pagenum, frame_t& frame);
+    int load(pagenum_t pagenum, frame_t& frame);
     pagenum_t create();
     bool free(pagenum_t pagenum);
     int get_manager_id() const;
@@ -49,10 +49,12 @@ class BufferController
     int openFileManager(const std::string& name);
     FileManager& getFileManager(int file_id);
 
-    bool get(int file_id, pagenum_t pagenum, frame_t& frame);
+    int get(int file_id, pagenum_t pagenum, frame_t& frame);
     bool put(int file_id, pagenum_t pagenum, const frame_t& frame);
     int create(int file_id);
     bool free(int file_id, pagenum_t pagenum);
+    void release_frame(int frame_index);
+    void retain_frame(int frame_index);
     bool sync();
     pagenum_t frame_id_to_pagenum(int frame_id) const;
     std::size_t size() const;

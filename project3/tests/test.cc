@@ -346,7 +346,7 @@ void TEST_FILE_MANAGER()
 
 void TEST_BPT()
 {
-    constexpr auto count = 10000;
+    constexpr auto count = 100000;
     TEST("BPTree random number insert many")
     {
         BPTree tree;
@@ -365,8 +365,7 @@ void TEST_BPT()
             keys[pos] = i;
         }
 
-        // for (int a : keys)
-        for (int a = 1; a <= count; ++a)
+        for (int a : keys)
         {
             valType v;
             std::stringstream ss;

@@ -23,24 +23,32 @@ using manager_t = BufferManager;
 struct node_tuple
 {
     nodeId_t id;
-    node_t* node;
-    node_tuple() : id(), node()
-    {
-        node->retain();
-    }
+    node_t node;
+    int buffer_index = INVALID_BUFFER_INDEX;
     ~node_tuple()
     {
-        if (node)
+        release();
+    }
+    node_tuple() = default;
+    node_tuple(const node_tuple&) = delete;
+    node_tuple(node_tuple&&) = delete;
+    node_tuple& operator=(const node_tuple&) = delete;
+    node_tuple& operator=(node_tuple&&) = delete;
+
+    void set_buffer_index(int buffer_index)
+    {
+        release();
+        this->buffer_index = buffer_index;
+    }
+
+    void release()
+    {
+        if (buffer_index != INVALID_BUFFER_INDEX)
         {
-            node->release();
+            BufferController::instance().release_frame(buffer_index);
         }
     }
-    node_tuple& operator=(const node_tuple& rhs)
-    {
-        id = rhs.id;
-        node = rhs.node;
-        return *this;
-    }
+
     operator bool() const
     {
         return id != INVALID_NODE_ID;
@@ -74,17 +82,17 @@ class BPTree
 
     bool delete_entry(node_tuple& target, keyType key);
     bool remove_entry_from_node(node_tuple& target, keyType key);
-    bool adjust_root();
+    bool adjust_root(node_tuple& root);
     bool coalesce_nodes(node_tuple& target, node_tuple& neighbor,
                         node_tuple& parent, int k_prime);
     bool redistribute_nodes(node_tuple& target, node_tuple& neighbor,
                             node_tuple& parent, int k_prime, int k_prime_index,
                             int neighbor_index);
     bool update_parent_with_commit(nodeId_t target_id, nodeId_t parent_id);
-    bool load_node(nodeId_t node_id, node_t& node);
+    bool load_node(node_tuple& target);
     bool commit_node(nodeId_t page, const node_t& n);
     bool commit_node(const node_tuple& target);
-    bool free_node(const nodeId_t target);
+    bool free_node(node_tuple& target);
     nodeId_t create_node();
     bool is_valid(nodeId_t node_id) const;
 

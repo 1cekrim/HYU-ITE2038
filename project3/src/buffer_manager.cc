@@ -31,9 +31,14 @@ bool BufferManager::commit(pagenum_t pagenum, const frame_t& frame)
     return BufferController::instance().put(manager_id, pagenum, frame);
 }
 
-bool BufferManager::load(pagenum_t pagenum, frame_t& frame)
-{
-    return BufferController::instance().get(manager_id, pagenum, frame);
+int BufferManager::load(pagenum_t pagenum, frame_t& frame)
+{  
+    int result = BufferController::instance().get(manager_id, pagenum, frame);
+    if (result != INVALID_BUFFER_INDEX)
+    {
+        BufferController::instance().retain_frame(result);
+    }
+    return result;
 }
 
 pagenum_t BufferManager::create()
@@ -88,21 +93,32 @@ FileManager& BufferController::getFileManager(int file_id)
     return *fileManagers.at(file_id);
 }
 
-bool BufferController::get(int file_id, pagenum_t pagenum, frame_t& frame)
+void BufferController::release_frame(int frame_index)
+{
+    buffer->at(frame_index).release();
+}
+
+void BufferController::retain_frame(int frame_index)
+{
+    buffer->at(frame_index).retain();
+}
+
+int BufferController::get(int file_id, pagenum_t pagenum, frame_t& frame)
 {
     int index = find(file_id, pagenum);
     if (index == INVALID_BUFFER_INDEX)
     {
         index = load(file_id, pagenum);
     }
-    CHECK_WITH_LOG(index != INVALID_BUFFER_INDEX, false,
+    CHECK_WITH_LOG(index != INVALID_BUFFER_INDEX, INVALID_BUFFER_INDEX,
                    "Buffer load failure. file: %d / pagenum: %ld", file_id,
                    pagenum);
     frame = (*buffer)[index];
 
-    CHECK(unlink_frame(index, frame));
-    CHECK(update_recently_used(index, frame));
-    return true;
+    CHECK_RET(unlink_frame(index, frame), INVALID_BUFFER_INDEX);
+    CHECK_RET(update_recently_used(index, frame), INVALID_BUFFER_INDEX);
+    
+    return index;
 }
 
 bool BufferController::put(int file_id, pagenum_t pagenum, const frame_t& frame)
@@ -118,7 +134,6 @@ bool BufferController::put(int file_id, pagenum_t pagenum, const frame_t& frame)
     auto& buffer_frame = (*buffer)[index];
 
     // 지금은 병렬 x
-    CHECK_WITH_LOG(buffer_frame.pin != 1, false, "concurrency not supported");
     buffer_frame.change_page(frame);
     buffer_frame.is_dirty = true;
 
@@ -274,8 +289,11 @@ int BufferController::frame_alloc()
 bool BufferController::frame_free(int buffer_index)
 {
     auto& frame = buffer->at(buffer_index);
-
     // 지금은 병렬 x
+    if (frame.is_use_now())
+    {
+        frame.print_node();
+    }
     CHECK_WITH_LOG(!frame.is_use_now(), false, "concurrency not supported");
 
     while (frame.is_use_now())
