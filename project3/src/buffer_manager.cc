@@ -160,6 +160,7 @@ int BufferController::create(int file_id)
 
 pagenum_t BufferController::frame_id_to_pagenum(int frame_id) const
 {
+    CHECK_WITH_LOG(frame_id != INVALID_BUFFER_INDEX, EMPTY_PAGE_NUMBER, "invalid frame id: %d", frame_id);
     pagenum_t result = buffer->at(frame_id).pagenum;
     return result;
 }
@@ -188,6 +189,11 @@ std::size_t BufferController::capacity() const
 
 bool BufferController::update_recently_used(int buffer_index, frame_t& frame)
 {
+    for (int i = 0; i < BUFFER_SIZE; ++i)
+    {
+        std::cout << buffer->at(i).next << ' ';
+    }
+    std::cout << '\n';
     frame.prev = mru;
     frame.next = INVALID_BUFFER_INDEX;
 
@@ -264,7 +270,7 @@ int BufferController::frame_alloc()
 {
     if (size() < capacity())
     {
-        for (std::size_t i = mru + 1; i < capacity(); ++i)
+        for (std::size_t i = 0; i < capacity(); ++i)
         {
             if (!(*buffer)[i].valid())
             {

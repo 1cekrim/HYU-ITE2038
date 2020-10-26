@@ -181,6 +181,7 @@ bool BPTree::free_node(node_tuple& target)
 nodeId_t BPTree::create_node()
 {
     nodeId_t t = manager.create();
+    CHECK_WITH_LOG(t != INVALID_NODE_ID, INVALID_NODE_ID, "create node failure");
     return t;
 }
 

@@ -13,7 +13,7 @@
 #include "frame.hpp"
 #include "logger.hpp"
 
-constexpr auto BUFFER_SIZE = 100000;
+constexpr auto BUFFER_SIZE = 10;
 
 class BufferManager
 {
@@ -90,12 +90,11 @@ class BufferController
     template<typename Policy>
     int select_victim()
     {
-        auto policy = Policy();
-        for (auto& frame : policy)
+        for (auto it = Policy::begin(); it != Policy::end(); ++it)
         {
-            if (!frame.is_use_now())
+            if (!it->is_use_now())
             {
-                return policy.now_index();
+                return it.frame_index();
             }
         }
         CHECK_WITH_LOG(false, INVALID_BUFFER_INDEX, "select victim failure");
@@ -107,72 +106,81 @@ class BufferController
 
 class BufferLRUTraversalPolicy
 {
-public:
-    using It = std::vector<frame_t>::iterator;
-    int now_index() const
+ public:
+    class iterator
     {
-        return ptr;
+     public:
+        iterator(int ptr) : ptr(ptr)
+        {
+            // Do nothing
+        }
+
+        int frame_index() const
+        {
+            return ptr;
+        }
+
+        bool operator==(const iterator& rhs) const
+        {
+            return rhs.ptr == ptr;
+        }
+
+        bool operator!=(const iterator& rhs) const
+        {
+            return rhs.ptr != ptr;
+        }
+
+        frame_t* operator->()
+        {
+            return &BufferController::instance().buffer->at(ptr);
+        }
+
+        void operator++()
+        {
+            ptr = BufferController::instance().buffer->at(ptr).next;
+            if (ptr == -1)
+            {
+                ptr = BufferController::instance().lru;
+            }
+        }
+        void operator--() = delete;
+        void operator++(int) = delete;
+        void operator--(int) = delete;
+
+        frame_t& operator*()
+        {
+            return BufferController::instance().buffer->at(ptr);
+        }
+
+     private:
+        int ptr;
+    };
+    static iterator begin()
+    {
+        return iterator(BufferController::instance().lru);
     }
 
-    It begin() const
+    static iterator end()
     {
-        return buffer.begin() + now_index();
+        return iterator(BufferController::instance().capacity());
     }
 
-    It end() const
+    static frame_t& front()
     {
-        return buffer.end();
+        return *begin();
     }
 
-    bool empty() const
+    static bool empty()
     {
         // Traversal Policy
         return false;
     }
 
-    std::size_t size() const
+    static std::size_t size()
     {
         // Traversal Policy
-        return buffer.size();
+        return BufferController::instance().buffer->size();
     }
-
-    frame_t& front() const
-    {
-        return *begin();
-    }
-
-    frame_t& back() const
-    {
-        return *(std::prev(end()));
-    }
-
-    void operator++()
-    {
-        ptr = buffer[ptr].next;
-        if (ptr == -1)
-        {
-            ptr = BufferController::instance().lru;
-        }
-    }
-
-    void operator--() = delete;
-
-    void operator++(int) = delete;
-    void operator--(int) = delete;
-
-    frame_t& operator*()
-    {
-        return front();
-    }
-
-    BufferLRUTraversalPolicy()
-        : buffer(*BufferController::instance().buffer), ptr(BufferController::instance().lru)
-    {
-        // Do nothing
-    }
-private:
-std::vector<frame_t>& buffer;
-int ptr;
 };
 
 // TODO: unittest BufferCircularLinearTraversalPolicy
