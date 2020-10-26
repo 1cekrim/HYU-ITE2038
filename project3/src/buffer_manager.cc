@@ -32,7 +32,7 @@ bool BufferManager::commit(pagenum_t pagenum, const frame_t& frame)
 }
 
 int BufferManager::load(pagenum_t pagenum, frame_t& frame)
-{  
+{
     int result = BufferController::instance().get(manager_id, pagenum, frame);
     if (result != INVALID_BUFFER_INDEX)
     {
@@ -117,7 +117,7 @@ int BufferController::get(int file_id, pagenum_t pagenum, frame_t& frame)
 
     CHECK_RET(unlink_frame(index, frame), INVALID_BUFFER_INDEX);
     CHECK_RET(update_recently_used(index, frame), INVALID_BUFFER_INDEX);
-    
+
     return index;
 }
 
@@ -153,14 +153,24 @@ int BufferController::create(int file_id)
     int result = load(file_id, pagenum);
 
     CHECK_RET(result != INVALID_BUFFER_INDEX, INVALID_BUFFER_INDEX);
+    std::cout << "result: " << result << '\n';
+    CHECK_RET(unlink_frame(result, buffer->at(result)), INVALID_BUFFER_INDEX);
+    std::cout << "after unlink " << lru << ' ' << mru << '\n';
+    for (int i = 0; i < 10; ++i)
+    {
+        std::cout << "(" << BufferController::instance().buffer->at(i).prev << ", " << BufferController::instance().buffer->at(i).next << "), ";
+    }
+    std::cout << '\n';
     CHECK_RET(update_recently_used(result, buffer->at(result)),
               INVALID_BUFFER_INDEX);
+
     return result;
 }
 
 pagenum_t BufferController::frame_id_to_pagenum(int frame_id) const
 {
-    CHECK_WITH_LOG(frame_id != INVALID_BUFFER_INDEX, EMPTY_PAGE_NUMBER, "invalid frame id: %d", frame_id);
+    CHECK_WITH_LOG(frame_id != INVALID_BUFFER_INDEX, EMPTY_PAGE_NUMBER,
+                   "invalid frame id: %d", frame_id);
     pagenum_t result = buffer->at(frame_id).pagenum;
     return result;
 }
@@ -189,11 +199,7 @@ std::size_t BufferController::capacity() const
 
 bool BufferController::update_recently_used(int buffer_index, frame_t& frame)
 {
-    for (int i = 0; i < BUFFER_SIZE; ++i)
-    {
-        std::cout << buffer->at(i).next << ' ';
-    }
-    std::cout << '\n';
+    // std::cout << "before" << lru << ' ' << mru << '\n';
     frame.prev = mru;
     frame.next = INVALID_BUFFER_INDEX;
 
@@ -207,6 +213,7 @@ bool BufferController::update_recently_used(int buffer_index, frame_t& frame)
         (*buffer)[mru].next = buffer_index;
     }
     mru = buffer_index;
+    // std::cout << "after" << lru << ' ' << mru << '\n';
 
     return true;
 }
@@ -215,14 +222,16 @@ bool BufferController::unlink_frame(int buffer_index, frame_t& frame)
 {
     if (frame.prev != INVALID_BUFFER_INDEX)
     {
+        std::cout << "???" << frame.prev << ' ' << INVALID_BUFFER_INDEX;
         buffer->at(frame.prev).next = frame.next;
     }
     else
     {
-        CHECK_WITH_LOG(lru == buffer_index, false,
-                       "logical error detected: lru: %d, buffer_index: %d", lru,
-                       buffer_index);
-        lru = frame.next;
+        // CHECK_WITH_LOG(lru == buffer_index, false,
+        //                "logical error detected: lru: %d, buffer_index: %d", lru,
+        //                buffer_index);
+        lru = frame.next; 
+        std::cout << "frame prev: " << frame.prev << " change: " << lru << '\n';
     }
 
     if (frame.next != INVALID_BUFFER_INDEX)
@@ -286,8 +295,6 @@ int BufferController::frame_alloc()
                    "alloc frame failure");
     CHECK_WITH_LOG(frame_free(index), INVALID_BUFFER_INDEX,
                    "frame free failure");
-    auto& frame = buffer->at(index);
-    frame.init();
 
     return index;
 }
@@ -306,13 +313,16 @@ bool BufferController::frame_free(int buffer_index)
     {
         // wait
     }
+    
+    CHECK(unlink_frame(buffer_index, frame));
 
     if (frame.is_dirty)
     {
         CHECK(commit(frame.file_id, frame));
     }
 
-    frame.init();
+    // frame.init();
+    --num_buffer;
 
     return true;
 }
@@ -325,13 +335,18 @@ int BufferController::load(int file_id, pagenum_t pagenum)
     CHECK_RET(index != INVALID_BUFFER_INDEX, INVALID_BUFFER_INDEX);
     auto& frame = buffer->at(index);
 
-    frame.init();
-    CHECK_WITH_LOG(fileManager.load(pagenum, frame), INVALID_BUFFER_INDEX,
+    // frame.init();
+    std::cout << "load, prev: " << frame.prev << ", next: " << frame.next << '\n';
+    frame_t page;
+    CHECK_WITH_LOG(fileManager.load(pagenum, page), INVALID_BUFFER_INDEX,
                    "frame load failure: %ld", pagenum);
+    frame.change_page(page);
     frame.file_id = file_id;
     frame.pagenum = pagenum;
     ++num_buffer;
 
+    // CHECK_WITH_LOG(unlink_frame(index, frame), INVALID_BUFFER_INDEX,
+                //    "unlink failure");
     CHECK_WITH_LOG(update_recently_used(index, frame), INVALID_BUFFER_INDEX,
                    "update recently used failure");
 

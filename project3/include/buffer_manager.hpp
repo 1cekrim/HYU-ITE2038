@@ -62,7 +62,8 @@ class BufferController
 
     friend class BufferCircularLinearTraversalPolicy;
     friend class BufferLRUTraversalPolicy;
-
+    friend void TEST_BUFFER();
+    
  private:
     std::unique_ptr<std::vector<frame_t>> buffer;
     std::vector<std::unique_ptr<FileManager>> fileManagers;

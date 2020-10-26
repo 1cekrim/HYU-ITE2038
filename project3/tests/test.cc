@@ -25,13 +25,14 @@ void TEST_BPT();
 void TEST_FILE();
 void TESTS();
 void TEST_TABLE();
+void TEST_BUFFER();
 
 int main()
 {
-    void (*tests[])() = { TEST_POD, TEST_FILE_MANAGER, TEST_TABLE,
+    void (*tests[])() = { TEST_BUFFER, TEST_POD, TEST_FILE_MANAGER, TEST_TABLE,
                           TEST_BPT, TEST_FILE,         TESTS };
 
-    std::string testNames[] = { "test pod", "file_manager", "table",
+    std::string testNames[] = { "test buffer", "test pod", "file_manager", "table",
                                 "bpt",      "test_file",    "TESTS" };
 
     for (int i = 0;
@@ -48,6 +49,57 @@ int main()
     std::cout << "\n[Tests are over] success: " << allSuccess << " / " << allCnt
               << "\n";
     return 0;
+}
+
+void TEST_BUFFER()
+{
+    TEST("create pages")
+    {
+        BufferManager bufferManager;
+        bufferManager.open("buffer_test.db");
+        for (int i = 0; i < 10 ; ++i)
+        {
+            // frame_t frame;
+            // bufferManager.commit(bufferManager.create(), frame);
+            bufferManager.create();
+        }
+        std::cout << "\n";
+        std::cout << "test " << BufferController::instance().lru << ", " << BufferController::instance().mru << '\n';
+        for (int i = 0; i < 10; ++i)
+        {
+            std::cout << "(" << BufferController::instance().buffer->at(i).prev << ", " << BufferController::instance().buffer->at(i).next << "), ";
+        }
+        std::cout << '\n';
+        bufferManager.create();
+        std::cout << "test " << BufferController::instance().lru << ", " << BufferController::instance().mru << '\n';
+        for (int i = 0; i < 10; ++i)
+        {
+            std::cout << "(" << BufferController::instance().buffer->at(i).prev << ", " << BufferController::instance().buffer->at(i).next << "), ";
+        }
+        std::cout << '\n';
+        bufferManager.create();
+        std::cout << "test " << BufferController::instance().lru << ", " << BufferController::instance().mru << '\n';
+        for (int i = 0; i < 10; ++i)
+        {
+            std::cout << "(" << BufferController::instance().buffer->at(i).prev << ", " << BufferController::instance().buffer->at(i).next << "), ";
+        }
+        std::cout << '\n';
+        bufferManager.create();
+        std::cout << "test " << BufferController::instance().lru << ", " << BufferController::instance().mru << '\n';
+        for (int i = 0; i < 10; ++i)
+        {
+            std::cout << "(" << BufferController::instance().buffer->at(i).prev << ", " << BufferController::instance().buffer->at(i).next << "), ";
+        }
+        std::cout << '\n';
+        bufferManager.create();
+        std::cout << "test " << BufferController::instance().lru << ", " << BufferController::instance().mru << '\n';
+        for (int i = 0; i < 10; ++i)
+        {
+            std::cout << "(" << BufferController::instance().buffer->at(i).prev << ", " << BufferController::instance().buffer->at(i).next << "), ";
+        }
+        std::cout << '\n';
+    }
+    END()
 }
 
 void TEST_TABLE()
