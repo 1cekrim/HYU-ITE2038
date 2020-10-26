@@ -108,14 +108,9 @@ int BufferController::get(int file_id, pagenum_t pagenum, frame_t& frame)
     int index = find(file_id, pagenum);
     if (index == INVALID_BUFFER_INDEX)
     {
-        ++cache_miss;
         index = load(file_id, pagenum);
     }
-    else
-    {
-        ++cache_hit;
-    }
-    
+
     CHECK_WITH_LOG(index != INVALID_BUFFER_INDEX, INVALID_BUFFER_INDEX,
                    "Buffer load failure. file: %d / pagenum: %ld", file_id,
                    pagenum);
@@ -135,11 +130,6 @@ bool BufferController::put(int file_id, pagenum_t pagenum, const frame_t& frame)
     if (index == INVALID_BUFFER_INDEX)
     {
         index = load(file_id, pagenum);
-        ++cache_miss;
-    }
-     else
-    {
-        ++cache_hit;
     }
     CHECK_WITH_LOG(index != INVALID_BUFFER_INDEX, false,
                    "Buffer load failure. file: %d / pagenum: %ld", file_id,
@@ -189,6 +179,7 @@ bool BufferController::free(int file_id, pagenum_t pagenum)
         CHECK_WITH_LOG(frame_free(index), false,
                        "frame free failure\nfile_id: %d / pagenu,:%ld", file_id,
                        pagenum);
+        free_indexes->push(index);
     }
     return getFileManager(file_id).free(pagenum);
 }
@@ -281,15 +272,6 @@ int BufferController::frame_alloc()
 {
     if (size() < capacity())
     {
-        // for (std::size_t i = 0; i < capacity(); ++i)
-        // {
-        //     if (!(*buffer)[i].valid())
-        //     {
-        //         return i;
-        //     }
-        // }
-        // CHECK_WITH_LOG(false, INVALID_BUFFER_INDEX,
-        //                "BUFFER CORRUPTION DETECTED");
         CHECK_WITH_LOG(size() == (capacity() - free_indexes->size()),
                        INVALID_BUFFER_INDEX,
                        "logical error. size: %ld / free_indexes size: %ld",
@@ -334,7 +316,6 @@ bool BufferController::frame_free(int buffer_index)
     }
 
     frame.init();
-    free_indexes->push(buffer_index);
     --num_buffer;
 
     return true;
@@ -344,7 +325,6 @@ int BufferController::load(int file_id, pagenum_t pagenum)
 {
     auto& fileManager = getFileManager(file_id);
     int index = frame_alloc();
-    ++file_access;
     CHECK_RET(index != INVALID_BUFFER_INDEX, INVALID_BUFFER_INDEX);
     auto& frame = buffer->at(index);
 
@@ -364,7 +344,6 @@ int BufferController::load(int file_id, pagenum_t pagenum)
 
 bool BufferController::commit(int file_id, const frame_t& frame)
 {
-    ++file_access;
     auto& fileManager = getFileManager(file_id);
     CHECK_WITH_LOG(fileManager.commit(frame.pagenum, frame), false,
                    "commit frame failure: %ld", frame.pagenum);
