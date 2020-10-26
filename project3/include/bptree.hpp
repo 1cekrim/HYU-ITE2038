@@ -46,7 +46,17 @@ struct node_tuple
         if (buffer_index != INVALID_BUFFER_INDEX)
         {
             BufferController::instance().release_frame(buffer_index);
+            buffer_index = INVALID_BUFFER_INDEX;
         }
+    }
+
+    int pin() const
+    {
+        if (buffer_index == INVALID_BUFFER_INDEX)
+        {
+            return -10000;
+        }
+        return BufferController::instance().buffer->at(buffer_index).pin;
     }
 
     operator bool() const

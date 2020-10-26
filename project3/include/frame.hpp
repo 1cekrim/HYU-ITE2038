@@ -22,6 +22,14 @@ struct frame_t : public page_t
     int prev;
     bool is_dirty;
 
+    void print_frame()
+    {
+        print_node();
+        std::cout << "pagenum: " << pagenum << "\nfile_id: " << file_id
+                  << "\npin: " << pin << "\nnext: " << next
+                  << "\nprev: " << prev << '\n';
+    }
+
     void change_page(const frame_t& frame)
     {
         const auto tpagenum = pagenum;
@@ -47,13 +55,17 @@ struct frame_t : public page_t
     void release()
     {
         --pin;
+        if (pin < 0)
+        {
+            std::cout << pin << "\n";
+        }
     }
 
     bool valid() const
     {
         return pagenum != EMPTY_PAGE_NUMBER;
     }
-    
+
     bool is_use_now() const
     {
         return pin != 0;

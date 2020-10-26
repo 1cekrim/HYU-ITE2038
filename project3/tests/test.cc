@@ -29,11 +29,13 @@ void TEST_BUFFER();
 
 int main()
 {
-    void (*tests[])() = { TEST_BUFFER, TEST_POD, TEST_FILE_MANAGER, TEST_TABLE,
-                          TEST_BPT, TEST_FILE,         TESTS };
+    void (*tests[])() = { TEST_BUFFER, TEST_POD, TEST_FILE_MANAGER,
+                          TEST_TABLE,  TEST_BPT, TEST_FILE,
+                          TESTS };
 
-    std::string testNames[] = { "test buffer", "test pod", "file_manager", "table",
-                                "bpt",      "test_file",    "TESTS" };
+    std::string testNames[] = { "test buffer", "test pod", "file_manager",
+                                "table",       "bpt",      "test_file",
+                                "TESTS" };
 
     for (int i = 0;
          i < static_cast<int>((sizeof(tests) / sizeof(void (*)(void)))); ++i)
@@ -53,53 +55,61 @@ int main()
 
 void TEST_BUFFER()
 {
-    TEST("create pages")
-    {
-        BufferManager bufferManager;
-        bufferManager.open("buffer_test.db");
-        for (int i = 0; i < 10 ; ++i)
-        {
-            // frame_t frame;
-            // bufferManager.commit(bufferManager.create(), frame);
-            bufferManager.create();
-        }
-        std::cout << "\n";
-        std::cout << "test " << BufferController::instance().lru << ", " << BufferController::instance().mru << '\n';
-        for (int i = 0; i < 10; ++i)
-        {
-            std::cout << "(" << BufferController::instance().buffer->at(i).prev << ", " << BufferController::instance().buffer->at(i).next << "), ";
-        }
-        std::cout << '\n';
-        bufferManager.create();
-        std::cout << "test " << BufferController::instance().lru << ", " << BufferController::instance().mru << '\n';
-        for (int i = 0; i < 10; ++i)
-        {
-            std::cout << "(" << BufferController::instance().buffer->at(i).prev << ", " << BufferController::instance().buffer->at(i).next << "), ";
-        }
-        std::cout << '\n';
-        bufferManager.create();
-        std::cout << "test " << BufferController::instance().lru << ", " << BufferController::instance().mru << '\n';
-        for (int i = 0; i < 10; ++i)
-        {
-            std::cout << "(" << BufferController::instance().buffer->at(i).prev << ", " << BufferController::instance().buffer->at(i).next << "), ";
-        }
-        std::cout << '\n';
-        bufferManager.create();
-        std::cout << "test " << BufferController::instance().lru << ", " << BufferController::instance().mru << '\n';
-        for (int i = 0; i < 10; ++i)
-        {
-            std::cout << "(" << BufferController::instance().buffer->at(i).prev << ", " << BufferController::instance().buffer->at(i).next << "), ";
-        }
-        std::cout << '\n';
-        bufferManager.create();
-        std::cout << "test " << BufferController::instance().lru << ", " << BufferController::instance().mru << '\n';
-        for (int i = 0; i < 10; ++i)
-        {
-            std::cout << "(" << BufferController::instance().buffer->at(i).prev << ", " << BufferController::instance().buffer->at(i).next << "), ";
-        }
-        std::cout << '\n';
-    }
-    END()
+    // TEST("create pages")
+    // {
+    //     BufferManager bufferManager;
+    //     bufferManager.open("buffer_test.db");
+    //     for (int i = 0; i < 100; ++i)
+    //     {
+    //         bufferManager.create();
+    //     }
+    //     std::cout << "\n";
+    //     std::cout << "test " << BufferController::instance().lru << ", "
+    //               << BufferController::instance().mru << '\n';
+    //     for (int i = 0; i < 10; ++i)
+    //     {
+    //         std::cout << "(" << BufferController::instance().buffer->at(i).prev
+    //                   << ", " << BufferController::instance().buffer->at(i).next
+    //                   << "), ";
+    //     }
+    //     std::cout << '\n';
+    //     std::cout << "commit start\n\n";
+    //     for (int j = 0; j < 100; ++j)
+    //     {
+    //         frame_t frame;
+    //         bufferManager.commit(j, frame);
+    //         std::cout << "test " << BufferController::instance().lru << ", "
+    //                   << BufferController::instance().mru << '\n';
+    //         for (int i = 0; i < 10; ++i)
+    //         {
+    //             std::cout << "("
+    //                       << BufferController::instance().buffer->at(i).prev
+    //                       << ", "
+    //                       << BufferController::instance().buffer->at(i).next
+    //                       << "), ";
+    //         }
+    //         std::cout << "\n\n";
+    //     }
+    //     std::cout << "commit end\n\n";
+    //     for (int j = 99; j >= 0; --j)
+    //     {
+    //         frame_t frame;
+    //         bufferManager.load(j, frame);
+    //         std::cout << "test " << BufferController::instance().lru << ", "
+    //                   << BufferController::instance().mru << '\n';
+    //         for (int i = 0; i < 10; ++i)
+    //         {
+    //             std::cout << "("
+    //                       << BufferController::instance().buffer->at(i).prev
+    //                       << ", "
+    //                       << BufferController::instance().buffer->at(i).next
+    //                       << "), ";
+    //         }
+    //         std::cout << '\n';
+    //         buffer
+    //     }
+    // }
+    // END()
 }
 
 void TEST_TABLE()
@@ -398,7 +408,7 @@ void TEST_FILE_MANAGER()
 
 void TEST_BPT()
 {
-    constexpr auto count = 100000;
+    constexpr auto count = 1000000;
     TEST("BPTree random number insert many")
     {
         BPTree tree;

@@ -113,10 +113,12 @@ int BufferController::get(int file_id, pagenum_t pagenum, frame_t& frame)
     CHECK_WITH_LOG(index != INVALID_BUFFER_INDEX, INVALID_BUFFER_INDEX,
                    "Buffer load failure. file: %d / pagenum: %ld", file_id,
                    pagenum);
-    frame = (*buffer)[index];
+    auto& buffer_frame = (*buffer)[index];
+    frame = buffer_frame;
 
-    CHECK_RET(unlink_frame(index, frame), INVALID_BUFFER_INDEX);
-    CHECK_RET(update_recently_used(index, frame), INVALID_BUFFER_INDEX);
+    CHECK_RET(unlink_frame(index, buffer_frame), INVALID_BUFFER_INDEX);
+
+    CHECK_RET(update_recently_used(index, buffer_frame), INVALID_BUFFER_INDEX);
 
     return index;
 }
@@ -217,9 +219,9 @@ bool BufferController::unlink_frame(int buffer_index, frame_t& frame)
     }
     else
     {
-        // CHECK_WITH_LOG(lru == buffer_index, false,
-        //                "logical error detected: lru: %d, buffer_index: %d", lru,
-        //                buffer_index);
+        CHECK_WITH_LOG(lru == buffer_index, false,
+                       "logical error detected: lru: %d, buffer_index: %d", lru,
+                       buffer_index);
         lru = frame.next; 
     }
 
@@ -229,9 +231,9 @@ bool BufferController::unlink_frame(int buffer_index, frame_t& frame)
     }
     else
     {
-        // CHECK_WITH_LOG(mru == buffer_index, false,
-        //                "logical error detected: mru: %d, buffer_index: %d", mru,
-        //                buffer_index);
+        CHECK_WITH_LOG(mru == buffer_index, false,
+                       "logical error detected: mru: %d, buffer_index: %d", mru,
+                       buffer_index);
         mru = frame.prev;
     }
 
@@ -280,6 +282,7 @@ int BufferController::frame_alloc()
     }
 
     int index = select_victim<BufferLRUTraversalPolicy>();
+    
     CHECK_WITH_LOG(index != INVALID_BUFFER_INDEX, INVALID_BUFFER_INDEX,
                    "alloc frame failure");
     CHECK_WITH_LOG(frame_free(index), INVALID_BUFFER_INDEX,
@@ -294,7 +297,7 @@ bool BufferController::frame_free(int buffer_index)
     // 지금은 병렬 x
     if (frame.is_use_now())
     {
-        frame.print_node();
+        frame.print_frame();
     }
     CHECK_WITH_LOG(!frame.is_use_now(), false, "concurrency not supported");
 
@@ -324,7 +327,6 @@ int BufferController::load(int file_id, pagenum_t pagenum)
     CHECK_RET(index != INVALID_BUFFER_INDEX, INVALID_BUFFER_INDEX);
     auto& frame = buffer->at(index);
 
-    // frame.init();
     frame_t page;
     CHECK_WITH_LOG(fileManager.load(pagenum, page), INVALID_BUFFER_INDEX,
                    "frame load failure: %ld", pagenum);

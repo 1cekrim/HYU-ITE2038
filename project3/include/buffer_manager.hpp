@@ -13,6 +13,8 @@
 #include "frame.hpp"
 #include "logger.hpp"
 
+struct node_tuple;
+
 constexpr auto BUFFER_SIZE = 10;
 
 class BufferManager
@@ -63,7 +65,8 @@ class BufferController
     friend class BufferCircularLinearTraversalPolicy;
     friend class BufferLRUTraversalPolicy;
     friend void TEST_BUFFER();
-    
+    friend class node_tuple;
+
  private:
     std::unique_ptr<std::vector<frame_t>> buffer;
     std::vector<std::unique_ptr<FileManager>> fileManagers;
