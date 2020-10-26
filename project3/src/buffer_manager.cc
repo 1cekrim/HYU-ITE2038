@@ -108,8 +108,14 @@ int BufferController::get(int file_id, pagenum_t pagenum, frame_t& frame)
     int index = find(file_id, pagenum);
     if (index == INVALID_BUFFER_INDEX)
     {
+        ++cache_miss;
         index = load(file_id, pagenum);
     }
+    else
+    {
+        ++cache_hit;
+    }
+    
     CHECK_WITH_LOG(index != INVALID_BUFFER_INDEX, INVALID_BUFFER_INDEX,
                    "Buffer load failure. file: %d / pagenum: %ld", file_id,
                    pagenum);
@@ -129,6 +135,11 @@ bool BufferController::put(int file_id, pagenum_t pagenum, const frame_t& frame)
     if (index == INVALID_BUFFER_INDEX)
     {
         index = load(file_id, pagenum);
+        ++cache_miss;
+    }
+     else
+    {
+        ++cache_hit;
     }
     CHECK_WITH_LOG(index != INVALID_BUFFER_INDEX, false,
                    "Buffer load failure. file: %d / pagenum: %ld", file_id,
@@ -222,7 +233,7 @@ bool BufferController::unlink_frame(int buffer_index, frame_t& frame)
         CHECK_WITH_LOG(lru == buffer_index, false,
                        "logical error detected: lru: %d, buffer_index: %d", lru,
                        buffer_index);
-        lru = frame.next; 
+        lru = frame.next;
     }
 
     if (frame.next != INVALID_BUFFER_INDEX)
@@ -270,19 +281,28 @@ int BufferController::frame_alloc()
 {
     if (size() < capacity())
     {
-        for (std::size_t i = 0; i < capacity(); ++i)
-        {
-            if (!(*buffer)[i].valid())
-            {
-                return i;
-            }
-        }
-        CHECK_WITH_LOG(false, INVALID_BUFFER_INDEX,
-                       "BUFFER CORRUPTION DETECTED");
+        // for (std::size_t i = 0; i < capacity(); ++i)
+        // {
+        //     if (!(*buffer)[i].valid())
+        //     {
+        //         return i;
+        //     }
+        // }
+        // CHECK_WITH_LOG(false, INVALID_BUFFER_INDEX,
+        //                "BUFFER CORRUPTION DETECTED");
+        CHECK_WITH_LOG(size() == (capacity() - free_indexes->size()),
+                       INVALID_BUFFER_INDEX,
+                       "logical error. size: %ld / free_indexes size: %ld",
+                       size(), free_indexes->size());
+        int idx = free_indexes->top();
+        free_indexes->pop();
+        CHECK_WITH_LOG(!buffer->at(idx).valid(), INVALID_BUFFER_INDEX,
+                       "free frame is valid!");
+        return idx;
     }
 
     int index = select_victim<BufferLRUTraversalPolicy>();
-    
+
     CHECK_WITH_LOG(index != INVALID_BUFFER_INDEX, INVALID_BUFFER_INDEX,
                    "alloc frame failure");
     CHECK_WITH_LOG(frame_free(index), INVALID_BUFFER_INDEX,
@@ -305,7 +325,7 @@ bool BufferController::frame_free(int buffer_index)
     {
         // wait
     }
-    
+
     CHECK(unlink_frame(buffer_index, frame));
 
     if (frame.is_dirty)
@@ -314,6 +334,7 @@ bool BufferController::frame_free(int buffer_index)
     }
 
     frame.init();
+    free_indexes->push(buffer_index);
     --num_buffer;
 
     return true;
@@ -323,7 +344,7 @@ int BufferController::load(int file_id, pagenum_t pagenum)
 {
     auto& fileManager = getFileManager(file_id);
     int index = frame_alloc();
-
+    ++file_access;
     CHECK_RET(index != INVALID_BUFFER_INDEX, INVALID_BUFFER_INDEX);
     auto& frame = buffer->at(index);
 
@@ -343,6 +364,7 @@ int BufferController::load(int file_id, pagenum_t pagenum)
 
 bool BufferController::commit(int file_id, const frame_t& frame)
 {
+    ++file_access;
     auto& fileManager = getFileManager(file_id);
     CHECK_WITH_LOG(fileManager.commit(frame.pagenum, frame), false,
                    "commit frame failure: %ld", frame.pagenum);

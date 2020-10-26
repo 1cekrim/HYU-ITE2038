@@ -8,6 +8,7 @@
 #include <memory>
 #include <string_view>
 #include <vector>
+#include <stack>
 
 #include "file_manager.hpp"
 #include "frame.hpp"
@@ -67,6 +68,10 @@ class BufferController
     friend void TEST_BUFFER();
     friend class node_tuple;
 
+    std::size_t cache_hit;
+    std::size_t cache_miss;
+    std::size_t file_access;
+
  private:
     std::unique_ptr<std::vector<frame_t>> buffer;
     std::vector<std::unique_ptr<FileManager>> fileManagers;
@@ -74,14 +79,20 @@ class BufferController
     std::size_t num_buffer;
     int mru;
     int lru;
+    std::unique_ptr<std::stack<int>> free_indexes;
     BufferController()
         : buffer(std::make_unique<std::vector<frame_t>>(BUFFER_SIZE)),
           mru(INVALID_BUFFER_INDEX),
-          lru(INVALID_BUFFER_INDEX)
+          lru(INVALID_BUFFER_INDEX), free_indexes(std::make_unique<std::stack<int>>())
     {
         for (auto& frame : *buffer)
         {
             frame.init();
+        }
+
+        for (int i = BUFFER_SIZE - 1; i >= 0; --i)
+        {
+            free_indexes->push(i);
         }
     }
 

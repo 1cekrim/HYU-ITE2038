@@ -536,6 +536,8 @@ void TEST_BPT()
         }
     }
     END()
+
+    std::cout << BufferController::instance().cache_hit << ' ' << BufferController::instance().cache_miss << ' ' << BufferController::instance().file_access << '\n';
 }
 
 void TEST_FILE()
