@@ -408,7 +408,7 @@ void TEST_FILE_MANAGER()
 
 void TEST_BPT()
 {
-    constexpr auto count = 1000000;
+    constexpr auto count = 10000;
     TEST("BPTree random number insert many")
     {
         BPTree tree;
