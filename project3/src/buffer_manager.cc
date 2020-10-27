@@ -32,6 +32,8 @@ bool BufferManager::open(const std::string& name)
     fileManager = &bc.getFileManager(manager_id);
     CHECK_WITH_LOG(fileManager, false, "buffer manager open failure: %s",
                    name.c_str());
+    fileManager->set_buffer_manager(this);
+    CHECK(fileManager->init_file_if_created());
     return true;
 }
 
@@ -73,14 +75,7 @@ pagenum_t BufferManager::root() const
 
 bool BufferManager::set_root(pagenum_t pagenum)
 {
-    // TODO: 구현
     return fileManager->set_root(pagenum);
-}
-
-const HeaderPageHeader& BufferManager::getFileHeader() const
-{
-    // TODO: 구현
-    return fileManager->getFileHeader();
 }
 
 bool BufferController::init_buffer(std::size_t buffer_size)
@@ -204,8 +199,8 @@ int BufferController::create(int file_id)
 {
     auto& fileManager = getFileManager(file_id);
     auto pagenum = fileManager.create();
-    CHECK_WITH_LOG(pagenum != EMPTY_PAGE_NUMBER, INVALID_BUFFER_INDEX,
-                   "create page failure: %d", file_id);
+    // CHECK_WITH_LOG(pagenum != EMPTY_PAGE_NUMBER, INVALID_BUFFER_INDEX,
+                //    "create page failure: %d", file_id);
 
     int result = load(file_id, pagenum);
 

@@ -91,7 +91,6 @@ void TEST_TABLE()
                     std::stringstream ss;
                     ss << "test insert " << i;
                     TableManager::char_to_valType(v, ss.str().c_str());
-
                     int mul = 0;
                     for (auto id : tables)
                     {
@@ -315,114 +314,58 @@ void TEST_POD()
 
 void TEST_FILE_MANAGER()
 {
-    TEST("FileManager")
-    {
-        FileManager fm;
+    // TEST("FileManager Page r/w")
+    // {
+    //     FileManager fm;
+    //     fm.open("test.db");
 
-        const HeaderPageHeader& ph = fm.getFileHeader();
+    //     page_t page {};
+    //     for (int i = 0; i < 248; ++i)
+    //     {
+    //         page.internals()[i].key = i;
+    //         page.internals()[i].node_id = i;
+    //     }
 
-        CHECK_VALUE(ph.freePageNumber, 0);
-        CHECK_VALUE(ph.numberOfPages, 0);
-        CHECK_VALUE(ph.rootPageNumber, 0);
+    //     fm.commit(0, page);
 
-        for (int i = 0; i < 104; ++i)
-        {
-            CHECK_VALUE(ph.reserved[i], 0);
-        }
-    }
-    END()
+    //     page_t readPage {};
+    //     fm.load(0, readPage);
 
-    TEST("FileManager::open")
-    {
-        FileManager fm;
-        fm.open("test.db");
+    //     for (int i = 0; i < 248; ++i)
+    //     {
+    //         CHECK_TRUE(page.internals()[i].key == readPage.internals()[i].key);
+    //         CHECK_TRUE(page.internals()[i].node_id ==
+    //                    readPage.internals()[i].node_id);
+    //     }
+    // }
+    // END()
 
-        const HeaderPageHeader& ph = fm.getFileHeader();
+    // TEST("FileManager Many Page")
+    // {
+    //     FileManager fm;
+    //     fm.open("qqq.db");
+    //     page_t page {};
+    //     for (int i = 0; i < 248; ++i)
+    //     {
+    //         page.internals()[i].key = i;
+    //         page.internals()[i].node_id = i;
+    //     }
+    //     std::vector<pagenum_t> nums;
+    //     for (int i = 0; i < 100; ++i)
+    //     {
+    //         pagenum_t num = fm.create();
+    //         CHECK_TRUE(num != EMPTY_PAGE_NUMBER);
 
-        CHECK_VALUE(ph.freePageNumber, 0);
-        CHECK_VALUE(ph.numberOfPages, 1);
-        CHECK_VALUE(ph.rootPageNumber, 0);
+    //         CHECK_TRUE(fm.commit(num, page));
+    //         nums.push_back(num);
+    //     }
 
-        for (int i = 0; i < 104; ++i)
-        {
-            CHECK_VALUE(ph.reserved[i], 0);
-        }
-    }
-    END()
-
-    TEST("FileManager Page r/w")
-    {
-        FileManager fm;
-        fm.open("test.db");
-
-        page_t page {};
-        for (int i = 0; i < 248; ++i)
-        {
-            page.internals()[i].key = i;
-            page.internals()[i].node_id = i;
-        }
-
-        fm.commit(0, page);
-
-        page_t readPage {};
-        fm.load(0, readPage);
-
-        for (int i = 0; i < 248; ++i)
-        {
-            CHECK_TRUE(page.internals()[i].key == readPage.internals()[i].key);
-            CHECK_TRUE(page.internals()[i].node_id ==
-                       readPage.internals()[i].node_id);
-        }
-    }
-    END()
-
-    TEST("FileManager Many Page")
-    {
-        FileManager fm;
-        fm.open("qqq.db");
-        page_t page {};
-        for (int i = 0; i < 248; ++i)
-        {
-            page.internals()[i].key = i;
-            page.internals()[i].node_id = i;
-        }
-        std::vector<pagenum_t> nums;
-        for (int i = 0; i < 100; ++i)
-        {
-            pagenum_t num = fm.create();
-            CHECK_TRUE(num != EMPTY_PAGE_NUMBER);
-
-            CHECK_TRUE(fm.commit(num, page));
-            nums.push_back(num);
-        }
-
-        for (auto n : nums)
-        {
-            CHECK_TRUE(fm.load(n, page));
-        }
-    }
-    END()
-
-    TEST("FileManager free many")
-    {
-        FileManager fm;
-        fm.open("qqq.db");
-        for (int i = 1; i <= 100; ++i)
-        {
-            fm.free(i);
-        }
-        pagenum_t now = fm.getFileHeader().freePageNumber;
-        CHECK_VALUE(now, 100);
-        while (now != EMPTY_PAGE_NUMBER)
-        {
-            page_t page {};
-            CHECK_TRUE(fm.load(now, page));
-            auto& header = page.freePageHeader();
-            CHECK_VALUE(header.nextFreePageNumber + 1, now);
-            now = header.nextFreePageNumber;
-        }
-    }
-    END()
+    //     for (auto n : nums)
+    //     {
+    //         CHECK_TRUE(fm.load(n, page));
+    //     }
+    // }
+    // END()
 }
 
 void TEST_BPT()

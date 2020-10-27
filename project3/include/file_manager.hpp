@@ -8,7 +8,19 @@
 #include <string_view>
 #include <vector>
 
+#include "frame.hpp"
 #include "page.hpp"
+
+class BufferManager;
+
+constexpr auto FILE_HEADER_PAGENUM = 0;
+
+struct header_frame
+{
+   frame_t frame;
+   int buffer_index = -1;
+   ~header_frame();
+};
 
 class FileManager
 {
@@ -25,13 +37,14 @@ class FileManager
     int get_manager_id() const;
     pagenum_t root() const;
     bool set_root(pagenum_t pagenum);
+    void set_buffer_manager(BufferManager* bufferManager);
 
-    const HeaderPageHeader& getFileHeader() const;
+    bool init_file_if_created();
 
  private:
-    HeaderPageHeader fileHeader;
     int fd;
-    bool updateFileHeader();
+    BufferManager* bufferManager;
+    bool file_created;
     // payload 포인터가 가리키는 공간부터 size만큼 읽어와 File의 seek 위치에
     // 쓰기
     bool write(long int seek, const void* payload, std::size_t size);
@@ -47,6 +60,9 @@ class FileManager
 
     // pagenum에 해당하는 Page free. 성공하면 true 반환.
     bool pageFree(pagenum_t pagenum);
+
+    bool get_file_header(header_frame& header) const;
+    bool set_file_header(const header_frame& header);
 
     // 새 페이지 추가
     pagenum_t pageCreate();

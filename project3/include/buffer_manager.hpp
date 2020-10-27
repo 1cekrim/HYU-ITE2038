@@ -34,8 +34,6 @@ class BufferManager
     bool set_root(pagenum_t pagenum);
     bool close();
 
-    const HeaderPageHeader& getFileHeader() const;
-
  private:
     FileManager* fileManager;
     int manager_id = -1;
