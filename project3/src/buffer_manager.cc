@@ -74,6 +74,19 @@ const HeaderPageHeader& BufferManager::getFileHeader() const
     return fileManager->getFileHeader();
 }
 
+bool BufferController::init_buffer_size(std::size_t buffer_size)
+{
+    CHECK_WITH_LOG(buffer->size() < buffer_size, false, "cannot be made smaller than the current buffer size %ld", buffer->size());
+    this->buffer_size = buffer_size;
+    buffer->resize(buffer_size);
+
+    for (int i = buffer_size - 1; i >= 0; --i)
+    {
+        free_indexes->push(i);
+    }
+    return true;
+}
+
 int BufferController::openFileManager(const std::string& name)
 {
     if (nameFileManagerMap.find(name) == nameFileManagerMap.end())
@@ -244,16 +257,31 @@ bool BufferController::unlink_frame(int buffer_index, frame_t& frame)
 
 int BufferController::find(int file_id, pagenum_t pagenum)
 {
-    for (std::size_t i = 0; i < capacity(); ++i)
+    // for (std::size_t i = 0; i < capacity(); ++i)
+    // {
+    //     auto& frame = buffer->at(i);
+    //     if (frame.pagenum == pagenum && frame.file_id == file_id)
+    //     {
+    //         return i;
+    //     }
+    // }
+    if (index_table[file_id].find(pagenum) != index_table[file_id].end())
     {
-        auto& frame = buffer->at(i);
-        if (frame.pagenum == pagenum && frame.file_id == file_id)
-        {
-            return i;
-        }
+        return index_table[file_id][pagenum];
     }
     return INVALID_BUFFER_INDEX;
 }
+
+void BufferController::memorize_index(int file_id, pagenum_t pagenum, int frame_index)
+{
+    index_table[file_id][pagenum] = frame_index;
+}
+
+void BufferController::forget_index(int file_id, pagenum_t pagenum)
+{
+    index_table[file_id].erase(pagenum);
+}
+
 
 bool BufferController::sync()
 {
@@ -315,6 +343,7 @@ bool BufferController::frame_free(int buffer_index)
         CHECK(commit(frame.file_id, frame));
     }
 
+    forget_index(frame.file_id, frame.pagenum);
     frame.init();
     --num_buffer;
 
@@ -334,6 +363,7 @@ int BufferController::load(int file_id, pagenum_t pagenum)
     frame.change_page(page);
     frame.file_id = file_id;
     frame.pagenum = pagenum;
+    memorize_index(file_id, pagenum, index);
     ++num_buffer;
 
     CHECK_WITH_LOG(update_recently_used(index, frame), INVALID_BUFFER_INDEX,

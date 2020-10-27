@@ -1,21 +1,20 @@
 #include "table_manager.hpp"
-
 #include "logger.hpp"
+
+bool TableManager::init_db(int num_buf)
+{
+    return BufferController::instance().init_buffer_size(num_buf);
+}
 
 int TableManager::open_table(const std::string& name)
 {
-    int id;
-    if (!free_ids.empty())
+    if (tables.size() == MAX_TABLE_NUM)
     {
-        id = free_ids.front();
-        free_ids.pop();
-        tables[id] = std::make_unique<table_t>();
+        return INVALID_TABLE_ID;
     }
-    else
-    {
-        id = tables.size();
-        tables.emplace_back(new table_t());
-    }
+
+    int id = get_table_id(name);
+    tables[id] = std::make_unique<table_t>();
     tables[id]->table_id = id;
     CHECK_WITH_LOG(tables[id]->tree.open_table(name), INVALID_TABLE_ID,
                    "open table failure: %s", name.c_str());
@@ -24,27 +23,38 @@ int TableManager::open_table(const std::string& name)
 
 bool TableManager::close_table(int table_id)
 {
+    if (tables.find(table_id) == tables.end())
+    {
+        return false;
+    }
     // TODO: bptree 닫기 구현
-    auto& table = tables.at(table_id);
-    table.reset();
-    free_ids.emplace(table_id);
+    tables.erase(table_id);
     return true;
 }
 
 bool TableManager::insert(int table_id, keyType key, const valType& value)
 {
-    auto& table = tables.at(table_id);
-    return table->tree.insert(key, value);
+    if (tables.find(table_id) == tables.end())
+    {
+        return false;
+    }
+    return tables[table_id]->tree.insert(key, value);
 }
 
 bool TableManager::delete_key(int table_id, keyType key)
 {
-    auto& table = tables.at(table_id);
-    return table->tree.delete_key(key);
+    if (tables.find(table_id) == tables.end())
+    {
+        return false;
+    }
+    return tables[table_id]->tree.delete_key(key);
 }
 
 bool TableManager::find(int table_id, keyType key, record_t& ret)
 {
-    auto& table = tables.at(table_id);
-    return table->tree.find(key, ret);
+    if (tables.find(table_id) == tables.end())
+    {
+        return false;
+    }
+    return tables[table_id]->tree.find(key, ret);
 }

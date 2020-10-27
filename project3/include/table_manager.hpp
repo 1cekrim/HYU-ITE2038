@@ -2,6 +2,7 @@
 #define __TABLE_MANAGER_HPP__
 
 #include <queue>
+#include <unordered_map>
 
 #include "bptree.hpp"
 #include "page.hpp"
@@ -9,6 +10,7 @@
 struct table_t;
 
 constexpr auto INVALID_TABLE_ID = -1;
+constexpr auto MAX_TABLE_NUM = 10;
 
 class TableManager
 {
@@ -19,6 +21,7 @@ class TableManager
         return tm;
     }
 
+    bool init_db(int num_buf);
     int open_table(const std::string& name);
     bool close_table(int table_id);
     bool insert(int table_id, keyType key, const valType& value);
@@ -32,12 +35,15 @@ class TableManager
     }
 
  private:
+    std::unordered_map<int, std::unique_ptr<table_t>> tables;
     TableManager()
     {
         // Do nothing
     }
-    std::vector<std::unique_ptr<table_t>> tables;
-    std::queue<int> free_ids;
+    static int get_table_id(const std::string& name)
+    {
+        return static_cast<int>(std::hash<std::string>()(name));
+    }
 };
 
 struct table_t

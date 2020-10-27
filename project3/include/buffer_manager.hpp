@@ -9,14 +9,13 @@
 #include <stack>
 #include <string_view>
 #include <vector>
+#include <unordered_map>
 
 #include "file_manager.hpp"
 #include "frame.hpp"
 #include "logger.hpp"
 
 struct node_tuple;
-
-constexpr auto BUFFER_SIZE = 10;
 
 class BufferManager
 {
@@ -59,6 +58,7 @@ class BufferController
     void release_frame(int frame_index);
     void retain_frame(int frame_index);
     bool sync();
+    bool init_buffer_size(std::size_t buffer_size);
     pagenum_t frame_id_to_pagenum(int frame_id) const;
     std::size_t size() const;
     std::size_t capacity() const;
@@ -71,13 +71,15 @@ class BufferController
  private:
     std::unique_ptr<std::vector<frame_t>> buffer;
     std::vector<std::unique_ptr<FileManager>> fileManagers;
+    std::unordered_map<int, std::unordered_map<pagenum_t, int>> index_table;
     std::map<std::string, int> nameFileManagerMap;
     std::size_t num_buffer;
+    std::size_t buffer_size;
     int mru;
     int lru;
     std::unique_ptr<std::stack<int>> free_indexes;
     BufferController()
-        : buffer(std::make_unique<std::vector<frame_t>>(BUFFER_SIZE)),
+        : buffer(std::make_unique<std::vector<frame_t>>(1)),
           mru(INVALID_BUFFER_INDEX),
           lru(INVALID_BUFFER_INDEX),
           free_indexes(std::make_unique<std::stack<int>>())
@@ -86,14 +88,11 @@ class BufferController
         {
             frame.init();
         }
-
-        for (int i = BUFFER_SIZE - 1; i >= 0; --i)
-        {
-            free_indexes->push(i);
-        }
     }
 
     int find(int file_id, pagenum_t pagenum);
+    void memorize_index(int file_id, pagenum_t pagenum, int frame_index);
+    void forget_index(int file_id, pagenum_t pagenum);
     int frame_alloc();
     bool frame_free(int buffer_index);
     bool update_recently_used(int buffer_index, frame_t& frame);
