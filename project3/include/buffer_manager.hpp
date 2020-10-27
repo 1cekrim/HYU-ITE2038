@@ -32,6 +32,7 @@ class BufferManager
     int get_manager_id() const;
     pagenum_t root() const;
     bool set_root(pagenum_t pagenum);
+    bool close();
 
     const HeaderPageHeader& getFileHeader() const;
 
@@ -58,7 +59,9 @@ class BufferController
     void release_frame(int frame_index);
     void retain_frame(int frame_index);
     bool sync();
-    bool init_buffer_size(std::size_t buffer_size);
+    bool fsync(int file_id, bool free_flag = false);
+    bool init_buffer(std::size_t buffer_size);
+    bool clear_buffer();
     pagenum_t frame_id_to_pagenum(int frame_id) const;
     std::size_t size() const;
     std::size_t capacity() const;
@@ -78,16 +81,11 @@ class BufferController
     int mru;
     int lru;
     std::unique_ptr<std::stack<int>> free_indexes;
-    BufferController()
-        : buffer(std::make_unique<std::vector<frame_t>>(1)),
+    BufferController() : 
           mru(INVALID_BUFFER_INDEX),
-          lru(INVALID_BUFFER_INDEX),
-          free_indexes(std::make_unique<std::stack<int>>())
+          lru(INVALID_BUFFER_INDEX)
     {
-        for (auto& frame : *buffer)
-        {
-            frame.init();
-        }
+        // Do nothing
     }
 
     int find(int file_id, pagenum_t pagenum);

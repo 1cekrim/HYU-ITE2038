@@ -22,6 +22,7 @@ class TableManager
     }
 
     bool init_db(int num_buf);
+    bool shutdown_db();
     int open_table(const std::string& name);
     bool close_table(int table_id);
     bool insert(int table_id, keyType key, const valType& value);
@@ -37,9 +38,17 @@ class TableManager
  private:
     std::unordered_map<int, std::unique_ptr<table_t>> tables;
     std::unordered_map<std::string, int> name_id_table;
-    TableManager()
+    bool valid_table_manager;
+    TableManager() : valid_table_manager(false)
     {
         // Do nothing
+    }
+    ~TableManager()
+    {
+        if (valid_table_manager)
+        {
+            shutdown_db();
+        }
     }
     int get_table_id(const std::string& name);
 };

@@ -11,51 +11,55 @@
 #define S_COLOR_CYAN "\x1b[36m"
 #define S_COLOR_RESET "\x1b[0m"
 
-#define CHECK_WITH_LOG(statement, ret_val, fmt, args...)       \
-    do                                                         \
-    {                                                          \
-        if (!(statement))                                      \
-        {                                                      \
-            printf(S_COLOR_RED "[-] %s", __PRETTY_FUNCTION__); \
-            printf("\n    statement: " #statement "\n    " fmt \
-                   "\n" S_COLOR_RESET,                         \
-                   ##args);                                    \
-            return ret_val;                                    \
-        }                                                      \
+#define CHECK_WITH_LOG(statement, ret_val, fmt, args...)                  \
+    do                                                                    \
+    {                                                                     \
+        if (!(statement))                                                 \
+        {                                                                 \
+            fprintf(stderr, S_COLOR_RED "\n[-] %s", __PRETTY_FUNCTION__); \
+            fprintf(stderr,                                               \
+                    "\n    statement: " #statement "\n    " fmt           \
+                    "\n" S_COLOR_RESET,                                   \
+                    ##args);                                              \
+            return ret_val;                                               \
+        }                                                                 \
     } while (0)
 
-#define EXIT_WITH_LOG(statement, fmt, args...)                 \
-    do                                                         \
-    {                                                          \
-        if (!(statement))                                      \
-        {                                                      \
-            printf(S_COLOR_RED "[-] %s", __PRETTY_FUNCTION__); \
-            printf("\n    statement: " #statement "\n    " fmt \
-                   "\n" S_COLOR_RESET,                         \
-                   ##args);                                    \
-            exit(-1);                                          \
-        }                                                      \
+#define EXIT_WITH_LOG(statement, fmt, args...)                            \
+    do                                                                    \
+    {                                                                     \
+        if (!(statement))                                                 \
+        {                                                                 \
+            fprintf(stderr, S_COLOR_RED "\n[-] %s", __PRETTY_FUNCTION__); \
+            fprintf(stderr,                                               \
+                    "\n    statement: " #statement "\n    " fmt           \
+                    "\n" S_COLOR_RESET,                                   \
+                    ##args);                                              \
+            exit(-1);                                                     \
+        }                                                                 \
     } while (0)
 
-#define CHECK(statement)                                       \
-    do                                                         \
-    {                                                          \
-        if (!(statement))                                      \
-        {                                                      \
-            printf(S_COLOR_RED "[-] %s", __PRETTY_FUNCTION__); \
-            printf("\n    statement: " #statement "\n");       \
-            return false;                                      \
-        }                                                      \
+#define CHECK(statement)                                                  \
+    do                                                                    \
+    {                                                                     \
+        if (!(statement))                                                 \
+        {                                                                 \
+            fprintf(stderr, S_COLOR_RED "\n[-] %s", __PRETTY_FUNCTION__); \
+            fprintf(stderr,                                               \
+                    "\n    statement: " #statement "\n" S_COLOR_RESET);   \
+            return false;                                                 \
+        }                                                                 \
     } while (0)
-#define CHECK_RET(statement, ret)                              \
-    do                                                         \
-    {                                                          \
-        if (!(statement))                                      \
-        {                                                      \
-            printf(S_COLOR_RED "[-] %s", __PRETTY_FUNCTION__); \
-            printf("\n    statement: " #statement "\n");       \
-            return (ret);                                      \
-        }                                                      \
+#define CHECK_RET(statement, ret)                                         \
+    do                                                                    \
+    {                                                                     \
+        if (!(statement))                                                 \
+        {                                                                 \
+            fprintf(stderr, S_COLOR_RED "\n[-] %s", __PRETTY_FUNCTION__); \
+            fprintf(stderr,                                               \
+                    "\n    statement: " #statement "\n" S_COLOR_RESET);   \
+            return (ret);                                                 \
+        }                                                                 \
     } while (0)
 
 #endif /* __LOGGER_HPP__*/

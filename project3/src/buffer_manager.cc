@@ -5,14 +5,23 @@
 
 BufferManager::BufferManager() : fileManager()
 {
-    // TODO: 구현
     // Do nothing
 }
 
 BufferManager::~BufferManager()
 {
-    // TODO: 구현
-    // Do nothing
+    close();
+}
+
+bool BufferManager::close()
+{
+    if (manager_id == -1 || !fileManager)
+    {
+        return false;
+    }
+
+    CHECK(BufferController::instance().fsync(manager_id, true));
+    return true;
 }
 
 bool BufferManager::open(const std::string& name)
@@ -74,16 +83,48 @@ const HeaderPageHeader& BufferManager::getFileHeader() const
     return fileManager->getFileHeader();
 }
 
-bool BufferController::init_buffer_size(std::size_t buffer_size)
+bool BufferController::init_buffer(std::size_t buffer_size)
 {
-    CHECK_WITH_LOG(buffer->size() < buffer_size, false, "cannot be made smaller than the current buffer size %ld", buffer->size());
+    CHECK_WITH_LOG(this->buffer_size < buffer_size, false,
+                   "cannot be made smaller than the current buffer size %ld",
+                   this->buffer_size);
     this->buffer_size = buffer_size;
-    buffer->resize(buffer_size);
 
+    buffer = std::make_unique<std::vector<frame_t>>(buffer_size);
+    CHECK_WITH_LOG(buffer.get(), false, "alloc buffer failure");
+    for (auto& frame : *buffer)
+    {
+        frame.init();
+    }
+
+    fileManagers.clear();
+    index_table.clear();
+    nameFileManagerMap.clear();
+
+    mru = INVALID_BUFFER_INDEX;
+    lru = INVALID_BUFFER_INDEX;
+    num_buffer = 0;
+
+    free_indexes = std::make_unique<std::stack<int>>();
     for (int i = buffer_size - 1; i >= 0; --i)
     {
         free_indexes->push(i);
     }
+    return true;
+}
+
+bool BufferController::clear_buffer()
+{
+    CHECK_WITH_LOG(sync(), false, "sync failure");
+    buffer.reset();
+    fileManagers.clear();
+    index_table.clear();
+    nameFileManagerMap.clear();
+    free_indexes.reset();
+    mru = INVALID_BUFFER_INDEX;
+    lru = INVALID_BUFFER_INDEX;
+    num_buffer = 0;
+    buffer_size = 0;
     return true;
 }
 
@@ -257,14 +298,6 @@ bool BufferController::unlink_frame(int buffer_index, frame_t& frame)
 
 int BufferController::find(int file_id, pagenum_t pagenum)
 {
-    // for (std::size_t i = 0; i < capacity(); ++i)
-    // {
-    //     auto& frame = buffer->at(i);
-    //     if (frame.pagenum == pagenum && frame.file_id == file_id)
-    //     {
-    //         return i;
-    //     }
-    // }
     if (index_table[file_id].find(pagenum) != index_table[file_id].end())
     {
         return index_table[file_id][pagenum];
@@ -272,7 +305,8 @@ int BufferController::find(int file_id, pagenum_t pagenum)
     return INVALID_BUFFER_INDEX;
 }
 
-void BufferController::memorize_index(int file_id, pagenum_t pagenum, int frame_index)
+void BufferController::memorize_index(int file_id, pagenum_t pagenum,
+                                      int frame_index)
 {
     index_table[file_id][pagenum] = frame_index;
 }
@@ -282,15 +316,41 @@ void BufferController::forget_index(int file_id, pagenum_t pagenum)
     index_table[file_id].erase(pagenum);
 }
 
-
 bool BufferController::sync()
 {
-    for (std::size_t i = 0; i < capacity(); ++i)
+    for (auto& frame : *buffer)
     {
-        auto& frame = buffer->at(i);
         if (frame.valid() && frame.is_dirty)
         {
-            commit(frame.file_id, frame);
+            CHECK_WITH_LOG(
+                commit(frame.file_id, frame), false,
+                "commit frame failure\nfile_id: %d / frame pagenum: %ld",
+                frame.file_id, frame.pagenum);
+        }
+    }
+    return true;
+}
+
+bool BufferController::fsync(int file_id, bool free_flag)
+{
+    for (auto& frame : *buffer)
+    {
+        if (frame.valid() && frame.file_id == file_id)
+        {
+            if (frame.is_dirty)
+            {
+                CHECK_WITH_LOG(
+                    commit(frame.file_id, frame), false,
+                    "commit frame failure\nfile_id: %d / frame pagenum: %ld",
+                    frame.file_id, frame.pagenum);
+            }
+
+            if (free_flag)
+            {
+                CHECK_WITH_LOG(frame.pin == 0, false,
+                               "cannot free frame. frame.pin == %d", frame.pin);
+                frame_free(index_table[file_id][frame.pagenum]);
+            }
         }
     }
     return true;

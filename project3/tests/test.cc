@@ -31,7 +31,7 @@ int main()
     void (*tests[])() = { TEST_POD, TEST_FILE_MANAGER, TEST_TABLE,
                           TEST_BPT, TEST_FILE,         TESTS };
 
-    std::string testNames[] = { "test buffer", "test pod", "file_manager",
+    std::string testNames[] = { "test pod", "file_manager",
                                 "table",       "bpt",      "test_file",
                                 "TESTS" };
 
@@ -53,88 +53,168 @@ int main()
 
 void TEST_TABLE()
 {
-    TableManager::instance().init_db(10000);
-    for (int j = 0; j < 3; ++j)
+    auto buffer_size = 10000;
+    auto num_records = 10000;
+    auto repeat = 3;
+    auto table_num = 10;
+    auto test_index = 0;
+    auto test_table = [&]()
     {
-        std::vector<int> tables;
-        TEST("open 10 tables")
+        TEST("init db")
         {
-            for (int i = 0; i < 10; ++i)
-            {
-                std::stringstream ss;
-                ss << "table_" << i << ".db";
-
-                int id = TableManager::instance().open_table(ss.str());
-                CHECK_TRUE(id != INVALID_TABLE_ID);
-                tables.push_back(id);
-            }
+            CHECK_TRUE(TableManager::instance().init_db(buffer_size));
         }
         END()
-
-        TEST("insert 10000 to 10 tables")
+        for (int j = 0; j < repeat; ++j)
         {
-            for (int i = 0; i < 10000; ++i)
+            std::cout << "  repeat table test " << j << '\n';
+            std::vector<int> tables;
+            TEST("open tables")
             {
-                valType v;
-                std::stringstream ss;
-                ss << "test insert " << i;
-                TableManager::char_to_valType(v, ss.str().c_str());
-
-                int mul = 0;
-                for (auto id : tables)
+                for (int i = 0; i < table_num; ++i)
                 {
-                    CHECK_TRUE(TableManager::instance().insert(
-                        id, i + mul * 10000, v));
-                    ++mul;
+                    std::stringstream ss;
+                    ss << "table_" << test_index << "_" << i << ".db";
+
+                    int id = TableManager::instance().open_table(ss.str());
+                    CHECK_TRUE(id != INVALID_TABLE_ID);
+                    tables.push_back(id);
                 }
             }
-        }
-        END()
+            END()
 
-        TEST("find 10000 to 10 tables")
-        {
-            for (int i = 0; i < 10000; ++i)
+            TEST("insert num_records to 10 tables")
             {
-                int mul = 0;
-                for (auto id : tables)
+                for (int i = 0; i < num_records; ++i)
                 {
-                    record_t record;
-                    CHECK_TRUE(TableManager::instance().find(
-                        id, i + mul * 10000, record));
-                    CHECK_VALUE(record.key, i + mul * 10000);
-                    ++mul;
+                    valType v;
+                    std::stringstream ss;
+                    ss << "test insert " << i;
+                    TableManager::char_to_valType(v, ss.str().c_str());
+
+                    int mul = 0;
+                    for (auto id : tables)
+                    {
+                        CHECK_TRUE(TableManager::instance().insert(
+                            id, i + mul * num_records, v));
+                        ++mul;
+                    }
                 }
             }
-        }
-        END()
+            END()
 
-        TEST("delete 10000 to 10 tables")
-        {
-            for (int i = 0; i < 10000; ++i)
+            TEST("find num_records to 10 tables")
             {
-                int mul = 0;
-                for (auto id : tables)
+                for (int i = 0; i < num_records; ++i)
                 {
-                    record_t record;
-                    CHECK_TRUE(TableManager::instance().delete_key(
-                        id, i + mul * 10000));
-                    CHECK_FALSE(TableManager::instance().find(
-                        id, i + mul * 10000, record));
-                    ++mul;
+                    int mul = 0;
+                    for (auto id : tables)
+                    {
+                        record_t record;
+                        CHECK_TRUE(TableManager::instance().find(
+                            id, i + mul * num_records, record));
+                        CHECK_VALUE(record.key, i + mul * num_records);
+                        ++mul;
+                    }
                 }
             }
+            END()
+
+            TEST("delete num_records to 10 tables")
+            {
+                for (int i = 0; i < num_records; ++i)
+                {
+                    int mul = 0;
+                    for (auto id : tables)
+                    {
+                        record_t record;
+                        CHECK_TRUE(TableManager::instance().delete_key(
+                            id, i + mul * num_records));
+                        CHECK_FALSE(TableManager::instance().find(
+                            id, i + mul * num_records, record));
+                        ++mul;
+                    }
+                }
+            }
+            END()
+            
+            if (table_num == 10)
+            {
+                TEST("open 11th table failure before close tables")
+                {
+                    int id = TableManager::instance().open_table("invalid.db");
+                    CHECK_VALUE(id, INVALID_TABLE_ID);
+                }
+                END()
+            }
+
+            TEST("close tables")
+            {
+                for (auto id : tables)
+                {
+                    CHECK_TRUE(TableManager::instance().close_table(id));
+                }
+            }
+            END()
+
+            if (table_num == 10)
+            {
+                TEST("open 11th table failure after close tables")
+                {
+                    int id = TableManager::instance().open_table("invalid.db");
+                    CHECK_VALUE(id, INVALID_TABLE_ID);
+                }
+                END()
+            }
+            std::cout << "\n";
+        }
+
+        TEST("shutdown db")
+        {
+            CHECK_TRUE(TableManager::instance().shutdown_db());
         }
         END()
 
-        TEST("close 10 tables")
+        TEST("use table after shutdown")
         {
-            for (auto id : tables)
-            {
-                CHECK_TRUE(TableManager::instance().close_table(id));
-            }
+            record_t record;
+            valType val;
+            CHECK_FALSE(TableManager::instance().close_table(1));
+            CHECK_FALSE(TableManager::instance().delete_key(1, 1));
+            CHECK_FALSE(TableManager::instance().find(1, 1, record));
+            CHECK_FALSE(TableManager::instance().insert(1, 1, val));
+            CHECK_VALUE(TableManager::instance().open_table("shutdown.db"), INVALID_TABLE_ID);
         }
         END()
-    }
+    };
+
+    constexpr auto small_buffer = 10;
+    constexpr auto middle_buffer = 10000;
+    constexpr auto big_buffer = 1000000;
+
+    ++test_index;
+    buffer_size = middle_buffer;
+    std::cout << "\nopen 10 table with same buffer\n";
+    test_table();
+
+    ++test_index;
+    buffer_size = small_buffer;
+    std::cout << "open 10 table with small buffer\n";
+    test_table();
+
+    ++test_index;
+    buffer_size = big_buffer;
+    std::cout << "open 10 table with big buffer";
+    test_table();
+
+    ++test_index;
+    buffer_size = middle_buffer;
+    repeat = 1;
+    table_num = 1;
+    num_records = 1000000;
+    std::cout << "many records test: " << num_records << '\n';
+    test_table();
+
 }
 
 void TEST_POD()
@@ -347,134 +427,135 @@ void TEST_FILE_MANAGER()
 
 void TEST_BPT()
 {
-    constexpr auto count = 1000000;
-    TEST("BPTree random number insert many")
-    {
-        BPTree tree;
-        CHECK_TRUE(tree.open_table("insert.db"));
+    // constexpr auto count = 1000000;
+    // TableManager::instance().init_db(1000);
+    // TEST("BPTree random number insert many")
+    // {
+    //     BPTree tree;
+    //     CHECK_TRUE(tree.open_table("insert.db"));
 
-        std::vector<int> keys(count);
+    //     std::vector<int> keys(count);
 
-        std::random_device rd;
-        std::mt19937 mt(rd());
+    //     std::random_device rd;
+    //     std::mt19937 mt(rd());
 
-        for (int i = 1; i <= count; ++i)
-        {
-            std::uniform_int_distribution<int> range(0, i - 1);
-            int pos = range(mt);
-            keys[i - 1] = keys[pos];
-            keys[pos] = i;
-        }
+    //     for (int i = 1; i <= count; ++i)
+    //     {
+    //         std::uniform_int_distribution<int> range(0, i - 1);
+    //         int pos = range(mt);
+    //         keys[i - 1] = keys[pos];
+    //         keys[pos] = i;
+    //     }
 
-        for (int a : keys)
-        {
-            valType v;
-            std::stringstream ss;
-            ss << "test insert " << a;
-            tree.char_to_valType(v, ss.str().c_str());
+    //     for (int a : keys)
+    //     {
+    //         valType v;
+    //         std::stringstream ss;
+    //         ss << "test insert " << a;
+    //         tree.char_to_valType(v, ss.str().c_str());
 
-            CHECK_TRUE(tree.insert(a, v));
-        }
-    }
-    END()
+    //         CHECK_TRUE(tree.insert(a, v));
+    //     }
+    // }
+    // END()
 
-    TEST("BPTree find key")
-    {
-        BPTree tree;
-        CHECK_TRUE(tree.open_table("insert.db"));
+    // TEST("BPTree find key")
+    // {
+    //     BPTree tree;
+    //     CHECK_TRUE(tree.open_table("insert.db"));
 
-        record_t record;
+    //     record_t record;
 
-        for (int i = 1; i <= count; ++i)
-        {
-            CHECK_TRUE(tree.find(i, record));
-            CHECK_VALUE(record.key, i);
-        }
-    }
-    END()
+    //     for (int i = 1; i <= count; ++i)
+    //     {
+    //         CHECK_TRUE(tree.find(i, record));
+    //         CHECK_VALUE(record.key, i);
+    //     }
+    // }
+    // END()
 
-    TEST("BPTree delete half - 1")
-    {
-        BPTree tree;
-        CHECK_TRUE(tree.open_table("insert.db"));
+    // TEST("BPTree delete half - 1")
+    // {
+    //     BPTree tree;
+    //     CHECK_TRUE(tree.open_table("insert.db"));
 
-        record_t record;
+    //     record_t record;
 
-        for (int i = 1; i <= count / 2; ++i)
-        {
-            CHECK_TRUE(tree.delete_key(i));
-            CHECK_FALSE(tree.find(i, record));
-        }
+    //     for (int i = 1; i <= count / 2; ++i)
+    //     {
+    //         CHECK_TRUE(tree.delete_key(i));
+    //         CHECK_FALSE(tree.find(i, record));
+    //     }
 
-        for (int i = count / 2 + 1; i <= count; ++i)
-        {
-            CHECK_TRUE(tree.find(i, record));
-            CHECK_VALUE(record.key, i);
-        }
-    }
-    END()
+    //     for (int i = count / 2 + 1; i <= count; ++i)
+    //     {
+    //         CHECK_TRUE(tree.find(i, record));
+    //         CHECK_VALUE(record.key, i);
+    //     }
+    // }
+    // END()
 
-    TEST("BPTree delete half - 2")
-    {
-        BPTree tree;
-        CHECK_TRUE(tree.open_table("insert.db"));
+    // TEST("BPTree delete half - 2")
+    // {
+    //     BPTree tree;
+    //     CHECK_TRUE(tree.open_table("insert.db"));
 
-        record_t record;
+    //     record_t record;
 
-        for (int i = count / 2 + 1; i <= count; ++i)
-        {
-            CHECK_TRUE(tree.delete_key(i));
-            CHECK_FALSE(tree.find(i, record));
-        }
-    }
-    END()
+    //     for (int i = count / 2 + 1; i <= count; ++i)
+    //     {
+    //         CHECK_TRUE(tree.delete_key(i));
+    //         CHECK_FALSE(tree.find(i, record));
+    //     }
+    // }
+    // END()
 
-    TEST("BPTree insert after delete")
-    {
-        BPTree tree;
-        CHECK_TRUE(tree.open_table("insert.db"));
+    // TEST("BPTree insert after delete")
+    // {
+    //     BPTree tree;
+    //     CHECK_TRUE(tree.open_table("insert.db"));
 
-        for (int i = count; i > 0; --i)
-        {
-            valType v;
-            std::stringstream ss;
-            ss << "test insert " << i;
-            tree.char_to_valType(v, ss.str().c_str());
+    //     for (int i = count; i > 0; --i)
+    //     {
+    //         valType v;
+    //         std::stringstream ss;
+    //         ss << "test insert " << i;
+    //         tree.char_to_valType(v, ss.str().c_str());
 
-            CHECK_TRUE(tree.insert(i, v));
-        }
-    }
-    END()
+    //         CHECK_TRUE(tree.insert(i, v));
+    //     }
+    // }
+    // END()
 
-    TEST("BPTree find after delete and insert")
-    {
-        BPTree tree;
-        CHECK_TRUE(tree.open_table("insert.db"));
+    // TEST("BPTree find after delete and insert")
+    // {
+    //     BPTree tree;
+    //     CHECK_TRUE(tree.open_table("insert.db"));
 
-        record_t record;
+    //     record_t record;
 
-        for (int i = 1; i <= count; ++i)
-        {
-            CHECK_TRUE(tree.find(i, record));
-            CHECK_VALUE(record.key, i);
-        }
-    }
-    END()
+    //     for (int i = 1; i <= count; ++i)
+    //     {
+    //         CHECK_TRUE(tree.find(i, record));
+    //         CHECK_VALUE(record.key, i);
+    //     }
+    // }
+    // END()
 
-    TEST("BPTree delete all")
-    {
-        BPTree tree;
-        CHECK_TRUE(tree.open_table("insert.db"));
+    // TEST("BPTree delete all")
+    // {
+    //     BPTree tree;
+    //     CHECK_TRUE(tree.open_table("insert.db"));
 
-        record_t record;
+    //     record_t record;
 
-        for (int i = count; i >= 1; --i)
-        {
-            CHECK_TRUE(tree.delete_key(i));
-            CHECK_FALSE(tree.find(i, record));
-        }
-    }
-    END()
+    //     for (int i = count; i >= 1; --i)
+    //     {
+    //         CHECK_TRUE(tree.delete_key(i));
+    //         CHECK_FALSE(tree.find(i, record));
+    //     }
+    // }
+    // END()
 }
 
 void TEST_FILE()
