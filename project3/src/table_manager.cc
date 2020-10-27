@@ -6,6 +6,21 @@ bool TableManager::init_db(int num_buf)
     return BufferController::instance().init_buffer_size(num_buf);
 }
 
+int TableManager::get_table_id(const std::string& name)
+{
+    static auto counter = 0;
+    if (name_id_table.find(name) == name_id_table.end())
+    {
+        return name_id_table[name];
+    }
+    if (counter == MAX_TABLE_NUM)
+    {
+        return INVALID_TABLE_ID;
+    }
+    name_id_table[name] = ++counter;
+    return counter;
+}
+
 int TableManager::open_table(const std::string& name)
 {
     if (tables.size() == MAX_TABLE_NUM)

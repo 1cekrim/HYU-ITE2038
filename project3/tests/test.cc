@@ -71,8 +71,6 @@ void TEST_TABLE()
         }
         END()
 
-        TEST("")
-
         TEST("insert 10000 to 10 tables")
         {
             for (int i = 0; i < 10000; ++i)

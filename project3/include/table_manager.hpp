@@ -36,14 +36,12 @@ class TableManager
 
  private:
     std::unordered_map<int, std::unique_ptr<table_t>> tables;
+    std::unordered_map<std::string, int> name_id_table;
     TableManager()
     {
         // Do nothing
     }
-    static int get_table_id(const std::string& name)
-    {
-        return static_cast<int>(std::hash<std::string>()(name));
-    }
+    int get_table_id(const std::string& name);
 };
 
 struct table_t
