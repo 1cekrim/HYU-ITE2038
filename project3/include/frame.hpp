@@ -55,10 +55,6 @@ struct frame_t : public page_t
     void release()
     {
         --pin;
-        if (pin < 0)
-        {
-            std::cout << pin << "\n";
-        }
     }
 
     bool valid() const
