@@ -26,7 +26,6 @@ bool BufferManager::close()
 
 bool BufferManager::open(const std::string& name)
 {
-    // TODO: 구현
     auto& bc = BufferController::instance();
     manager_id = bc.openFileManager(name);
     fileManager = &bc.getFileManager(manager_id);
