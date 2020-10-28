@@ -95,7 +95,7 @@ class BufferController
     void memorize_index(int file_id, pagenum_t pagenum, int frame_index);
     void forget_index(int file_id, pagenum_t pagenum);
     int frame_alloc();
-    bool frame_free(int buffer_index);
+    bool frame_free(int buffer_index, bool push_free_indexes_flag = true);
     bool update_recently_used(int buffer_index, frame_t& frame);
     bool unlink_frame(int buffer_index, frame_t& frame);
 

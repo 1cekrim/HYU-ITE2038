@@ -234,7 +234,6 @@ bool BufferController::free(int file_id, pagenum_t pagenum)
         CHECK_WITH_LOG(frame_free(index), false,
                        "frame free failure\nfile_id: %d / pagenu,:%ld", file_id,
                        pagenum);
-        free_indexes->push(index);
     }
     return getFileManager(file_id).free(pagenum);
 }
@@ -384,13 +383,13 @@ int BufferController::frame_alloc()
 
     CHECK_WITH_LOG(index != INVALID_BUFFER_INDEX, INVALID_BUFFER_INDEX,
                    "alloc frame failure");
-    CHECK_WITH_LOG(frame_free(index), INVALID_BUFFER_INDEX,
+    CHECK_WITH_LOG(frame_free(index, false), INVALID_BUFFER_INDEX,
                    "frame free failure");
 
     return index;
 }
 
-bool BufferController::frame_free(int buffer_index)
+bool BufferController::frame_free(int buffer_index, bool push_free_indexes_flag)
 {
     auto& frame = buffer->at(buffer_index);
     // 지금은 병렬 x
@@ -414,8 +413,11 @@ bool BufferController::frame_free(int buffer_index)
 
     forget_index(frame.file_id, frame.pagenum);
     frame.init();
+    if (push_free_indexes_flag)
+    {
+        free_indexes->push(buffer_index);
+    }
     --num_buffer;
-
     return true;
 }
 
