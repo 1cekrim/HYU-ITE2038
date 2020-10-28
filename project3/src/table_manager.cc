@@ -37,7 +37,7 @@ int TableManager::get_table_id(const std::string& name)
     {
         return INVALID_TABLE_ID;
     }
-    name_id_table[name] = counter + 1;
+    name_id_table[name] = ++counter;
     return counter;
 }
 
@@ -53,7 +53,6 @@ int TableManager::open_table(const std::string& name)
     {
         return INVALID_TABLE_ID;
     }
-    
     tables[id] = std::make_unique<table_t>();
     tables[id]->table_id = id;
     CHECK_WITH_LOG(tables[id]->tree.open_table(name), INVALID_TABLE_ID,

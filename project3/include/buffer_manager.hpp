@@ -78,12 +78,17 @@ class BufferController
     std::size_t buffer_size;
     int mru;
     int lru;
+    bool valid_buffer_controller;
     std::unique_ptr<std::stack<int>> free_indexes;
     BufferController() : 
           mru(INVALID_BUFFER_INDEX),
           lru(INVALID_BUFFER_INDEX)
     {
         // Do nothing
+    }
+    ~BufferController()
+    {
+        clear_buffer();
     }
 
     int find(int file_id, pagenum_t pagenum);

@@ -105,11 +105,17 @@ bool BufferController::init_buffer(std::size_t buffer_size)
     {
         free_indexes->push(i);
     }
+    valid_buffer_controller = true;
     return true;
 }
 
 bool BufferController::clear_buffer()
 {
+    if (!valid_buffer_controller)
+    {
+        return true;
+    }
+    valid_buffer_controller = false;
     CHECK_WITH_LOG(sync(), false, "sync failure");
     buffer.reset();
     fileManagers.clear();
@@ -313,6 +319,10 @@ void BufferController::forget_index(int file_id, pagenum_t pagenum)
 
 bool BufferController::sync()
 {
+    if (!valid_buffer_controller)
+    {
+        return true;
+    }
     for (auto& frame : *buffer)
     {
         if (frame.valid() && frame.is_dirty)
@@ -328,6 +338,10 @@ bool BufferController::sync()
 
 bool BufferController::fsync(int file_id, bool free_flag)
 {
+    if (!valid_buffer_controller)
+    {
+        return true;
+    }
     for (auto& frame : *buffer)
     {
         if (frame.valid() && frame.file_id == file_id)
