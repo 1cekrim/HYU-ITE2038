@@ -27,7 +27,22 @@ int db_insert(int table_id, int64_t key, char* value)
 int db_find(int table_id, int64_t key, char* ret_val)
 {
     record_t record;
-    return TableManager::instance().find(table_id, key, record) ? 0 : -1;
+    if (!TableManager::instance().find(table_id, key, record))
+    {
+        return -1;
+    }
+
+     for (int i = 0; i < value_size; ++i)
+    {
+        if (!record.value[i])
+        {
+            ret_val[i] = '\0';
+            break;
+        }
+        ret_val[i] = record.value[i];
+    }
+
+    return 0;
 }
 
 int db_delete(int table_id, int64_t key)
