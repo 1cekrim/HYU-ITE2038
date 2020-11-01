@@ -16,7 +16,7 @@ FileManager::FileManager() : fd(-1), file_created(false)
 
 FileManager::~FileManager()
 {
-    // Do nothing
+    close(fd);
 }
 
 bool FileManager::open(const std::string& name)
