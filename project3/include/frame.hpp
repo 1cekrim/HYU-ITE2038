@@ -59,7 +59,7 @@ struct frame_t : public page_t
 
     bool valid() const
     {
-        return pagenum != EMPTY_PAGE_NUMBER;
+        return file_id != -1;
     }
 
     bool is_use_now() const
@@ -70,7 +70,7 @@ struct frame_t : public page_t
     void init()
     {
         pagenum = EMPTY_PAGE_NUMBER;
-        file_id = 0;
+        file_id = -1;
         pin = 0;
         next = INVALID_BUFFER_INDEX;
         prev = INVALID_BUFFER_INDEX;
