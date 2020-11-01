@@ -114,7 +114,6 @@ bool BufferController::clear_buffer()
     {
         return true;
     }
-    valid_buffer_controller = false;
     CHECK_WITH_LOG(sync(), false, "sync failure");
     buffer.reset();
     fileManagers.clear();
@@ -125,6 +124,7 @@ bool BufferController::clear_buffer()
     lru = INVALID_BUFFER_INDEX;
     num_buffer = 0;
     buffer_size = 0;
+    valid_buffer_controller = false;
     return true;
 }
 
