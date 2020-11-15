@@ -1,31 +1,87 @@
 #include <lock_table.h>
 
-struct lock_t {
-	/* NO PAIN, NO GAIN. */
-};
+#include <iostream>
+#include <thread>
 
-typedef struct lock_t lock_t;
+std::unique_ptr<LockManager> lockManager;
 
-int
-init_lock_table()
+int init_lock_table()
 {
-	/* DO IMPLEMENT YOUR ART !!!!! */
+    lockManager = std::make_unique<LockManager>();
 
-	return 0;
+    return 0;
 }
 
-lock_t*
-lock_acquire(int table_id, int64_t key)
+lock_t* lock_acquire(int table_id, int64_t key)
 {
-	/* ENJOY CODING !!!! */
-
-	return nullptr;
+    return lockManager->lock_acquire(table_id, key);
 }
 
-int
-lock_release(lock_t* lock_obj)
+int lock_release(lock_t* lock_obj)
 {
-	/* GOOD LUCK !!! */
-
-	return 0;
+    return lockManager->lock_release(lock_obj);
 }
+
+lock_t* LockManager::lock_acquire(int table_id, int64_t key)
+{
+    auto lock = std::make_shared<lock_t>(table_id, key);
+    if (!lock)
+    {
+        return nullptr;
+    }
+
+    {
+        std::unique_lock<std::mutex> crit { mtx };
+        lock->locked = !lock_table[table_id][key].empty();
+        lock_table[table_id][key].emplace_back(lock);
+    }
+
+    while (lock->wait())
+    {
+        std::this_thread::yield();
+    }
+
+    return lock.get();
+}
+
+int LockManager::lock_release(lock_t* lock_obj)
+{
+    {
+        std::unique_lock<std::mutex> crit { mtx };
+        int table_id = lock_obj->table_id;
+        int64_t key = lock_obj->key;
+        auto& table = lock_table[table_id][key];
+
+        auto iter =
+            std::find_if(table.begin(), table.end(), [lock_obj](auto& p) {
+                return p.get() == lock_obj;
+            });
+
+        iter = table.erase(iter);
+
+        if (!table.empty() && iter == table.begin())
+        {
+            iter->get()->signal();
+        }
+    }
+
+    return 0;
+}
+
+lock_t::lock_t(int table_id, int64_t key)
+    : table_id(table_id),
+      key(key),
+      locked(false)
+{
+    // Do nothing
+}
+
+bool lock_t::wait() const
+{
+    return locked;
+}
+
+void lock_t::signal()
+{
+    locked = false;
+} 
