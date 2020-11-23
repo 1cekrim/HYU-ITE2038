@@ -79,6 +79,7 @@ bool BufferManager::set_root(pagenum_t pagenum)
 
 bool BufferController::init_buffer(std::size_t buffer_size)
 {
+    std::unique_lock<std::mutex> lock(mtx);
     CHECK_WITH_LOG(this->buffer_size < buffer_size, false,
                    "cannot be made smaller than the current buffer size %ld",
                    this->buffer_size);
@@ -110,11 +111,12 @@ bool BufferController::init_buffer(std::size_t buffer_size)
 
 bool BufferController::clear_buffer()
 {
+    std::unique_lock<std::mutex> lock(mtx);
     if (!valid_buffer_controller)
     {
         return true;
     }
-    CHECK_WITH_LOG(sync(), false, "sync failure");
+    CHECK_WITH_LOG(sync(false), false, "sync failure");
     buffer.reset();
     fileManagers.clear();
     index_table.clear();
@@ -149,16 +151,19 @@ FileManager& BufferController::getFileManager(int file_id)
 
 void BufferController::release_frame(int frame_index)
 {
+    std::unique_lock<std::mutex> lock(mtx);
     buffer->at(frame_index).release();
 }
 
 void BufferController::retain_frame(int frame_index)
 {
+    std::unique_lock<std::mutex> lock(mtx);
     buffer->at(frame_index).retain();
 }
 
 int BufferController::get(int file_id, pagenum_t pagenum, frame_t& frame)
 {
+    std::unique_lock<std::mutex> lock(mtx);
     int index = find(file_id, pagenum);
     if (index == INVALID_BUFFER_INDEX)
     {
@@ -171,15 +176,14 @@ int BufferController::get(int file_id, pagenum_t pagenum, frame_t& frame)
     auto& buffer_frame = (*buffer)[index];
     frame = buffer_frame;
 
-    CHECK_RET(unlink_frame(index, buffer_frame), INVALID_BUFFER_INDEX);
-
-    CHECK_RET(update_recently_used(index, buffer_frame), INVALID_BUFFER_INDEX);
+    CHECK_RET(update_recently_used(index, buffer_frame, true), INVALID_BUFFER_INDEX);
 
     return index;
 }
 
 bool BufferController::put(int file_id, pagenum_t pagenum, const frame_t& frame)
 {
+    std::unique_lock<std::mutex> lock(mtx);
     int index = find(file_id, pagenum);
     if (index == INVALID_BUFFER_INDEX)
     {
@@ -194,31 +198,29 @@ bool BufferController::put(int file_id, pagenum_t pagenum, const frame_t& frame)
     buffer_frame.change_page(frame);
     buffer_frame.is_dirty = true;
 
-    CHECK(unlink_frame(index, buffer_frame));
-    CHECK(update_recently_used(index, buffer_frame));
+    CHECK(update_recently_used(index, buffer_frame, true));
 
     return true;
 }
 
 int BufferController::create(int file_id)
 {
+    std::unique_lock<std::mutex> lock(mtx);
     auto& fileManager = getFileManager(file_id);
     auto pagenum = fileManager.create();
-    // CHECK_WITH_LOG(pagenum != EMPTY_PAGE_NUMBER, INVALID_BUFFER_INDEX,
-                //    "create page failure: %d", file_id);
 
     int result = load(file_id, pagenum);
 
     CHECK_RET(result != INVALID_BUFFER_INDEX, INVALID_BUFFER_INDEX);
-    CHECK_RET(unlink_frame(result, buffer->at(result)), INVALID_BUFFER_INDEX);
-    CHECK_RET(update_recently_used(result, buffer->at(result)),
+    CHECK_RET(update_recently_used(result, buffer->at(result), true),
               INVALID_BUFFER_INDEX);
 
     return result;
 }
 
-pagenum_t BufferController::frame_id_to_pagenum(int frame_id) const
+pagenum_t BufferController::frame_id_to_pagenum(int frame_id)
 {
+    std::unique_lock<std::mutex> lock(mtx);
     CHECK_WITH_LOG(frame_id != INVALID_BUFFER_INDEX, EMPTY_PAGE_NUMBER,
                    "invalid frame id: %d", frame_id);
     pagenum_t result = buffer->at(frame_id).pagenum;
@@ -247,8 +249,13 @@ std::size_t BufferController::capacity() const
     return buffer->size();
 }
 
-bool BufferController::update_recently_used(int buffer_index, frame_t& frame)
+bool BufferController::update_recently_used(int buffer_index, frame_t& frame, bool unlink)
 {
+    if (unlink)
+    {
+        unlink_frame(buffer_index, frame);
+    }
+
     frame.prev = mru;
     frame.next = INVALID_BUFFER_INDEX;
 
@@ -315,8 +322,14 @@ void BufferController::forget_index(int file_id, pagenum_t pagenum)
     index_table[file_id].erase(pagenum);
 }
 
-bool BufferController::sync()
+bool BufferController::sync(bool lock)
 {
+    std::unique_lock<std::mutex> crit(mtx, std::defer_lock);
+    if (lock)
+    {
+        crit.lock();
+    }
+
     if (!valid_buffer_controller)
     {
         return true;
@@ -336,6 +349,7 @@ bool BufferController::sync()
 
 bool BufferController::fsync(int file_id, bool free_flag)
 {
+    std::unique_lock<std::mutex> lock(mtx);
     if (!valid_buffer_controller)
     {
         return true;
@@ -436,7 +450,7 @@ int BufferController::load(int file_id, pagenum_t pagenum)
     memorize_index(file_id, pagenum, index);
     ++num_buffer;
 
-    CHECK_WITH_LOG(update_recently_used(index, frame), INVALID_BUFFER_INDEX,
+    CHECK_WITH_LOG(update_recently_used(index, frame, false), INVALID_BUFFER_INDEX,
                    "update recently used failure");
 
     return index;

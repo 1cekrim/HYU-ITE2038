@@ -6,10 +6,13 @@
 #include <cstdio>
 #include <map>
 #include <memory>
+#include <mutex>
+#include <shared_mutex>
 #include <stack>
 #include <string_view>
-#include <vector>
 #include <unordered_map>
+#include <vector>
+#include <atomic>
 
 #include "file_manager.hpp"
 #include "frame.hpp"
@@ -56,11 +59,11 @@ class BufferController
     bool free(int file_id, pagenum_t pagenum);
     void release_frame(int frame_index);
     void retain_frame(int frame_index);
-    bool sync();
+    bool sync(bool lock = true);
     bool fsync(int file_id, bool free_flag = false);
     bool init_buffer(std::size_t buffer_size);
     bool clear_buffer();
-    pagenum_t frame_id_to_pagenum(int frame_id) const;
+    pagenum_t frame_id_to_pagenum(int frame_id);
     std::size_t size() const;
     std::size_t capacity() const;
 
@@ -74,15 +77,14 @@ class BufferController
     std::vector<std::unique_ptr<FileManager>> fileManagers;
     std::unordered_map<int, std::unordered_map<pagenum_t, int>> index_table;
     std::map<std::string, int> nameFileManagerMap;
-    std::size_t num_buffer;
+    std::atomic<std::size_t> num_buffer;
     std::size_t buffer_size;
     int mru;
     int lru;
     bool valid_buffer_controller;
+    std::mutex mtx;
     std::unique_ptr<std::stack<int>> free_indexes;
-    BufferController() : 
-          mru(INVALID_BUFFER_INDEX),
-          lru(INVALID_BUFFER_INDEX)
+    BufferController() : mru(INVALID_BUFFER_INDEX), lru(INVALID_BUFFER_INDEX)
     {
         // Do nothing
     }
@@ -96,7 +98,7 @@ class BufferController
     void forget_index(int file_id, pagenum_t pagenum);
     int frame_alloc();
     bool frame_free(int buffer_index, bool push_free_indexes_flag = true);
-    bool update_recently_used(int buffer_index, frame_t& frame);
+    bool update_recently_used(int buffer_index, frame_t& frame, bool unlink);
     bool unlink_frame(int buffer_index, frame_t& frame);
 
     template<typename Policy>
