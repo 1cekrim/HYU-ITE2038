@@ -82,7 +82,7 @@ class BufferController
     int mru;
     int lru;
     bool valid_buffer_controller;
-    std::mutex mtx;
+    std::recursive_mutex mtx;
     std::unique_ptr<std::stack<int>> free_indexes;
     BufferController() : mru(INVALID_BUFFER_INDEX), lru(INVALID_BUFFER_INDEX)
     {
