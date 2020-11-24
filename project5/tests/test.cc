@@ -6,6 +6,7 @@
 #include <random>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <type_traits>
 #include <vector>
 
@@ -25,15 +26,19 @@ void TEST_BPT();
 void TEST_FILE();
 void TESTS();
 void TEST_TABLE();
+void TEST_MULTITHREADING();
 
 int main()
 {
-    void (*tests[])() = { TEST_POD, TEST_FILE_MANAGER, TEST_TABLE,
-                          TEST_BPT, TEST_FILE,         TESTS };
+    void (*tests[])() = {
+        TEST_MULTITHREADING, TEST_POD, TEST_FILE_MANAGER, TEST_TABLE, TEST_BPT,
+        TEST_FILE,           TESTS
+    };
 
-    std::string testNames[] = { "test pod", "file_manager",
-                                "table",       "bpt",      "test_file",
-                                "TESTS" };
+    std::string testNames[] = {
+        "test multithreading", "test pod", "file_manager", "table", "bpt",
+        "test_file",           "TESTS"
+    };
 
     for (int i = 0;
          i < static_cast<int>((sizeof(tests) / sizeof(void (*)(void)))); ++i)
@@ -51,6 +56,156 @@ int main()
     return 0;
 }
 
+void TEST_MULTITHREADING()
+{
+    auto process = [](int repeat, int num_records, int process_id,
+                      int table_id) {
+        int id = process_id;
+        for (int j = 0; j < repeat; ++j)
+        {
+            TEST("insert num_records to table")
+            {
+                for (int i = 0; i < num_records; ++i)
+                {
+                    valType v;
+                    std::stringstream ss;
+                    ss << "test insert " << i;
+                    TableManager::char_to_valType(v, ss.str().c_str());
+                    CHECK_TRUE(TableManager::instance().insert(id, i, v));
+                }
+            }
+            END()
+
+            TEST("find num_records to table")
+            {
+                for (int i = 0; i < num_records; ++i)
+                {
+                    std::stringstream ss;
+                    ss << "test insert " << i;
+                    record_t record;
+                    CHECK_TRUE(TableManager::instance().find(id, i, record));
+                    CHECK_VALUE(record.key, i);
+                    std::string result(std::begin(record.value),
+                                       std::end(record.value));
+                    result = std::string(
+                        std::begin(result),
+                        std::begin(result) + std::strlen(result.c_str()));
+                    CHECK_VALUE(ss.str(), result);
+                }
+            }
+            END()
+
+            TEST("update num_records to table")
+            {
+                for (int i = 0; i < num_records; ++i)
+                {
+                    valType v;
+                    std::stringstream ss;
+                    ss << "test update " << i;
+                    TableManager::char_to_valType(v, ss.str().c_str());
+                    CHECK_TRUE(TableManager::instance().update(id, i, v));
+                }
+            }
+            END()
+
+            TEST("find after update num_records to table")
+            {
+                for (int i = 0; i < num_records; ++i)
+                {
+                    std::stringstream ss;
+                    ss << "test update " << i;
+                    record_t record;
+                    CHECK_TRUE(TableManager::instance().find(id, i, record));
+                    CHECK_VALUE(record.key, i);
+                    std::string result(std::begin(record.value),
+                                       std::end(record.value));
+                    result = std::string(
+                        std::begin(result),
+                        std::begin(result) + std::strlen(result.c_str()));
+                    CHECK_VALUE(ss.str(), result);
+                }
+            }
+            END()
+
+            TEST("delete num_records to table")
+            {
+                for (int i = 0; i < num_records; ++i)
+                {
+                    record_t record;
+                    CHECK_TRUE(TableManager::instance().delete_key(id, i));
+                    CHECK_FALSE(TableManager::instance().find(id, i, record));
+                }
+            }
+            END()
+        }
+
+        std::cout << "\n";
+    };
+
+    auto buffer_size = 10000;
+    auto num_records = 10000;
+    auto repeat = 3;
+    auto test_index = 0;
+    auto thread_num = 10;
+
+    // int repeat, int num_records, int process_id, int table_id
+
+    auto test_multithreading = [&]() {
+        TEST("init db")
+        {
+            CHECK_TRUE(TableManager::instance().init_db(buffer_size));
+        }
+        END()
+        std::vector<int> ids;
+        TEST("open tables")
+        {
+            for (int i = 0; i < thread_num; ++i)
+            {
+                std::stringstream ss;
+                ss << "multi_" << test_index << "_" << i << ".db";
+                int id;
+                ids.push_back(id = TableManager::instance().open_table(ss.str()));
+                CHECK_TRUE(id != INVALID_TABLE_ID);
+            }
+        }
+        END()
+
+        std::vector<std::thread> threads;
+        for (int i = 0; i < thread_num; ++i)
+        {
+            threads.emplace_back([&process, &ids, repeat, num_records, i, test_index]() {
+                process(repeat, num_records, ids[i], test_index);
+            });
+        }
+
+        for (auto& t : threads)
+        {
+            t.join();
+        }
+
+        TEST("shutdown db")
+        {
+            CHECK_TRUE(TableManager::instance().shutdown_db());
+        }
+        END()
+
+        TEST("use table after shutdown")
+        {
+            record_t record;
+            valType val;
+            CHECK_FALSE(TableManager::instance().close_table(1));
+            CHECK_FALSE(TableManager::instance().delete_key(1, 1));
+            CHECK_FALSE(TableManager::instance().find(1, 1, record));
+            CHECK_FALSE(TableManager::instance().insert(1, 1, val));
+            CHECK_VALUE(TableManager::instance().open_table("shutdown.db"),
+                        INVALID_TABLE_ID);
+        }
+        END()
+    };
+
+    test_multithreading();
+}
+
 void TEST_TABLE()
 {
     auto buffer_size = 10000;
@@ -58,8 +213,7 @@ void TEST_TABLE()
     auto repeat = 3;
     auto table_num = 10;
     auto test_index = 0;
-    auto test_table = [&]()
-    {
+    auto test_table = [&]() {
         TEST("init db")
         {
             CHECK_TRUE(TableManager::instance().init_db(buffer_size));
@@ -106,6 +260,8 @@ void TEST_TABLE()
             {
                 for (int i = 0; i < num_records; ++i)
                 {
+                    std::stringstream ss;
+                    ss << "test insert " << i;
                     int mul = 0;
                     for (auto id : tables)
                     {
@@ -113,6 +269,56 @@ void TEST_TABLE()
                         CHECK_TRUE(TableManager::instance().find(
                             id, i + mul * num_records, record));
                         CHECK_VALUE(record.key, i + mul * num_records);
+                        std::string result(std::begin(record.value),
+                                           std::end(record.value));
+                        result = std::string(
+                            std::begin(result),
+                            std::begin(result) + std::strlen(result.c_str()));
+                        CHECK_VALUE(ss.str(), result);
+                        ++mul;
+                    }
+                }
+            }
+            END()
+
+            TEST("update num_records to 10 tables")
+            {
+                for (int i = 0; i < num_records; ++i)
+                {
+                    valType v;
+                    std::stringstream ss;
+                    ss << "test update " << i;
+                    TableManager::char_to_valType(v, ss.str().c_str());
+                    int mul = 0;
+                    for (auto id : tables)
+                    {
+                        CHECK_TRUE(TableManager::instance().update(
+                            id, i + mul * num_records, v));
+                        ++mul;
+                    }
+                }
+            }
+            END()
+
+            TEST("find after update num_records to 10 tables")
+            {
+                for (int i = 0; i < num_records; ++i)
+                {
+                    std::stringstream ss;
+                    ss << "test update " << i;
+                    int mul = 0;
+                    for (auto id : tables)
+                    {
+                        record_t record;
+                        CHECK_TRUE(TableManager::instance().find(
+                            id, i + mul * num_records, record));
+                        CHECK_VALUE(record.key, i + mul * num_records);
+                        std::string result(std::begin(record.value),
+                                           std::end(record.value));
+                        result = std::string(
+                            std::begin(result),
+                            std::begin(result) + std::strlen(result.c_str()));
+                        CHECK_VALUE(ss.str(), result);
                         ++mul;
                     }
                 }
@@ -136,7 +342,7 @@ void TEST_TABLE()
                 }
             }
             END()
-            
+
             if (table_num == 10)
             {
                 TEST("open 11th table failure before close tables")
@@ -182,7 +388,8 @@ void TEST_TABLE()
             CHECK_FALSE(TableManager::instance().delete_key(1, 1));
             CHECK_FALSE(TableManager::instance().find(1, 1, record));
             CHECK_FALSE(TableManager::instance().insert(1, 1, val));
-            CHECK_VALUE(TableManager::instance().open_table("shutdown.db"), INVALID_TABLE_ID);
+            CHECK_VALUE(TableManager::instance().open_table("shutdown.db"),
+                        INVALID_TABLE_ID);
         }
         END()
     };
@@ -213,7 +420,6 @@ void TEST_TABLE()
     num_records = 1000000;
     std::cout << "many records test: " << num_records << '\n';
     test_table();
-
 }
 
 void TEST_POD()
@@ -333,7 +539,8 @@ void TEST_FILE_MANAGER()
 
     //     for (int i = 0; i < 248; ++i)
     //     {
-    //         CHECK_TRUE(page.internals()[i].key == readPage.internals()[i].key);
+    //         CHECK_TRUE(page.internals()[i].key ==
+    //         readPage.internals()[i].key);
     //         CHECK_TRUE(page.internals()[i].node_id ==
     //                    readPage.internals()[i].node_id);
     //     }

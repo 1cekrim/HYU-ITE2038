@@ -23,7 +23,7 @@ SRCS_FOR_LIB:=$(wildcard src/*.cc)
 OBJS_FOR_LIB:=$(SRCS_FOR_LIB:.cc=.o)
 
 CFLAGS+= -g -fPIC -I $(MAIN_INC)
-CPPFLAGS+= -g -std=c++17 -fPIC -I $(INC) -Wall -Werror
+CPPFLAGS+= -g -std=c++17 -fPIC -I $(INC) -Wall -Werror -pthread
 
 TARGET=main
 
