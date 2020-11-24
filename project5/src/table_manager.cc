@@ -79,6 +79,15 @@ bool TableManager::insert(int table_id, keyType key, const valType& value)
     return tables[table_id]->tree.insert(key, value);
 }
 
+bool TableManager::update(int table_id, keyType key, const valType& value)
+{
+    if (!valid_table_manager || tables.find(table_id) == tables.end())
+    {
+        return false;
+    }
+    return tables[table_id]->tree.update(key, value);
+}
+
 bool TableManager::delete_key(int table_id, keyType key)
 {
     if (!valid_table_manager || tables.find(table_id) == tables.end())

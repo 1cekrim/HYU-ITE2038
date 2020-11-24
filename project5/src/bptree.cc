@@ -62,6 +62,25 @@ bool BPTree::insert(keyType key, const valType& value)
     return insert_into_leaf_after_splitting(leaf, record);
 }
 
+bool BPTree::update(keyType key, const valType& value)
+{
+    record_t record;
+    if (!find(key, record))
+    {
+        return false;
+    }
+
+    node_tuple leaf;
+    CHECK(find_leaf(key, leaf));
+
+    int i = leaf.node.index_key<record_t>(key);
+    leaf.node.records()[i].value = value;
+
+    CHECK(commit_node(leaf));
+
+    return true;
+}
+
 bool BPTree::insert_into_leaf(node_tuple& leaf, const record_t& rec)
 {
     int insertion_point =
@@ -150,8 +169,8 @@ int BPTree::get_left_index(const node_t& parent, nodeId_t left_id) const
 bool BPTree::load_node(node_tuple& target)
 {
     int result = manager.load(target.id, target.node);
-    CHECK_WITH_LOG(result != INVALID_BUFFER_INDEX, false, "load node failure: %ld",
-                   target.id);
+    CHECK_WITH_LOG(result != INVALID_BUFFER_INDEX, false,
+                   "load node failure: %ld", target.id);
     target.set_buffer_index(result);
     return true;
 }
@@ -181,7 +200,8 @@ bool BPTree::free_node(node_tuple& target)
 nodeId_t BPTree::create_node()
 {
     nodeId_t t = manager.create();
-    CHECK_WITH_LOG(t != INVALID_NODE_ID, INVALID_NODE_ID, "create node failure");
+    CHECK_WITH_LOG(t != INVALID_NODE_ID, INVALID_NODE_ID,
+                   "create node failure");
     return t;
 }
 
@@ -379,7 +399,7 @@ bool BPTree::adjust_root(node_tuple& root)
 
 bool BPTree::update_parent_with_commit(nodeId_t target_id, nodeId_t parent_id)
 {
-    node_tuple temp {target_id};
+    node_tuple temp { target_id };
     CHECK(load_node(temp));
     temp.node.set_parent(parent_id);
     CHECK(commit_node(temp));
@@ -524,9 +544,8 @@ bool BPTree::find_leaf(keyType key, node_tuple& node)
         {
             printf("%d ->\n", idx);
         }
-        node.id = (idx == -1)
-                                      ? node.node.leftmost()
-                                      : node.node.get<internal_t>(idx).node_id;
+        node.id = (idx == -1) ? node.node.leftmost()
+                              : node.node.get<internal_t>(idx).node_id;
         CHECK(load_node(node));
     }
 

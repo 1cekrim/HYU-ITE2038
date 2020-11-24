@@ -26,6 +26,7 @@ class TableManager
     int open_table(const std::string& name);
     bool close_table(int table_id);
     bool insert(int table_id, keyType key, const valType& value);
+    bool update(int table_id, keyType key, const valType& value);
     bool delete_key(int table_id, keyType key);
     bool find(int table_id, keyType key, record_t& ret);
     static void char_to_valType(valType& dst, const char* src)

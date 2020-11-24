@@ -74,6 +74,7 @@ class BPTree
     bool open_table(const std::string& filename);
     // Insertion.
     bool insert(keyType key, const valType& value);
+    bool update(keyType key, const valType& value);
     bool delete_key(keyType key);
 
     bool find(keyType key, record_t& ret);
