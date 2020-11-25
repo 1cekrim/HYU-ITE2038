@@ -9,8 +9,9 @@
 
 enum class LockMode
 {
-    shared,
-    exclusive
+    SHARED = 0,
+    EXCLUSIVE = 1,
+    EMPTY = 2
 };
 
 struct lock_t
@@ -21,7 +22,7 @@ struct lock_t
     LockMode lockMode;
     int ownerTransactionID;
 
-    lock_t(int table_id, int64_t key);
+    lock_t(int table_id, int64_t key, LockMode lockMode, int ownerTransactionID);
 
     bool wait() const;
     void signal();
@@ -30,7 +31,7 @@ struct lock_t
 struct LockList
 {
     std::list<std::shared_ptr<lock_t>> locks;
-    LockMode mode;
+    LockMode mode = LockMode::EMPTY;
 };
 
 struct LockHash
