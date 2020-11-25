@@ -45,7 +45,7 @@ std::shared_ptr<lock_t> LockManager::lock_acquire(int table_id, int64_t key,
             it->second.mode = mode;
             it->second.locks.push_front(lock);
             return lock;
-        }
+        } 
 
         // TODO: Transaction 관련 추가
 
