@@ -39,9 +39,11 @@ struct lock_t
 struct LockList
 {
     std::list<std::shared_ptr<lock_t>> locks;
-    LockMode mode = LockMode::EMPTY;
+    std::atomic<LockMode> mode = LockMode::EMPTY;
     std::atomic<int> wait_count;
     std::atomic<int> acquire_count;
+    LockList();
+    LockList(const LockList& rhs);
 };
 
 struct LockHash
@@ -70,6 +72,8 @@ class LockManager
                                          LockMode mode);
     bool lock_release(std::shared_ptr<lock_t> lock_obj);
     const std::map<LockHash, LockList>& get_table() const;
+
+    void reset();
 
  private:
     std::mutex mtx;

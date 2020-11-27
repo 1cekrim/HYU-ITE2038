@@ -34,6 +34,13 @@ bool TransactionManager::commit(int id)
     return true;
 }
 
+void TransactionManager::reset()
+{
+    std::unique_lock<std::mutex> lock(mtx);
+    counter = 0;
+    transactions.clear();
+}
+
 Transaction::Transaction() : transactionID(-1)
 {
     // Do nothing

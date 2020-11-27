@@ -42,6 +42,7 @@ class TransactionManager
     int begin();
     bool commit(int id);
     Transaction& get(int transaction_id);
+    void reset();
 
     static constexpr int invliad_transaction_id = 0;
 

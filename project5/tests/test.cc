@@ -71,6 +71,8 @@ void TEST_LOCK()
 {
     TEST("shared test")
     {
+        LockManager::instance().reset();
+        TransactionManager::instance().reset();
         int trans_id = TransactionManager::instance().begin();
         Transaction& trans = TransactionManager::instance().get(trans_id);
         auto lock = LockManager::instance().lock_acquire(1, 2, trans_id, LockMode::SHARED);
@@ -87,6 +89,86 @@ void TEST_LOCK()
         CHECK_TRUE(target.locks.front() == lock);
         CHECK_VALUE(target.acquire_count, 1);
         CHECK_VALUE(target.wait_count, 0);
+    }
+    END()
+
+    TEST("exclusive test")
+    {
+        LockManager::instance().reset();
+        TransactionManager::instance().reset();
+        int trans_id = TransactionManager::instance().begin();
+        Transaction& trans = TransactionManager::instance().get(trans_id);
+        auto lock = LockManager::instance().lock_acquire(1, 2, trans_id, LockMode::EXCLUSIVE);
+
+        CHECK_TRUE(trans.state == TransactionState::RUNNING);
+        CHECK_TRUE(trans.locks.empty());
+
+        CHECK_TRUE(lock->lockMode == LockMode::EXCLUSIVE);
+        CHECK_FALSE(lock->wait());
+
+        auto& table = LockManager::instance().get_table();
+        const auto& target = table.at(LockHash(1, 2));
+        CHECK_TRUE(target.mode == LockMode::EXCLUSIVE);
+        CHECK_TRUE(target.locks.front() == lock);
+        CHECK_VALUE(target.acquire_count, 1);
+        CHECK_VALUE(target.wait_count, 0)
+    }
+    END()
+
+    TEST("shared shared test")
+    {
+        LockManager::instance().reset();
+        TransactionManager::instance().reset();
+        int trans_id1 = TransactionManager::instance().begin();
+        int trans_id2 = TransactionManager::instance().begin();
+        Transaction& trans1 = TransactionManager::instance().get(trans_id1);
+        Transaction& trans2 = TransactionManager::instance().get(trans_id2);
+
+        auto lock1 = LockManager::instance().lock_acquire(1, 2, trans_id1, LockMode::SHARED);
+        auto lock2 = LockManager::instance().lock_acquire(1, 2, trans_id2, LockMode::SHARED);
+
+        CHECK_TRUE(trans1.state == TransactionState::RUNNING);
+        CHECK_TRUE(trans1.locks.empty());
+        CHECK_TRUE(trans2.state == TransactionState::RUNNING);
+        CHECK_TRUE(trans2.locks.empty());
+
+        CHECK_TRUE(lock1->lockMode == LockMode::SHARED);
+        CHECK_FALSE(lock1->wait());
+        CHECK_TRUE(lock2->lockMode == LockMode::SHARED);
+        CHECK_FALSE(lock2->wait());
+
+        auto& table = LockManager::instance().get_table();
+        const auto& target = table.at(LockHash(1, 2));
+        CHECK_TRUE(target.mode == LockMode::SHARED);
+        CHECK_TRUE(target.locks.front() == lock2);
+        CHECK_TRUE(target.locks.back() == lock1);
+        CHECK_VALUE(target.acquire_count, 2);
+        CHECK_VALUE(target.wait_count, 0);
+    }
+    END()
+
+    TEST("release shared shared")
+    {
+        LockManager::instance().reset();
+        TransactionManager::instance().reset();
+        int trans_id1 = TransactionManager::instance().begin();
+        int trans_id2 = TransactionManager::instance().begin();
+
+        auto lock1 = LockManager::instance().lock_acquire(1, 2, trans_id1, LockMode::SHARED);
+        auto lock2 = LockManager::instance().lock_acquire(1, 2, trans_id2, LockMode::SHARED);
+
+        auto& table = LockManager::instance().get_table();
+        const auto& target = table.at(LockHash(1, 2));
+
+        CHECK_TRUE(LockManager::instance().lock_release(lock1));
+
+        CHECK_TRUE(target.mode == LockMode::SHARED);
+        CHECK_TRUE(target.locks.front() == lock2);
+        CHECK_VALUE(target.acquire_count, 1);
+        CHECK_VALUE(target.wait_count, 0);
+
+        CHECK_TRUE(LockManager::instance().lock_release(lock2));
+        // CHECK_TRUE(table.find(LockHash(1, 2)) == table.end());
     }
     END()
 }

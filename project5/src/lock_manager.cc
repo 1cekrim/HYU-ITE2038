@@ -44,7 +44,13 @@ std::shared_ptr<lock_t> LockManager::lock_acquire(int table_id, int64_t key,
                                         lock->lockMode == LockMode::SHARED)))
         {
             // 바로 실행
+            if (it == lock_table.end())
+            {
+                lock_table.emplace(hash, LockList());
+                it = lock_table.find(hash);
+            }
             lock->state = LockState::ACQUIRED;
+            lock->signal();
             lock->locked = false;
             it->second.mode = mode;
             it->second.locks.push_front(lock);
@@ -82,6 +88,8 @@ bool LockManager::lock_release(std::shared_ptr<lock_t> lock_obj)
             std::find_if(table.begin(), table.end(), [lock_obj](auto& p) {
                 return p.get() == lock_obj.get();
             });
+
+        CHECK(iter != table.end());
 
         if (iter->get()->state == LockState::ACQUIRED)
         {
@@ -137,6 +145,12 @@ const std::map<LockHash, LockList>& LockManager::get_table() const
     return lock_table;
 }
 
+void LockManager::reset()
+{
+    std::unique_lock<std::mutex> lock(mtx);
+    lock_table.clear();
+}
+
 lock_t::lock_t(int table_id, int64_t key, LockMode lockMode,
                int ownerTransactionID)
     : table_id(table_id),
@@ -157,6 +171,21 @@ void lock_t::signal()
 {
     locked = false;
 
+    // TODO: state 관련도 정리할 필요가 있음
+
     auto& transaction = TransactionManager::instance().get(ownerTransactionID);
     transaction.state = TransactionState::RUNNING;
+}
+
+LockList::LockList() : wait_count(0), acquire_count(0)
+{
+    // Do nothing
+}
+
+LockList::LockList(const LockList& rhs)
+    : mode(rhs.mode.load()),
+      wait_count(rhs.wait_count.load()),
+      acquire_count(rhs.acquire_count.load())
+{
+    // Do nothing
 }
