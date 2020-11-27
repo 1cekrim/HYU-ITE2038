@@ -15,6 +15,8 @@
 #include "file_manager.hpp"
 #include "logger.hpp"
 #include "table_manager.hpp"
+#include "lock_manager.hpp"
+#include "transaction_manager.hpp"
 
 int success, cnt, allSuccess, allCnt;
 bool testFlag;
@@ -27,17 +29,26 @@ void TEST_FILE();
 void TESTS();
 void TEST_TABLE();
 void TEST_MULTITHREADING();
+void TEST_LOCK();
 
 int main()
 {
+    // void (*tests[])() = {
+    //     TEST_MULTITHREADING, TEST_POD, TEST_FILE_MANAGER, TEST_TABLE, TEST_BPT,
+    //     TEST_FILE,           TESTS
+    // };
+
+    // std::string testNames[] = {
+    //     "test multithreading", "test pod", "file_manager", "table", "bpt",
+    //     "test_file",           "TESTS"
+    // };
+
     void (*tests[])() = {
-        TEST_MULTITHREADING, TEST_POD, TEST_FILE_MANAGER, TEST_TABLE, TEST_BPT,
-        TEST_FILE,           TESTS
+        TEST_LOCK
     };
 
     std::string testNames[] = {
-        "test multithreading", "test pod", "file_manager", "table", "bpt",
-        "test_file",           "TESTS"
+        "test lock"
     };
 
     for (int i = 0;
@@ -54,6 +65,30 @@ int main()
     std::cout << "\n[Tests are over] success: " << allSuccess << " / " << allCnt
               << "\n";
     return 0;
+}
+
+void TEST_LOCK()
+{
+    TEST("shared test")
+    {
+        int trans_id = TransactionManager::instance().begin();
+        Transaction& trans = TransactionManager::instance().get(trans_id);
+        auto lock = LockManager::instance().lock_acquire(1, 2, trans_id, LockMode::SHARED);
+
+        CHECK_TRUE(trans.state == TransactionState::RUNNING);
+        CHECK_TRUE(trans.locks.empty());
+
+        CHECK_TRUE(lock->lockMode == LockMode::SHARED);
+        CHECK_FALSE(lock->wait());
+
+        auto& table = LockManager::instance().get_table();
+        const auto& target = table.at(LockHash(1, 2));
+        CHECK_TRUE(target.mode == LockMode::SHARED);
+        CHECK_TRUE(target.locks.front() == lock);
+        CHECK_VALUE(target.acquire_count, 1);
+        CHECK_VALUE(target.wait_count, 0);
+    }
+    END()
 }
 
 void TEST_MULTITHREADING()

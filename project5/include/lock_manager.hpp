@@ -14,12 +14,20 @@ enum class LockMode
     EMPTY = 2
 };
 
+enum class LockState
+{
+    INVALID,
+    WAITING,
+    ACQUIRED
+};
+
 struct lock_t
 {
     int table_id;
     int64_t key;
     std::atomic<bool> locked;
-    LockMode lockMode;
+    std::atomic<LockMode> lockMode;
+    std::atomic<LockState> state;
     int ownerTransactionID;
 
     lock_t(int table_id, int64_t key, LockMode lockMode, int ownerTransactionID);
@@ -32,6 +40,8 @@ struct LockList
 {
     std::list<std::shared_ptr<lock_t>> locks;
     LockMode mode = LockMode::EMPTY;
+    std::atomic<int> wait_count;
+    std::atomic<int> acquire_count;
 };
 
 struct LockHash
@@ -58,7 +68,8 @@ class LockManager
     }
     std::shared_ptr<lock_t> lock_acquire(int table_id, int64_t key, int trx_id,
                                          LockMode mode);
-    int lock_release(std::shared_ptr<lock_t> lock_obj);
+    bool lock_release(std::shared_ptr<lock_t> lock_obj);
+    const std::map<LockHash, LockList>& get_table() const;
 
  private:
     std::mutex mtx;

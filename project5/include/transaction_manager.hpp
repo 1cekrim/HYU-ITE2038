@@ -4,14 +4,31 @@
 #include <atomic>
 #include <mutex>
 #include <unordered_map>
+#include <list>
+#include <memory>
 
-class Transaction
+#include "lock_manager.hpp"
+
+// class lock_t;
+// class LockHash;
+
+enum class TransactionState
 {
- public:
+    INVALID,
+    WAITING,
+    RUNNING,
+    ABORTED
+};
+
+struct Transaction
+{
+    Transaction();
     Transaction(int id);
+    Transaction(const Transaction& rhs);
     bool commit();
- private:
     int transactionID;
+    std::atomic<TransactionState> state;
+    std::list<std::tuple<LockHash, std::shared_ptr<lock_t>>> locks;
 };
 
 class TransactionManager
@@ -24,6 +41,7 @@ class TransactionManager
     }
     int begin();
     bool commit(int id);
+    Transaction& get(int transaction_id);
 
     static constexpr int invliad_transaction_id = 0;
 
