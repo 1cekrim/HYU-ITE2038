@@ -120,6 +120,8 @@ bool LockManager::lock_release(std::shared_ptr<lock_t> lock_obj)
             CHECK(target->state == LockState::WAITING);
             lockList.mode = LockMode::EXCLUSIVE;
             target->state = LockState::ACQUIRED;
+            ++lockList.acquire_count;
+            --lockList.wait_count;
             target->signal();
             return true;
         }
@@ -133,6 +135,8 @@ bool LockManager::lock_release(std::shared_ptr<lock_t> lock_obj)
                 break;
             }
             it->state = LockState::ACQUIRED;
+            ++lockList.acquire_count;
+            --lockList.wait_count;
             it->signal();
         }
     }

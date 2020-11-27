@@ -9,6 +9,7 @@
 #include <thread>
 #include <type_traits>
 #include <vector>
+#include <future>
 
 #include "bptree.hpp"
 #include "file_api.hpp"
@@ -168,7 +169,63 @@ void TEST_LOCK()
         CHECK_VALUE(target.wait_count, 0);
 
         CHECK_TRUE(LockManager::instance().lock_release(lock2));
-        // CHECK_TRUE(table.find(LockHash(1, 2)) == table.end());
+        CHECK_TRUE(table.find(LockHash(1, 2)) == table.end());
+    }
+    END()
+
+    TEST("release exclusive")
+    {
+        LockManager::instance().reset();
+        TransactionManager::instance().reset();
+        int trans_id = TransactionManager::instance().begin();
+        auto lock = LockManager::instance().lock_acquire(1, 2, trans_id, LockMode::EXCLUSIVE);
+
+        auto& table = LockManager::instance().get_table();
+        
+        CHECK_TRUE(LockManager::instance().lock_release(lock));
+
+        CHECK_TRUE(table.find(LockHash(1, 2)) == table.end());
+    }
+    END()
+
+    TEST("release shared exclusive")
+    {
+        LockManager::instance().reset();
+        TransactionManager::instance().reset();
+
+        int trans_id1 = TransactionManager::instance().begin();
+        int trans_id2 = TransactionManager::instance().begin();
+        auto lock1 = LockManager::instance().lock_acquire(1, 2, trans_id1, LockMode::SHARED);
+
+        std::promise<decltype(lock1)> ret;
+        auto lock2_future = ret.get_future();
+
+        auto p = std::thread([&](){
+            ret.set_value(LockManager::instance().lock_acquire(1, 2, trans_id2, LockMode::EXCLUSIVE));
+        });
+
+        auto& table = LockManager::instance().get_table();
+        const auto& target = table.at(LockHash(1, 2));
+
+        CHECK_TRUE(target.mode == LockMode::SHARED);
+        CHECK_TRUE(target.locks.front() == lock1);
+
+        p.detach();
+
+        while (target.wait_count != 1)
+        {}
+
+        CHECK_VALUE(target.acquire_count, 1);
+        CHECK_VALUE(target.wait_count, 1);
+
+        CHECK_TRUE(LockManager::instance().lock_release(lock1));
+
+        auto lock2 = lock2_future.get();
+        
+        CHECK_TRUE(target.mode == LockMode::EXCLUSIVE);
+        CHECK_TRUE(target.locks.front() == lock2);
+        CHECK_VALUE(target.acquire_count, 1);
+        CHECK_VALUE(target.wait_count, 0);
     }
     END()
 }
