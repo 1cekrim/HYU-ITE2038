@@ -298,7 +298,7 @@ void TEST_LOCK()
     }
     END()
 
-    TEST("one lock deadlock test - S1 E2 S1")
+    TEST("one lock deadlock test - S1 E2 E1")
     {
         LockManager::instance().reset();
         TransactionManager::instance().reset();
@@ -325,7 +325,7 @@ void TEST_LOCK()
 
         CHECK_TRUE(TransactionManager::instance().get_transactions().size() == 2);
 
-        auto invalid = LockManager::instance().lock_acquire(1, 2, trans_id1, LockMode::SHARED);
+        auto invalid = LockManager::instance().lock_upgrade(1, 2, trans_id1, LockMode::EXCLUSIVE);
 
         CHECK_TRUE(TransactionManager::instance().get_transactions().size() == 1);
 

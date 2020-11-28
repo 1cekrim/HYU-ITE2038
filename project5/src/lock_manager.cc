@@ -108,13 +108,13 @@ std::shared_ptr<lock_t> LockManager::lock_upgrade(int table_id, int64_t key,
         lock_upgrade는, SLock을 획득한 트랜잭션이 XLock을 획득하려 할 때 호출되는 메소드이다.
         따라서 제공된 hash에 해당하는 lock list가 존재하지 않다면 논리적 오류가 발생한 것이다.
         */
-        CHECK_RET(locklist_it == lock_table.end(), nullptr);
+        CHECK_RET(locklist_it != lock_table.end(), nullptr);
 
         auto& lock_list = locklist_it->second;
 
         auto slock_it = std::find_if(lock_list.locks.begin(), lock_list.locks.end(), [trx_id](const auto& lock)
         {
-            return lock->transaction_id == trx_it;
+            return lock->ownerTransactionID == trx_id;
         });
 
         /*
@@ -259,7 +259,24 @@ bool LockManager::lock_release(std::shared_ptr<lock_t> lock_obj)
 
         if (lockList.acquire_count > 0)
         {
-            if (lockList.acquire_count == 1 && )
+            if (lockList.acquire_count == 1 && lockList.wait_count >= 1)
+            {
+                auto& first = *lockList.locks.begin();
+                auto& second = *std::next(lockList.locks.begin());
+                if (first->ownerTransactionID == second->ownerTransactionID)
+                {
+                    /*
+                    하나의 트랜잭션을 owner로 하는 SLock과 XLock이 만났을 때
+                    XLock을 깨워준다
+                    */
+                    CHECK(first->lockMode == LockMode::SHARED);
+                    CHECK(second->lockMode == LockMode::EXCLUSIVE);
+                    second->state = LockState::ACQUIRED;
+                    ++lockList.acquire_count;
+                    --lockList.wait_count;
+                    second->signal();
+                }
+            }
             return true;
         }
 
