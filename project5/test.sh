@@ -1,4 +1,4 @@
-make clean
+# make clean
 make test
 rm /mnt/tmpfs/*.db
 rm /mnt/tmpfs/test
