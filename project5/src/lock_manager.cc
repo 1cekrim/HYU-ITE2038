@@ -119,6 +119,7 @@ bool LockManager::lock_release(std::shared_ptr<lock_t> lock_obj)
         {
             CHECK(target->state == LockState::WAITING);
             lockList.mode = LockMode::EXCLUSIVE;
+            // TODO: state, count 바꾸는 거 signal에서 담당하게
             target->state = LockState::ACQUIRED;
             ++lockList.acquire_count;
             --lockList.wait_count;
