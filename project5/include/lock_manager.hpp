@@ -70,6 +70,7 @@ class LockManager
     std::shared_ptr<lock_t> lock_acquire(int table_id, int64_t key, int trx_id,
                                          LockMode mode);
     bool lock_release(std::shared_ptr<lock_t> lock_obj);
+    std::shared_ptr<lock_t> lock_upgrade(int table_id, int64_t key, int trx_id, LockMode mode);
     const std::map<LockHash, LockList>& get_table() const;
     bool deadlock_detection(int now_transaction_id);
 

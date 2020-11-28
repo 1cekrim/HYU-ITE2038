@@ -37,12 +37,14 @@ bool TransactionManager::lock_acquire(int table_id, int64_t key,
 
     auto& locks = transaction->second.locks;
     auto& state = transaction->second.state;
-    if (auto it =
-            std::find_if(locks.begin(), locks.end(),
+    if (auto count =
+            std::count_if(locks.begin(), locks.end(),
                          [&hash](auto& t) { return std::get<0>(t) == hash; });
-        it != locks.end())
+        count > 0)
     {
-        auto& lock = std::get<1>(*it);
+
+        CHECK(count == 1 || count == 2);
+        auto aleady_lock_mode = count == 1 ? LockMode::SHARED : LockMode::EXCLUSIVE; 
         // 왜 아래의 if문과 같은 로직이 가능한가?
         /* 
             지금 이 영역은 현재 transaction이 lock을 획득하고 있을 때 실행된다
@@ -50,13 +52,14 @@ bool TransactionManager::lock_acquire(int table_id, int64_t key,
             만약 새로 추가할 lock의 mode가 SHARED 라면 lock을 획득할 필요가 없다
             만약 기본의 mode가 EXCLUSIVE라면 새로 추가할 mode와 상관없이 lock을 획득할 필요가 없다
         */
-        if (mode == LockMode::SHARED || lock->lockMode == LockMode::EXCLUSIVE)
+        if (mode == LockMode::SHARED || aleady_lock_mode == LockMode::EXCLUSIVE)
         {
             return true;
         }
 
         /*
-            만약 기본의 lock이
+            이 영역에 도달했다는 것은, 현재 트랜잭션이 SLock만을 획득했고, XLock을 획득하려 시도한다는 의미다.
+            이 경우 LockManager의 lock_upgrade 메소드를 통해 XLock을 추가해 준다.
         */
 
         CHECK(LockManager::instance().lock_release(lock));

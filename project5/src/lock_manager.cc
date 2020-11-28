@@ -15,8 +15,7 @@ LockHash::LockHash() : LockHash(invalid_table_id, invalid_key)
     // Do nothing
 }
 
-LockHash::LockHash(int table_id, int key)
-    : table_id(table_id), key(key)
+LockHash::LockHash(int table_id, int64_t key) : table_id(table_id), key(key)
 {
     // Do nothing
 }
@@ -35,7 +34,7 @@ std::shared_ptr<lock_t> LockManager::lock_acquire(int table_id, int64_t key,
                                                   int trx_id, LockMode mode)
 {
     auto lock = std::make_shared<lock_t>(LockHash(table_id, key), mode, trx_id);
-    LockHash hash{ table_id, key};
+    LockHash hash{ table_id, key };
     if (!lock)
     {
         return nullptr;
@@ -63,6 +62,8 @@ std::shared_ptr<lock_t> LockManager::lock_acquire(int table_id, int64_t key,
         }
 
         // TODO: Transaction 관련 추가
+        TransactionManager::instance().get(trx_id).state =
+            TransactionState::WAITING;
 
         lock->state = LockState::WAITING;
         lock->locked = true;
@@ -74,6 +75,81 @@ std::shared_ptr<lock_t> LockManager::lock_acquire(int table_id, int64_t key,
         table.locks.emplace_back(lock);
         ++table.wait_count;
     }
+
+    if (deadlock_detection(trx_id))
+    {
+        TransactionManager::instance().abort(trx_id);
+        return nullptr;
+    }
+
+    while (lock->wait())
+    {
+        std::this_thread::yield();
+    }
+
+    return lock;
+}
+
+std::shared_ptr<lock_t> LockManager::lock_upgrade(int table_id, int64_t key,
+                                                  int trx_id, LockMode mode)
+{
+    CHECK_RET(mode == LockMode::EXCLUSIVE, nullptr);
+    auto lock = std::make_shared<lock_t>(LockHash(table_id, key), mode, trx_id);
+    LockHash hash{ table_id, key };
+    if (!lock)
+    {
+        return nullptr;
+    }
+
+    {
+        std::unique_lock<std::mutex> crit{ mtx };
+        auto locklist_it = lock_table.find(hash);
+        /*
+        lock_upgrade는, SLock을 획득한 트랜잭션이 XLock을 획득하려 할 때 호출되는 메소드이다.
+        따라서 제공된 hash에 해당하는 lock list가 존재하지 않다면 논리적 오류가 발생한 것이다.
+        */
+        CHECK_RET(locklist_it == lock_table.end(), nullptr);
+
+        auto& lock_list = locklist_it->second;
+
+        auto slock_it = std::find_if(lock_list.locks.begin(), lock_list.locks.end(), [trx_id](const auto& lock)
+        {
+            return lock->transaction_id == trx_it;
+        });
+
+        /*
+        제공된 hash에 해당하는 lock list에, trx_id를 owner로 하는 lock이 존재하지 않다면 논리적 오류가 발생한 것이다.
+        */
+        CHECK_RET(slock_it != lock_list.locks.end(), nullptr);
+
+        /*
+        특수한 경우. lock_list에 trx_id가 owner인 SLock만 존재할 경우
+        이 경우 XLock을 바로 획득할 수 있다.
+        */
+        if (lock_list.wait_count == 0 && lock_list.acquire_count == 1)
+        {
+            lock->state = LockState::ACQUIRED;
+            lock->signal();
+            lock->locked = false;
+            lock_list.mode = mode;
+            lock_list.locks.push_back(lock);
+            ++lock_list.acquire_count;
+            return lock;
+        }
+    /*
+    일반적인 경우. lock_list에 다른 트랜잭션의 lock이 존재할 경우
+    이런 경우 순서상 우선인 트랜잭션들이 모두 commit될 때까지 대기해야 한다.
+    */
+    TransactionManager::instance().get(trx_id).state =
+        TransactionState::WAITING;
+
+        lock->state = LockState::WAITING;
+        lock->locked = true;
+        lock_list.mode = LockMode::EXCLUSIVE;
+        lock_list.locks.emplace_back(lock);
+        ++lock_list.wait_count;
+    }
+    
 
     if (deadlock_detection(trx_id))
     {
@@ -151,58 +227,6 @@ bool LockManager::deadlock_detection(int now_transaction_id)
     }
 
     return false;
-
-    // std::unordered_map<int, std::tuple<std::set<int>, std::set<int>>> graph;
-
-    // constexpr auto next_graph = 0;
-    // constexpr auto prev_graph = 1;
-
-    // for (const auto& lock : lock_table)
-    // {
-    //     const auto& list = lock.second;
-    //     const auto wait_begin =
-    //         std::next(list.locks.begin(), list.acquire_count);
-    //     for (auto acquire = list.locks.begin(); acquire != wait_begin;
-    //          ++acquire)
-    //     {
-    //         auto acquire_id = acquire->get()->ownerTransactionID;
-    //         for (auto wait = wait_begin; wait != list.locks.end(); ++wait)
-    //         {
-    //             auto wait_id = wait->get()->ownerTransactionID;
-    //             std::get<next_graph>(graph[acquire_id]).insert(wait_id);
-    //             std::get<prev_graph>(graph[wait_id]).insert(acquire_id);
-    //         }
-    //     }
-    // }
-
-    // for (const auto& node : graph)
-    // {
-    //     const auto now_id = node.first;
-    //     const auto& next = std::get<next_graph>(node.second);
-    //     const auto& prev = std::get<prev_graph>(node.second);
-
-    // }
-
-    // if constexpr (true)
-    // {
-    //     std::cout << "\ndeadlock detection\n";
-
-    //     for (const auto& node : graph)
-    //     {
-    //         std::cout << "node " << node.first << '\n';
-    //         std::cout << "next: ";
-    //         for (const auto& next : std::get<next_graph>(node.second))
-    //         {
-    //             std::cout << next << ' ';
-    //         }
-    //         std::cout << "\nbefore: ";
-    //         for (const auto& before : std::get<prev_graph>(node.second))
-    //         {
-    //             std::cout << before << ' ';
-    //         }
-    //         std::cout << '\n';
-    //     }
-    // }
 }
 
 bool LockManager::lock_release(std::shared_ptr<lock_t> lock_obj)
@@ -227,6 +251,7 @@ bool LockManager::lock_release(std::shared_ptr<lock_t> lock_obj)
         else
         {
             // wait 중인걸 그냥 lock_release 해도 되나?
+            // TODO: abort 될때 처리...
             exit(-1);
             --lockList.wait_count;
         }
@@ -234,6 +259,7 @@ bool LockManager::lock_release(std::shared_ptr<lock_t> lock_obj)
 
         if (lockList.acquire_count > 0)
         {
+            if (lockList.acquire_count == 1 && )
             return true;
         }
 
@@ -286,8 +312,7 @@ void LockManager::reset()
     lock_table.clear();
 }
 
-lock_t::lock_t(LockHash hash, LockMode lockMode,
-               int ownerTransactionID)
+lock_t::lock_t(LockHash hash, LockMode lockMode, int ownerTransactionID)
     : hash(hash),
       locked(false),
       lockMode(lockMode),
