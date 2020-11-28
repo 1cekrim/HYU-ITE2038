@@ -62,7 +62,7 @@ bool BPTree::insert(keyType key, const valType& value)
     return insert_into_leaf_after_splitting(leaf, record);
 }
 
-bool BPTree::update(keyType key, const valType& value)
+bool BPTree::update(keyType key, const valType& value, int transaction_id)
 {
     record_t record;
     if (!find(key, record))
@@ -76,17 +76,24 @@ bool BPTree::update(keyType key, const valType& value)
     int i = leaf.node.index_key<record_t>(key);
     leaf.node.records()[i].value = value;
 
+    if (transaction_id != TransactionManager::invliad_transaction_id)
+    {
+        TransactionManager::instance().lock_acquire(
+            get_table_id(), leaf.node.pagenum, i, transaction_id,
+            LockMode::EXCLUSIVE);
+    }
+
     CHECK(commit_node(leaf));
+
+    // update log
 
     return true;
 }
 
 bool BPTree::insert_into_leaf(node_tuple& leaf, const record_t& rec)
 {
-    int insertion_point =
-        leaf.node.satisfy_condition_first<record_t>([&rec](auto& now) {
-            return now.key >= rec.key;
-        });
+    int insertion_point = leaf.node.satisfy_condition_first<record_t>(
+        [&rec](auto& now) { return now.key >= rec.key; });
 
     leaf.node.insert(rec, insertion_point);
 
@@ -98,13 +105,11 @@ bool BPTree::insert_into_leaf(node_tuple& leaf, const record_t& rec)
 bool BPTree::insert_into_leaf_after_splitting(node_tuple& leaf,
                                               const record_t& rec)
 {
-    node_tuple new_leaf { create_node() };
+    node_tuple new_leaf{ create_node() };
     new_leaf.node.set_is_leaf(true);
 
-    int insertion_index =
-        leaf.node.satisfy_condition_first<record_t>([&rec](auto& now) {
-            return now.key >= rec.key;
-        });
+    int insertion_index = leaf.node.satisfy_condition_first<record_t>(
+        [&rec](auto& now) { return now.key >= rec.key; });
 
     std::vector<record_t> temp;
     temp.reserve(leaf_order + 1);
@@ -159,10 +164,8 @@ int BPTree::get_left_index(const node_t& parent, nodeId_t left_id) const
         return 0;
     }
 
-    int left_index =
-        parent.satisfy_condition_first<internal_t>([&left_id](auto& now) {
-            return now.node_id == left_id;
-        });
+    int left_index = parent.satisfy_condition_first<internal_t>(
+        [&left_id](auto& now) { return now.node_id == left_id; });
     return left_index + 1;
 }
 
@@ -399,7 +402,7 @@ bool BPTree::adjust_root(node_tuple& root)
 
 bool BPTree::update_parent_with_commit(nodeId_t target_id, nodeId_t parent_id)
 {
-    node_tuple temp { target_id };
+    node_tuple temp{ target_id };
     CHECK(load_node(temp));
     temp.node.set_parent(parent_id);
     CHECK(commit_node(temp));
@@ -498,7 +501,7 @@ bool BPTree::redistribute_nodes(node_tuple& target, node_tuple& neighbor,
     return true;
 }
 
-bool BPTree::find(keyType key, record_t& ret)
+bool BPTree::find(keyType key, record_t& ret, int transaction_id)
 {
     node_tuple leaf;
     if (!find_leaf(key, leaf))
@@ -510,6 +513,13 @@ bool BPTree::find(keyType key, record_t& ret)
     if (i == -1)
     {
         return false;
+    }
+
+    if (transaction_id != TransactionManager::invliad_transaction_id)
+    {
+        TransactionManager::instance().lock_acquire(
+            get_table_id(), leaf.node.pagenum, i, transaction_id,
+            LockMode::SHARED);
     }
 
     ret = leaf.node.get<record_t>(i);

@@ -7,6 +7,8 @@
 #include "buffer_manager.hpp"
 #include "page.hpp"
 #include "frame.hpp"
+#include "transaction_manager.hpp"
+#include "log_manager.hpp"
 
 constexpr auto LEAF_ORDER = 32;
 constexpr auto INTERNAL_ORDER = 249;
@@ -74,10 +76,10 @@ class BPTree
     bool open_table(const std::string& filename);
     // Insertion.
     bool insert(keyType key, const valType& value);
-    bool update(keyType key, const valType& value);
+    bool update(keyType key, const valType& value, int transaction_id = TransactionManager::invliad_transaction_id);
     bool delete_key(keyType key);
 
-    bool find(keyType key, record_t& ret);
+    bool find(keyType key, record_t& ret, int transaction_id = TransactionManager::invliad_transaction_id);
 
  private:
     bool find_leaf(keyType key, node_tuple& ret);
