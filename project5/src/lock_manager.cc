@@ -105,20 +105,23 @@ std::shared_ptr<lock_t> LockManager::lock_upgrade(int table_id, int64_t key,
         std::unique_lock<std::mutex> crit{ mtx };
         auto locklist_it = lock_table.find(hash);
         /*
-        lock_upgrade는, SLock을 획득한 트랜잭션이 XLock을 획득하려 할 때 호출되는 메소드이다.
-        따라서 제공된 hash에 해당하는 lock list가 존재하지 않다면 논리적 오류가 발생한 것이다.
+        lock_upgrade는, SLock을 획득한 트랜잭션이 XLock을 획득하려 할 때
+        호출되는 메소드이다. 따라서 제공된 hash에 해당하는 lock list가 존재하지
+        않다면 논리적 오류가 발생한 것이다.
         */
         CHECK_RET(locklist_it != lock_table.end(), nullptr);
 
         auto& lock_list = locklist_it->second;
 
-        auto slock_it = std::find_if(lock_list.locks.begin(), lock_list.locks.end(), [trx_id](const auto& lock)
-        {
-            return lock->ownerTransactionID == trx_id;
-        });
+        auto slock_it =
+            std::find_if(lock_list.locks.begin(), lock_list.locks.end(),
+                         [trx_id](const auto& lock) {
+                             return lock->ownerTransactionID == trx_id;
+                         });
 
         /*
-        제공된 hash에 해당하는 lock list에, trx_id를 owner로 하는 lock이 존재하지 않다면 논리적 오류가 발생한 것이다.
+        제공된 hash에 해당하는 lock list에, trx_id를 owner로 하는 lock이
+        존재하지 않다면 논리적 오류가 발생한 것이다.
         */
         CHECK_RET(slock_it != lock_list.locks.end(), nullptr);
 
@@ -136,12 +139,12 @@ std::shared_ptr<lock_t> LockManager::lock_upgrade(int table_id, int64_t key,
             ++lock_list.acquire_count;
             return lock;
         }
-    /*
-    일반적인 경우. lock_list에 다른 트랜잭션의 lock이 존재할 경우
-    이런 경우 순서상 우선인 트랜잭션들이 모두 commit될 때까지 대기해야 한다.
-    */
-    TransactionManager::instance().get(trx_id).state =
-        TransactionState::WAITING;
+        /*
+        일반적인 경우. lock_list에 다른 트랜잭션의 lock이 존재할 경우
+        이런 경우 순서상 우선인 트랜잭션들이 모두 commit될 때까지 대기해야 한다.
+        */
+        TransactionManager::instance().get(trx_id).state =
+            TransactionState::WAITING;
 
         lock->state = LockState::WAITING;
         lock->locked = true;
@@ -149,7 +152,6 @@ std::shared_ptr<lock_t> LockManager::lock_upgrade(int table_id, int64_t key,
         lock_list.locks.emplace_back(lock);
         ++lock_list.wait_count;
     }
-    
 
     if (deadlock_detection(trx_id))
     {
@@ -183,6 +185,10 @@ bool LockManager::deadlock_detection(int now_transaction_id)
             for (auto wait = wait_begin; wait != list.locks.end(); ++wait)
             {
                 auto wait_id = wait->get()->ownerTransactionID;
+                if (acquire_id == wait_id)
+                {
+                    continue;
+                }
                 graph[acquire_id].insert(wait_id);
             }
         }
