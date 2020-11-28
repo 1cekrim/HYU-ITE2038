@@ -10,13 +10,13 @@
 #include "logger.hpp"
 #include "transaction_manager.hpp"
 
-LockHash::LockHash() : LockHash(invalid_table_id, invalid_key, invalid_key)
+LockHash::LockHash() : LockHash(invalid_table_id, invalid_key)
 {
     // Do nothing
 }
 
-LockHash::LockHash(int table_id, int key, int record_index)
-    : table_id(table_id), key(key), record_index(record_index)
+LockHash::LockHash(int table_id, int key)
+    : table_id(table_id), key(key)
 {
     // Do nothing
 }
@@ -24,21 +24,18 @@ LockHash::LockHash(int table_id, int key, int record_index)
 bool LockHash::operator<(const LockHash& rhs) const
 {
     return table_id < rhs.table_id ||
-           (table_id == rhs.table_id && key < rhs.key) ||
-           (table_id == rhs.table_id && key == rhs.key &&
-            record_index < rhs.record_index);
+           (table_id == rhs.table_id && key < rhs.key);
 }
 bool LockHash::operator==(const LockHash& rhs) const
 {
-    return table_id == rhs.table_id && key == rhs.key &&
-           record_index == rhs.record_index;
+    return table_id == rhs.table_id && key == rhs.key;
 }
 
-std::shared_ptr<lock_t> LockManager::lock_acquire(int table_id, int key, int record_index,
+std::shared_ptr<lock_t> LockManager::lock_acquire(int table_id, int64_t key,
                                                   int trx_id, LockMode mode)
 {
-    auto lock = std::make_shared<lock_t>(LockHash(table_id, key, record_index), mode, trx_id);
-    LockHash hash{ table_id, key, record_index};
+    auto lock = std::make_shared<lock_t>(LockHash(table_id, key), mode, trx_id);
+    LockHash hash{ table_id, key};
     if (!lock)
     {
         return nullptr;

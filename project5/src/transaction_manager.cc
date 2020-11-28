@@ -23,11 +23,11 @@ Transaction& TransactionManager::get(int transaction_id)
     return transactions[transaction_id];
 }
 
-bool TransactionManager::lock_acquire(int table_id, int key, int record_index,
+bool TransactionManager::lock_acquire(int table_id, int64_t key,
                                       int trx_id, LockMode mode)
 {
     std::unique_lock<std::mutex> crit{ mtx };
-    LockHash hash{ table_id, key, record_index };
+    LockHash hash{ table_id, key };
 
     auto transaction = transactions.find(trx_id);
     if (transaction == transactions.end())
@@ -61,7 +61,7 @@ bool TransactionManager::lock_acquire(int table_id, int key, int record_index,
 
         CHECK(LockManager::instance().lock_release(lock));
         auto new_lock = LockManager::instance().lock_acquire(
-            table_id, key, record_index, trx_id, mode);
+            table_id, key, trx_id, mode);
 
         if (state == TransactionState::RUNNING)
         {
@@ -75,7 +75,7 @@ bool TransactionManager::lock_acquire(int table_id, int key, int record_index,
     }
 
     auto new_lock = LockManager::instance().lock_acquire(
-        table_id, key, record_index, trx_id, mode);
+        table_id, key, trx_id, mode);
 
     if (state == TransactionState::RUNNING)
     {
