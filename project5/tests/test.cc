@@ -228,6 +228,75 @@ void TEST_LOCK()
         CHECK_VALUE(target.wait_count, 0);
     }
     END()
+
+    TEST("S1 E2 S3 test")
+    {
+        LockManager::instance().reset();
+        TransactionManager::instance().reset();
+
+        int trans_id1 = TransactionManager::instance().begin();
+        int trans_id2 = TransactionManager::instance().begin();
+        int trans_id3 = TransactionManager::instance().begin();
+
+        auto lock1 = LockManager::instance().lock_acquire(1, 2, trans_id1, LockMode::SHARED);
+
+        std::promise<decltype(lock1)> ret1, ret2;
+        auto lock2_future = ret1.get_future();
+        auto lock3_future = ret2.get_future();
+
+        auto p1 = std::thread([&](){
+            ret1.set_value(LockManager::instance().lock_acquire(1, 2, trans_id2, LockMode::EXCLUSIVE));
+        });
+
+        auto& table = LockManager::instance().get_table();
+        const auto& target = table.at(LockHash(1, 2));
+
+        CHECK_TRUE(target.mode == LockMode::SHARED);
+        CHECK_TRUE(target.locks.front() == lock1);
+
+        p1.detach();
+
+        while (target.wait_count != 1)
+        {}
+
+        CHECK_VALUE(target.acquire_count, 1);
+        CHECK_VALUE(target.wait_count, 1);
+        CHECK_TRUE(target.mode == LockMode::EXCLUSIVE);
+        CHECK_TRUE(target.locks.front() == lock1);
+
+        auto p2 = std::thread([&](){
+            ret2.set_value(LockManager::instance().lock_acquire(1, 2, trans_id3, LockMode::SHARED));
+        });
+
+        p2.detach();
+
+        while (target.wait_count != 2)
+        {}
+
+        CHECK_VALUE(target.acquire_count, 1);
+        CHECK_VALUE(target.wait_count, 2);
+        CHECK_TRUE(target.mode == LockMode::EXCLUSIVE);
+        CHECK_TRUE(target.locks.front() == lock1);
+
+        CHECK_TRUE(LockManager::instance().lock_release(lock1));
+
+        auto lock2 = lock2_future.get();
+        
+        CHECK_TRUE(target.mode == LockMode::EXCLUSIVE);
+        CHECK_TRUE(target.locks.front() == lock2);
+        CHECK_VALUE(target.acquire_count, 1);
+        CHECK_VALUE(target.wait_count, 1);
+
+        CHECK_TRUE(LockManager::instance().lock_release(lock2));
+
+        auto lock3 = lock3_future.get();
+        
+        CHECK_TRUE(target.mode == LockMode::SHARED);
+        CHECK_TRUE(target.locks.front() == lock3);
+        CHECK_VALUE(target.acquire_count, 1);
+        CHECK_VALUE(target.wait_count, 0);
+    }
+    END()
 }
 
 void TEST_MULTITHREADING()
