@@ -1,7 +1,10 @@
 #include "lock_manager.hpp"
 
 #include <algorithm>
+#include <iostream>
+#include <set>
 #include <thread>
+#include <vector>
 
 #include "logger.hpp"
 #include "transaction_manager.hpp"
@@ -30,18 +33,17 @@ std::shared_ptr<lock_t> LockManager::lock_acquire(int table_id, int64_t key,
                                                   int trx_id, LockMode mode)
 {
     auto lock = std::make_shared<lock_t>(table_id, key, mode, trx_id);
-    LockHash hash { table_id, key };
+    LockHash hash{ table_id, key };
     if (!lock)
     {
         return nullptr;
     }
 
     {
-        std::unique_lock<std::mutex> crit { mtx };
+        std::unique_lock<std::mutex> crit{ mtx };
         if (auto it = lock_table.find(hash);
-            it == lock_table.end() || (it->second.mode == LockMode::EMPTY ||
-                                       (it->second.mode == LockMode::SHARED &&
-                                        lock->lockMode == LockMode::SHARED)))
+            it == lock_table.end() || (it->second.mode == LockMode::SHARED &&
+                                       lock->lockMode == LockMode::SHARED))
         {
             // 바로 실행
             if (it == lock_table.end())
@@ -62,9 +64,16 @@ std::shared_ptr<lock_t> LockManager::lock_acquire(int table_id, int64_t key,
 
         lock->state = LockState::WAITING;
         lock->locked = true;
-        lock_table[hash].locks.emplace_back(lock);
-        ++lock_table[hash].wait_count;
+        auto& table = lock_table[hash];
+        if (table.mode == LockMode::SHARED && mode == LockMode::EXCLUSIVE)
+        {
+            table.mode = LockMode::EXCLUSIVE;
+        }
+        table.locks.emplace_back(lock);
+        ++table.wait_count;
     }
+
+    CHECK_RET(deadlock_detection(), nullptr);
 
     while (lock->wait())
     {
@@ -74,20 +83,72 @@ std::shared_ptr<lock_t> LockManager::lock_acquire(int table_id, int64_t key,
     return lock;
 }
 
+bool LockManager::deadlock_detection()
+{
+    std::unique_lock<std::mutex> crit{ mtx };
+
+    std::unordered_map<int, std::tuple<std::set<int>, std::set<int>>> graph;
+
+    for (const auto& lock : lock_table)
+    {
+        const auto& list = lock.second;
+        const auto wait_begin =
+            std::next(list.locks.begin(), list.acquire_count);
+        for (auto acquire = list.locks.begin(); acquire != wait_begin;
+             ++acquire)
+        {
+            auto acquire_id = acquire->get()->ownerTransactionID;
+            for (auto wait = wait_begin; wait != list.locks.end(); ++wait)
+            {
+                auto wait_id = wait->get()->ownerTransactionID;
+                next_graph[acquire_id].insert(wait_id);
+                before_graph[wait_id].insert(acquire_id);
+            }
+        }
+    }
+
+    if constexpr (true)
+    {
+        std::cout << "\ndeadlock detection next\n";
+
+        for (const auto& node : next_graph)
+        {
+            std::cout << "node " << node.first << ':';
+            for (const auto& next : node.second)
+            {
+                std::cout << next << ' ';
+            }
+            std::cout << '\n';
+        }
+
+        std::cout << "before\n";
+        for (const auto& node : before_graph)
+        {
+            std::cout << "node " << node.first << ':';
+            for (const auto& before : node.second)
+            {
+                std::cout << before << ' ';
+            }
+            std::cout << '\n';
+        }
+    }
+
+    return true;
+}
+
 bool LockManager::lock_release(std::shared_ptr<lock_t> lock_obj)
 {
     {
-        std::unique_lock<std::mutex> crit { mtx };
+        std::unique_lock<std::mutex> crit{ mtx };
         int table_id = lock_obj->table_id;
         int64_t key = lock_obj->key;
-        LockHash hash { table_id, key };
+        LockHash hash{ table_id, key };
         auto& lockList = lock_table[hash];
         auto& table = lockList.locks;
 
-        auto iter =
-            std::find_if(table.begin(), table.end(), [lock_obj](auto& p) {
-                return p.get() == lock_obj.get();
-            });
+        auto iter = std::find_if(
+            table.begin(), table.end(),
+            [lock_obj](auto& p) { return p.get() == lock_obj.get(); });
 
         CHECK(iter != table.end());
 
@@ -133,6 +194,7 @@ bool LockManager::lock_release(std::shared_ptr<lock_t> lock_obj)
         {
             if (it->lockMode == LockMode::EXCLUSIVE)
             {
+                lockList.mode = LockMode::EXCLUSIVE;
                 break;
             }
             it->state = LockState::ACQUIRED;

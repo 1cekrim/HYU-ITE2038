@@ -72,6 +72,7 @@ class LockManager
                                          LockMode mode);
     bool lock_release(std::shared_ptr<lock_t> lock_obj);
     const std::map<LockHash, LockList>& get_table() const;
+    bool deadlock_detection();
 
     void reset();
 
