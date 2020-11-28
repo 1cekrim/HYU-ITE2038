@@ -43,10 +43,21 @@ bool TransactionManager::lock_acquire(int table_id, int key, int record_index,
         it != locks.end())
     {
         auto& lock = std::get<1>(*it);
-        if (mode != LockMode::EXCLUSIVE || lock->lockMode != LockMode::SHARED)
+        // 왜 아래의 if문과 같은 로직이 가능한가?
+        /* 
+            지금 이 영역은 현재 transaction이 lock을 획득하고 있을 때 실행된다
+            기존에 획득한 lock이 새로 획득할 lock보다 더 강한 mode라면 추가로 획득하지 않아도 된다
+            만약 새로 추가할 lock의 mode가 SHARED 라면 lock을 획득할 필요가 없다
+            만약 기본의 mode가 EXCLUSIVE라면 새로 추가할 mode와 상관없이 lock을 획득할 필요가 없다
+        */
+        if (mode == LockMode::SHARED || lock->lockMode == LockMode::EXCLUSIVE)
         {
             return true;
         }
+
+        /*
+            만약 기본의 lock이
+        */
 
         CHECK(LockManager::instance().lock_release(lock));
         auto new_lock = LockManager::instance().lock_acquire(
@@ -55,6 +66,7 @@ bool TransactionManager::lock_acquire(int table_id, int key, int record_index,
         if (state == TransactionState::RUNNING)
         {
             lock = new_lock;
+            return true;
         }
 
         CHECK(state == TransactionState::ABORTED);
