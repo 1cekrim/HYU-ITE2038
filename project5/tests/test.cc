@@ -323,7 +323,13 @@ void TEST_LOCK()
         while (target.wait_count != 1)
         {}
 
+        CHECK_TRUE(TransactionManager::instance().get_transactions().size() == 2);
+
         auto invalid = LockManager::instance().lock_acquire(1, 2, 3, trans_id1, LockMode::SHARED);
+
+        CHECK_TRUE(TransactionManager::instance().get_transactions().size() == 1);
+
+        CHECK_TRUE(invalid == nullptr);
     }
     END()
 }

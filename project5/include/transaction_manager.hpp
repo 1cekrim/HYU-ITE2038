@@ -26,9 +26,12 @@ struct Transaction
     Transaction(int id);
     Transaction(const Transaction& rhs);
     bool commit();
+    bool abort();
+    bool lock_release();
     int transactionID;
     std::atomic<TransactionState> state;
     std::list<std::tuple<LockHash, std::shared_ptr<lock_t>>> locks;
+    std::mutex mtx;
 };
 
 class TransactionManager
@@ -42,6 +45,7 @@ class TransactionManager
     int begin();
     bool commit(int id);
     Transaction& get(int transaction_id);
+    const std::unordered_map<int, Transaction>& get_transactions() const;
     bool abort(int transaction_id);
     void reset();
 
