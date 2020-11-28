@@ -22,6 +22,11 @@ Transaction& TransactionManager::get(int transaction_id)
     return transactions[transaction_id];
 }
 
+bool TransactionManager::abort(int transaction_id)
+{
+    return true;
+}
+
 bool TransactionManager::commit(int id)
 {
     std::unique_lock<std::mutex> lock(mtx);

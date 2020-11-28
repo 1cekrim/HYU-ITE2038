@@ -297,6 +297,35 @@ void TEST_LOCK()
         CHECK_VALUE(target.wait_count, 0);
     }
     END()
+
+    TEST("one lock deadlock test - S1 E2 S1")
+    {
+        LockManager::instance().reset();
+        TransactionManager::instance().reset();
+
+        int trans_id1 = TransactionManager::instance().begin();
+        int trans_id2 = TransactionManager::instance().begin();
+
+        auto lock1 = LockManager::instance().lock_acquire(1, 2, trans_id1, LockMode::SHARED);
+
+        std::promise<decltype(lock1)> ret1;
+        auto lock2_future = ret1.get_future();
+
+        auto p1 = std::thread([&](){
+            ret1.set_value(LockManager::instance().lock_acquire(1, 2, trans_id2, LockMode::EXCLUSIVE));
+        });
+
+        auto& table = LockManager::instance().get_table();
+        const auto& target = table.at(LockHash(1, 2));
+
+        p1.detach();
+
+        while (target.wait_count != 1)
+        {}
+
+        auto invalid = LockManager::instance().lock_acquire(1, 2, trans_id1, LockMode::SHARED);
+    }
+    END()
 }
 
 void TEST_MULTITHREADING()

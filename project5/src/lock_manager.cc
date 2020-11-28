@@ -5,6 +5,7 @@
 #include <set>
 #include <thread>
 #include <vector>
+#include <queue>
 
 #include "logger.hpp"
 #include "transaction_manager.hpp"
@@ -73,7 +74,11 @@ std::shared_ptr<lock_t> LockManager::lock_acquire(int table_id, int64_t key,
         ++table.wait_count;
     }
 
-    CHECK_RET(deadlock_detection(), nullptr);
+    if (deadlock_detection(trx_id))
+    {
+        TransactionManager::instance().abort(trx_id);
+        return nullptr;
+    }
 
     while (lock->wait())
     {
@@ -83,11 +88,11 @@ std::shared_ptr<lock_t> LockManager::lock_acquire(int table_id, int64_t key,
     return lock;
 }
 
-bool LockManager::deadlock_detection()
+bool LockManager::deadlock_detection(int now_transaction_id)
 {
     std::unique_lock<std::mutex> crit{ mtx };
 
-    std::unordered_map<int, std::tuple<std::set<int>, std::set<int>>> graph;
+    std::unordered_map<int, std::set<int>> graph;
 
     for (const auto& lock : lock_table)
     {
@@ -101,17 +106,38 @@ bool LockManager::deadlock_detection()
             for (auto wait = wait_begin; wait != list.locks.end(); ++wait)
             {
                 auto wait_id = wait->get()->ownerTransactionID;
-                next_graph[acquire_id].insert(wait_id);
-                before_graph[wait_id].insert(acquire_id);
+                graph[acquire_id].insert(wait_id);
             }
         }
     }
 
-    if constexpr (true)
+    std::queue<int> q;
+    q.push(now_transaction_id);
+    std::vector<int> visited;
+    visited.push_back(now_transaction_id);
+
+    while (!q.empty())
+    {
+        int now = q.front();
+        q.pop();
+
+        for (const auto next : graph[now])
+        {
+            if (std::find(visited.begin(), visited.end(), next) != visited.end())
+            {
+                // Deadlock detected!
+                return true;
+            }
+            q.push(now);
+            visited.push_back(next);
+        }
+    }
+
+    if constexpr (false)
     {
         std::cout << "\ndeadlock detection next\n";
 
-        for (const auto& node : next_graph)
+        for (const auto& node : graph)
         {
             std::cout << "node " << node.first << ':';
             for (const auto& next : node.second)
@@ -120,20 +146,62 @@ bool LockManager::deadlock_detection()
             }
             std::cout << '\n';
         }
-
-        std::cout << "before\n";
-        for (const auto& node : before_graph)
-        {
-            std::cout << "node " << node.first << ':';
-            for (const auto& before : node.second)
-            {
-                std::cout << before << ' ';
-            }
-            std::cout << '\n';
-        }
     }
 
-    return true;
+    return false;
+
+    // std::unordered_map<int, std::tuple<std::set<int>, std::set<int>>> graph;
+
+    // constexpr auto next_graph = 0;
+    // constexpr auto prev_graph = 1;
+
+    // for (const auto& lock : lock_table)
+    // {
+    //     const auto& list = lock.second;
+    //     const auto wait_begin =
+    //         std::next(list.locks.begin(), list.acquire_count);
+    //     for (auto acquire = list.locks.begin(); acquire != wait_begin;
+    //          ++acquire)
+    //     {
+    //         auto acquire_id = acquire->get()->ownerTransactionID;
+    //         for (auto wait = wait_begin; wait != list.locks.end(); ++wait)
+    //         {
+    //             auto wait_id = wait->get()->ownerTransactionID;
+    //             std::get<next_graph>(graph[acquire_id]).insert(wait_id);
+    //             std::get<prev_graph>(graph[wait_id]).insert(acquire_id);
+    //         }
+    //     }
+    // }
+
+    // for (const auto& node : graph)
+    // {
+    //     const auto now_id = node.first;
+    //     const auto& next = std::get<next_graph>(node.second);
+    //     const auto& prev = std::get<prev_graph>(node.second);
+
+        
+    // }
+
+    // if constexpr (true)
+    // {
+    //     std::cout << "\ndeadlock detection\n";
+
+    //     for (const auto& node : graph)
+    //     {
+    //         std::cout << "node " << node.first << '\n';
+    //         std::cout << "next: ";
+    //         for (const auto& next : std::get<next_graph>(node.second))
+    //         {
+    //             std::cout << next << ' ';
+    //         }
+    //         std::cout << "\nbefore: ";
+    //         for (const auto& before : std::get<prev_graph>(node.second))
+    //         {
+    //             std::cout << before << ' ';
+    //         }
+    //         std::cout << '\n';
+    //     }
+    // }
 }
 
 bool LockManager::lock_release(std::shared_ptr<lock_t> lock_obj)

@@ -2,10 +2,10 @@
 #define __TRX_MANAGER_HPP__
 
 #include <atomic>
-#include <mutex>
-#include <unordered_map>
 #include <list>
 #include <memory>
+#include <mutex>
+#include <unordered_map>
 
 #include "lock_manager.hpp"
 
@@ -42,7 +42,10 @@ class TransactionManager
     int begin();
     bool commit(int id);
     Transaction& get(int transaction_id);
+    bool abort(int transaction_id);
     void reset();
+
+    bool lock_acquire(int table_id, int32_t , int trx_id, LockMode mode);
 
     static constexpr int invliad_transaction_id = 0;
 
