@@ -21,16 +21,30 @@ enum class LockState
     ACQUIRED
 };
 
+struct LockHash
+{
+    static constexpr auto invalid_table_id = -1;
+    static constexpr auto invalid_key = -1;
+    int table_id;
+    int key;
+    int record_index;
+
+    LockHash();
+    LockHash(int table_id, int key, int record_index);
+
+    bool operator<(const LockHash& rhs) const;
+    bool operator==(const LockHash& rhs) const;
+};
+
 struct lock_t
 {
-    int table_id;
-    int64_t key;
+    LockHash hash;
     std::atomic<bool> locked;
     std::atomic<LockMode> lockMode;
     std::atomic<LockState> state;
     int ownerTransactionID;
 
-    lock_t(int table_id, int64_t key, LockMode lockMode, int ownerTransactionID);
+    lock_t(LockHash hash, LockMode lockMode, int ownerTransactionID);
 
     bool wait() const;
     void signal();
@@ -46,20 +60,6 @@ struct LockList
     LockList(const LockList& rhs);
 };
 
-struct LockHash
-{
-    static constexpr auto invalid_table_id = -1;
-    static constexpr auto invalid_key = -1;
-    int table_id;
-    int64_t key;
-
-    LockHash();
-    LockHash(int table_id, int64_t key);
-
-    bool operator<(const LockHash& rhs) const;
-    bool operator==(const LockHash& rhs) const;
-};
-
 class LockManager
 {
  public:
@@ -68,7 +68,7 @@ class LockManager
         static LockManager lockManager;
         return lockManager;
     }
-    std::shared_ptr<lock_t> lock_acquire(int table_id, int64_t key, int trx_id,
+    std::shared_ptr<lock_t> lock_acquire(int table_id, int key, int record_index, int trx_id,
                                          LockMode mode);
     bool lock_release(std::shared_ptr<lock_t> lock_obj);
     const std::map<LockHash, LockList>& get_table() const;

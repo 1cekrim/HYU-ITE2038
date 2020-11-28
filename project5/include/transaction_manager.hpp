@@ -45,7 +45,7 @@ class TransactionManager
     bool abort(int transaction_id);
     void reset();
 
-    bool lock_acquire(int table_id, int32_t , int trx_id, LockMode mode);
+    bool lock_acquire(int table_id, int key, int record_index, int trx_id, LockMode mode);
 
     static constexpr int invliad_transaction_id = 0;
 

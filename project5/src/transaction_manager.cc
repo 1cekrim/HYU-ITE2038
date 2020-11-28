@@ -1,6 +1,7 @@
 #include "transaction_manager.hpp"
 
 #include "logger.hpp"
+#include <algorithm>
 
 int TransactionManager::begin()
 {
@@ -20,6 +21,56 @@ int TransactionManager::begin()
 Transaction& TransactionManager::get(int transaction_id)
 {
     return transactions[transaction_id];
+}
+
+bool TransactionManager::lock_acquire(int table_id, int key, int record_index,
+                                      int trx_id, LockMode mode)
+{
+    std::unique_lock<std::mutex> crit {mtx};
+    LockHash hash {table_id, key, record_index};
+    
+    auto transaction = transactions.find(trx_id);
+    if (transaction == transactions.end())
+    {
+        return false;
+    }
+
+    auto& locks = transaction->second.locks;
+    auto& state = transaction->second.state;
+    if (auto it = std::find_if(locks.begin(), locks.end(), [&hash](auto& t){
+        return std::get<0>(t) == hash;
+    }); it != locks.end())
+    {
+        auto& lock = std::get<1>(*it);
+        if (mode != LockMode::EXCLUSIVE || lock->lockMode != LockMode::SHARED)
+        {
+            return true;
+        }
+
+        CHECK(LockManager::instance().lock_release(lock));
+        auto new_lock = LockManager::instance().lock_acquire(table_id, key, record_index, trx_id, mode);
+
+        if (state == TransactionState::RUNNING)
+        {
+            lock = new_lock;
+        }
+
+        CHECK(state == TransactionState::ABORTED);
+
+        return false;
+    }
+
+    auto new_lock = LockManager::instance().lock_acquire(table_id, key, record_index, trx_id, mode);
+
+    if (state == TransactionState::RUNNING)
+    {
+        locks.emplace_back(hash, new_lock);
+        return true;
+    }
+
+    CHECK(state == TransactionState::ABORTED);
+
+    return false;
 }
 
 bool TransactionManager::abort(int transaction_id)
@@ -51,14 +102,13 @@ Transaction::Transaction() : transactionID(-1)
     // Do nothing
 }
 
-Transaction::Transaction(int id) : transactionID(id)
+Transaction::Transaction(int id) : transactionID(id), state(TransactionState::RUNNING)
 {
     // Do nothing
 }
 
 Transaction::Transaction(const Transaction& rhs)
-    : transactionID(rhs.transactionID),
-      state(rhs.state.load())
+    : transactionID(rhs.transactionID), state(rhs.state.load())
 {
     // Do nothing
 }

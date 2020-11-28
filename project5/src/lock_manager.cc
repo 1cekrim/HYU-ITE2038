@@ -2,20 +2,21 @@
 
 #include <algorithm>
 #include <iostream>
+#include <queue>
 #include <set>
 #include <thread>
 #include <vector>
-#include <queue>
 
 #include "logger.hpp"
 #include "transaction_manager.hpp"
 
-LockHash::LockHash() : LockHash(invalid_table_id, invalid_key)
+LockHash::LockHash() : LockHash(invalid_table_id, invalid_key, invalid_key)
 {
     // Do nothing
 }
 
-LockHash::LockHash(int table_id, int64_t key) : table_id(table_id), key(key)
+LockHash::LockHash(int table_id, int key, int record_index)
+    : table_id(table_id), key(key), record_index(record_index)
 {
     // Do nothing
 }
@@ -23,18 +24,21 @@ LockHash::LockHash(int table_id, int64_t key) : table_id(table_id), key(key)
 bool LockHash::operator<(const LockHash& rhs) const
 {
     return table_id < rhs.table_id ||
-           (table_id == rhs.table_id && key < rhs.key);
+           (table_id == rhs.table_id && key < rhs.key) ||
+           (table_id == rhs.table_id && key == rhs.key &&
+            record_index < rhs.record_index);
 }
 bool LockHash::operator==(const LockHash& rhs) const
 {
-    return table_id == rhs.table_id && key == rhs.key;
+    return table_id == rhs.table_id && key == rhs.key &&
+           record_index == rhs.record_index;
 }
 
-std::shared_ptr<lock_t> LockManager::lock_acquire(int table_id, int64_t key,
+std::shared_ptr<lock_t> LockManager::lock_acquire(int table_id, int key, int record_index,
                                                   int trx_id, LockMode mode)
 {
-    auto lock = std::make_shared<lock_t>(table_id, key, mode, trx_id);
-    LockHash hash{ table_id, key };
+    auto lock = std::make_shared<lock_t>(LockHash(table_id, key, record_index), mode, trx_id);
+    LockHash hash{ table_id, key, record_index};
     if (!lock)
     {
         return nullptr;
@@ -123,7 +127,8 @@ bool LockManager::deadlock_detection(int now_transaction_id)
 
         for (const auto next : graph[now])
         {
-            if (std::find(visited.begin(), visited.end(), next) != visited.end())
+            if (std::find(visited.begin(), visited.end(), next) !=
+                visited.end())
             {
                 // Deadlock detected!
                 return true;
@@ -179,7 +184,6 @@ bool LockManager::deadlock_detection(int now_transaction_id)
     //     const auto& next = std::get<next_graph>(node.second);
     //     const auto& prev = std::get<prev_graph>(node.second);
 
-        
     // }
 
     // if constexpr (true)
@@ -208,9 +212,8 @@ bool LockManager::lock_release(std::shared_ptr<lock_t> lock_obj)
 {
     {
         std::unique_lock<std::mutex> crit{ mtx };
-        int table_id = lock_obj->table_id;
-        int64_t key = lock_obj->key;
-        LockHash hash{ table_id, key };
+        LockHash hash = lock_obj->hash;
+
         auto& lockList = lock_table[hash];
         auto& table = lockList.locks;
 
@@ -286,10 +289,9 @@ void LockManager::reset()
     lock_table.clear();
 }
 
-lock_t::lock_t(int table_id, int64_t key, LockMode lockMode,
+lock_t::lock_t(LockHash hash, LockMode lockMode,
                int ownerTransactionID)
-    : table_id(table_id),
-      key(key),
+    : hash(hash),
       locked(false),
       lockMode(lockMode),
       ownerTransactionID(ownerTransactionID)
