@@ -30,7 +30,7 @@ int db_insert(int table_id, int64_t key, char* value)
     return TableManager::instance().insert(table_id, key, val) ? 0 : -1;
 }
 
-int db_find(int table_id, int64_t key, char* ret_val)
+int db_find(int table_id, int64_t key, char* ret_val, int trx_id)
 {
     record_t record;
     if (!TableManager::instance().find(table_id, key, record))
@@ -51,6 +51,18 @@ int db_find(int table_id, int64_t key, char* ret_val)
     return 0;
 }
 
+int db_update(int table_id, int64_t key, char* values, int trx_id)
+{
+    record_t record;
+    if (!TableManager::instance().find(table_id, key, record))
+    {
+        return -1;
+    }
+
+    TableManager::char_to_valType(record.value, values);
+    return TableManager::instance().update(table_id, key, record.value) ? 0 : 1;
+}
+
 int db_delete(int table_id, int64_t key)
 {
     return TableManager::instance().delete_key(table_id, key) ? 0 : -1;
@@ -64,5 +76,15 @@ int close_table(int table_id)
 int shutdown_db()
 {
     return TableManager::instance().shutdown_db() ? 0 : -1;
+}
+
+int trx_begin()
+{
+    return TransactionManager::instance().begin();
+}
+
+int trx_commit(int trx_id)
+{
+    return TransactionManager::instance().commit(trx_id) ? 0 : -1;
 }
 }

@@ -79,13 +79,13 @@ bool TableManager::insert(int table_id, keyType key, const valType& value)
     return tables[table_id]->tree.insert(key, value);
 }
 
-bool TableManager::update(int table_id, keyType key, const valType& value)
+bool TableManager::update(int table_id, keyType key, const valType& value, int trx_id)
 {
     if (!valid_table_manager || tables.find(table_id) == tables.end())
     {
         return false;
     }
-    return tables[table_id]->tree.update(key, value);
+    return tables[table_id]->tree.update(key, value, trx_id);
 }
 
 bool TableManager::delete_key(int table_id, keyType key)
@@ -97,11 +97,11 @@ bool TableManager::delete_key(int table_id, keyType key)
     return tables[table_id]->tree.delete_key(key);
 }
 
-bool TableManager::find(int table_id, keyType key, record_t& ret)
+bool TableManager::find(int table_id, keyType key, record_t& ret, int trx_id)
 {
     if (!valid_table_manager || tables.find(table_id) == tables.end())
     {
         return false;
     }
-    return tables[table_id]->tree.find(key, ret);
+    return tables[table_id]->tree.find(key, ret, trx_id);
 }
