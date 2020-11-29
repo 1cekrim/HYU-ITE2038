@@ -51,7 +51,7 @@ void* thread_func(void* a);
 
 int main()
 {
-    test(2, 1, 100, 10);
+    test(5, 1, 100, 100);
 }
 
 int test(int num_thread, int num_tables, int num_records, int repeat)
@@ -146,7 +146,6 @@ int test(int num_thread, int num_tables, int num_records, int repeat)
                 int key = j;
 
                 CHECK_SUCCESS(db_find(tables[k], key, ans, 0));
-                printf("%d\n", atoi(ans));
                 CHECK_FAILURE(atoi(ans) == repeat * num_thread);
             }
         }
@@ -203,12 +202,6 @@ void* thread_func(void* a)
                     goto ABORTED;
                 }
                 int after = atoi(ans);
-                printf("%d -> %d", before, after);
-                if (after != num)
-                {
-                    printf("?????");
-                }
-                puts("");
             }
             trx_commit(trx);
         }
