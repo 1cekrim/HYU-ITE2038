@@ -2,6 +2,7 @@
 #define __LOCK_MANAGER_HPP__
 
 #include <atomic>
+#include <iostream>
 #include <list>
 #include <map>
 #include <memory>
@@ -57,6 +58,29 @@ struct LockList
     std::atomic<int> acquire_count;
     LockList();
     LockList(const LockList& rhs);
+
+    void print() const
+    {
+        std::cout << "acquire: " << acquire_count << ", wait: " << wait_count
+                  << std::endl;
+        for (auto& it : locks)
+        {
+            if (it->lockMode == LockMode::EXCLUSIVE)
+            {
+                std::cout << "X";
+            }
+            else
+            {
+                std::cout << "S";
+            }
+            if (it->state == LockState::ACQUIRED)
+            {
+                std::cout << "!";
+            }
+            std::cout << it->ownerTransactionID << " ";
+        }
+        std::cout << std::endl;
+    }
 };
 
 class LockManager
@@ -70,7 +94,8 @@ class LockManager
     std::shared_ptr<lock_t> lock_acquire(int table_id, int64_t key, int trx_id,
                                          LockMode mode);
     bool lock_release(std::shared_ptr<lock_t> lock_obj);
-    std::shared_ptr<lock_t> lock_upgrade(int table_id, int64_t key, int trx_id, LockMode mode);
+    std::shared_ptr<lock_t> lock_upgrade(int table_id, int64_t key, int trx_id,
+                                         LockMode mode);
     const std::map<LockHash, LockList>& get_table() const;
     bool deadlock_detection(int now_transaction_id);
 
