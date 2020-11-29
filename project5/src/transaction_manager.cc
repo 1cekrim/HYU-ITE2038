@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <iostream>
 #include "logger.hpp"
+#include "log_manager.hpp"
 
 int TransactionManager::begin()
 {
@@ -15,7 +16,7 @@ int TransactionManager::begin()
     }
 
     transactions.emplace(id, Transaction(id));
-
+    LogManager::instance().log(id, LogType::BEGIN);
     return id;
 }
 

@@ -40,6 +40,8 @@ class LogManager
     int log(int transaction_id, LogType type, LockHash hash,
             const Record& before, const Record& after);
 
+    int log(int transaction_id, LogType type);
+
     std::vector<LogStruct> trace_log(int transaction_id);
 
     static constexpr auto invalid_log_number = -1;

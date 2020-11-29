@@ -33,6 +33,7 @@ void TEST_TABLE();
 void TEST_MULTITHREADING();
 void TEST_LOCK();
 void TEST_TRANSACTION();
+void TEST_LOG();
 
 int main()
 {
@@ -47,11 +48,11 @@ int main()
     // };
 
     void (*tests[])() = {
-        TEST_LOCK, TEST_TRANSACTION
+        TEST_LOCK, TEST_TRANSACTION, TEST_LOG
     };
 
     std::string testNames[] = {
-        "test lock", "test transaction"
+        "test lock", "test transaction", "test log"
     };
 
     for (int i = 0;
@@ -68,6 +69,15 @@ int main()
     std::cout << "\n[Tests are over] success: " << allSuccess << " / " << allCnt
               << "\n";
     return 0;
+}
+
+void TEST_LOG()
+{
+    TEST("log")
+    {
+        
+    }
+    END()
 }
 
 void TEST_TRANSACTION()
