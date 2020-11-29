@@ -73,14 +73,30 @@ int main()
 
 void TEST_LOG()
 {
-    TEST("log")
+    TEST("begin commit")
     {
         LogManager::instance().reset();
         LockManager::instance().reset();
         TransactionManager::instance().reset();
 
         int trans_id1 = TransactionManager::instance().begin();
-        int trans_id2 = TransactionManager::instance().begin();
+        CHECK_TRUE(TransactionManager::instance().commit(trans_id1));
+        auto log = LogManager::instance().trace_log(trans_id1);
+        CHECK_VALUE(log.size(), 2);
+        CHECK_TRUE(log[0].transaction == trans_id1);
+        CHECK_TRUE(log[0].type == LogType::COMMIT);
+        CHECK_TRUE(log[1].transaction == trans_id1);
+        CHECK_TRUE(log[1].type == LogType::BEGIN);
+    }
+    END()
+
+    TEST("rollback test")
+    {
+        LogManager::instance().reset();
+        LockManager::instance().reset();
+        TransactionManager::instance().reset();
+
+        TableManager
     }
     END()
 }

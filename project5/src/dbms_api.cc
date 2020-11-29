@@ -2,12 +2,18 @@
 
 #include <cstdio>
 
+#include "lock_manager.hpp"
+#include "log_manager.hpp"
 #include "table_manager.hpp"
+#include "transaction_manager.hpp"
 
 extern "C" {
 
 int init_db(int buf_num)
 {
+    LockManager::instance().reset();
+    TransactionManager::instance().reset();
+    LogManager::instance().reset();
     return TableManager::instance().init_db(buf_num) ? 0 : -1;
 }
 
@@ -32,7 +38,7 @@ int db_find(int table_id, int64_t key, char* ret_val)
         return -1;
     }
 
-     for (int i = 0; i < value_size; ++i)
+    for (int i = 0; i < value_size; ++i)
     {
         if (!record.value[i])
         {

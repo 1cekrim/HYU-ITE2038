@@ -27,6 +27,9 @@ struct LogStruct
     LockHash hash;
     Record before;
     Record after;
+    LogStruct(int prev_number, int number, int transaction, LogType type,
+              const LockHash& hash, const Record& before, const Record& after);
+    LogStruct(int prev_number, int number, int transaction, LogType type);
 };
 
 class LogManager

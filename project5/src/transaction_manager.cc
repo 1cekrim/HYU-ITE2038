@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <iostream>
 #include "logger.hpp"
+#include "table_manager.hpp"
 #include "log_manager.hpp"
 
 int TransactionManager::begin()
@@ -178,6 +179,15 @@ bool Transaction::abort()
 {
     std::unique_lock<std::mutex> crit(mtx);
     state = TransactionState::ABORTED;
+
+    auto logs = LogManager::instance().trace_log(transactionID);
+    for (const auto& log : logs)
+    {
+        if (log.type == LogType::UPDATE)
+        {
+            TableManager::instance().update(log.hash.table_id, log.hash.key, log.before.value);
+        }
+    }
     // log undo
     return lock_release();
 }
