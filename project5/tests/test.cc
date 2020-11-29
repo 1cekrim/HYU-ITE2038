@@ -96,7 +96,100 @@ void TEST_LOG()
         LockManager::instance().reset();
         TransactionManager::instance().reset();
 
-        TableManager
+        TableManager::instance().init_db(100);
+        auto id = TableManager::instance().open_table("rollback.db");
+
+        constexpr auto num_records = 10000;
+
+        for (int i = 0; i < num_records; ++i)
+        {
+            valType v;
+            std::stringstream ss;
+            ss << "test insert " << i;
+            TableManager::char_to_valType(v, ss.str().c_str());
+            CHECK_TRUE(TableManager::instance().insert(id, i, v));
+        }
+
+        auto trx = TransactionManager::instance().begin();
+        for (int i = 0; i < num_records; ++i)
+        {
+            std::stringstream ss;
+            ss << "test insert " << i;
+            record_t record;
+            CHECK_TRUE(TableManager::instance().find(id, i, record, trx));
+            CHECK_VALUE(record.key, i);
+            std::string result(std::begin(record.value),
+                                std::end(record.value));
+            result = std::string(
+                std::begin(result),
+                std::begin(result) + std::strlen(result.c_str()));
+            CHECK_VALUE(ss.str(), result);
+        }
+
+        for (int i = 0; i < num_records; ++i)
+        {
+            valType v;
+            std::stringstream ss;
+            ss << "test update " << i;
+            TableManager::char_to_valType(v, ss.str().c_str());
+            CHECK_TRUE(TableManager::instance().update(id, i, v, trx));
+        }
+
+        for (int i = 0; i < num_records; ++i)
+        {
+            std::stringstream ss;
+            ss << "test update " << i;
+            record_t record;
+            CHECK_TRUE(TableManager::instance().find(id, i, record, trx));
+            CHECK_VALUE(record.key, i);
+            std::string result(std::begin(record.value),
+                                std::end(record.value));
+            result = std::string(
+                std::begin(result),
+                std::begin(result) + std::strlen(result.c_str()));
+            CHECK_VALUE(ss.str(), result);
+        }
+
+        for (int i = 0; i < num_records; ++i)
+        {
+            valType v;
+            std::stringstream ss;
+            ss << "test update2 " << i;
+            TableManager::char_to_valType(v, ss.str().c_str());
+            CHECK_TRUE(TableManager::instance().update(id, i, v, trx));
+        }
+
+        for (int i = 0; i < num_records; ++i)
+        {
+            std::stringstream ss;
+            ss << "test update2 " << i;
+            record_t record;
+            CHECK_TRUE(TableManager::instance().find(id, i, record, trx));
+            CHECK_VALUE(record.key, i);
+            std::string result(std::begin(record.value),
+                                std::end(record.value));
+            result = std::string(
+                std::begin(result),
+                std::begin(result) + std::strlen(result.c_str()));
+            CHECK_VALUE(ss.str(), result);
+        }
+
+        CHECK_TRUE(TransactionManager::instance().abort(trx));
+
+        for (int i = 0; i < num_records; ++i)
+        {
+            std::stringstream ss;
+            ss << "test insert " << i;
+            record_t record;
+            CHECK_TRUE(TableManager::instance().find(id, i, record, trx));
+            CHECK_VALUE(record.key, i);
+            std::string result(std::begin(record.value),
+                                std::end(record.value));
+            result = std::string(
+                std::begin(result),
+                std::begin(result) + std::strlen(result.c_str()));
+            CHECK_VALUE(ss.str(), result);
+        }
     }
     END()
 }

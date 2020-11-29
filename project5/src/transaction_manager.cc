@@ -179,7 +179,6 @@ bool Transaction::abort()
 {
     std::unique_lock<std::mutex> crit(mtx);
     state = TransactionState::ABORTED;
-
     auto logs = LogManager::instance().trace_log(transactionID);
     for (const auto& log : logs)
     {

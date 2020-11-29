@@ -22,7 +22,7 @@ TEST_OBJ:=$(TEST_SRC:.cc=.o)
 SRCS_FOR_LIB:=$(wildcard src/*.cc)
 OBJS_FOR_LIB:=$(SRCS_FOR_LIB:.cc=.o)
 
-CFLAGS+= -g -fPIC -I $(MAIN_INC)
+CFLAGS+= -g -fPIC -I $(MAIN_INC) -pthread
 CPPFLAGS+= -g -std=c++17 -fPIC -I $(INC) -Wall -Werror -pthread
 
 TARGET=main

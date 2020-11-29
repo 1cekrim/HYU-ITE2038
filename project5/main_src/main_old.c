@@ -8,29 +8,29 @@
 
 // int test(int, int, int, int, int);
 
-// #define CHECK_SUCCESS(expression)            \
-//     if ((expression))                        \
-//     {                                        \
-//         printf("[(" #expression " != 0]\n"); \
-//         return -1;                           \
-//     }
+#define CHECK_SUCCESS(expression)            \
+    if ((expression))                        \
+    {                                        \
+        printf("[(" #expression " != 0]\n"); \
+        return -1;                           \
+    }
 
-// #define CHECK_FAILURE(expression)            \
-//     if (!(expression))                       \
-//     {                                        \
-//         printf("[(" #expression " == 0]\n"); \
-//         return -1;                           \
-//     }
+#define CHECK_FAILURE(expression)            \
+    if (!(expression))                       \
+    {                                        \
+        printf("[(" #expression " == 0]\n"); \
+        return -1;                           \
+    }
 
-// #define DO_TEST(expression)     \
-//     if ((expression))           \
-//     {                           \
-//         puts("[TEST SUCCESS]"); \
-//     }                           \
-//     else                        \
-//     {                           \
-//         puts("[TEST FAILED]");  \
-//     }
+#define DO_TEST(expression)     \
+    if ((expression))           \
+    {                           \
+        puts("[TEST SUCCESS]"); \
+    }                           \
+    else                        \
+    {                           \
+        puts("[TEST FAILED]");  \
+    }
 
 // int main()
 // {

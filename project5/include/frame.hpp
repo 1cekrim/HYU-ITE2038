@@ -7,6 +7,7 @@
 #include <functional>
 #include <iostream>
 #include <memory>
+#include <mutex>
 
 #include "page.hpp"
 
@@ -21,6 +22,7 @@ struct frame_t : public page_t
     int next;
     int prev;
     bool is_dirty;
+    std::recursive_mutex mtx;
 
     void print_frame()
     {
@@ -30,30 +32,39 @@ struct frame_t : public page_t
                   << "\nprev: " << prev << '\n';
     }
 
+    void copy_without_mtx(frame_t& rhs)
+    {
+        rhs.pagenum = pagenum;
+        rhs.file_id = file_id;
+        rhs.pin = pin;
+        rhs.next = next;
+        rhs.prev = prev;
+        rhs.is_dirty = is_dirty;
+        rhs.change_page(*this);
+    }
+
     void change_page(const frame_t& frame)
     {
-        const auto tpagenum = pagenum;
-        const auto tfile_id = file_id;
-        const auto tpin = pin;
-        const auto tnext = next;
-        const auto tprev = prev;
-        const auto tis_dirty = is_dirty;
-        *this = frame;
-        pagenum = tpagenum;
-        file_id = tfile_id;
-        pin = tpin;
-        next = tnext;
-        prev = tprev;
-        is_dirty = tis_dirty;
+        this->header = frame.header;
+        this->entry = frame.entry;
     }
 
     void retain()
     {
+        if (pin == 0)
+        {
+            mtx.lock();
+        }
+        else
+        {
+            std::cout << "!!!" << std::endl;
+        }
         ++pin;
     }
 
     void release()
     {
+        mtx.unlock();
         --pin;
     }
 

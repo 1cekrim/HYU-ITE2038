@@ -55,6 +55,7 @@ int TableManager::open_table(const std::string& name)
     }
     tables[id] = std::make_unique<table_t>();
     tables[id]->table_id = id;
+    tables[id]->tree.set_table(id);
     CHECK_WITH_LOG(tables[id]->tree.open_table(name), INVALID_TABLE_ID,
                    "open table failure: %s", name.c_str());
     return id;

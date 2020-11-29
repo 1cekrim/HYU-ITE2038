@@ -174,7 +174,8 @@ int BufferController::get(int file_id, pagenum_t pagenum, frame_t& frame)
                    "Buffer load failure. file: %d / pagenum: %ld", file_id,
                    pagenum);
     auto& buffer_frame = (*buffer)[index];
-    frame = buffer_frame;
+    // frame = buffer_frame;
+    buffer_frame.copy_without_mtx(frame);
 
     CHECK_RET(update_recently_used(index, buffer_frame, true), INVALID_BUFFER_INDEX);
 

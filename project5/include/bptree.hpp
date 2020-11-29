@@ -71,6 +71,7 @@ class BPTree
 {
  public:
     BPTree(bool verbose_output = VERBOSE_OUTPUT, int delayed_min = DELAYED_MIN);
+    void set_table(int table_id);
     int char_to_valType(valType& dst, const char* src) const;
     int get_table_id() const;
     bool open_table(const std::string& filename);
@@ -124,6 +125,7 @@ class BPTree
     bool start_new_tree(const record_t& rec);
     manager_t manager;
     int leaf_order;
+    int table_id;
     int internal_order;
     bool verbose_output;
     int delayed_min;
