@@ -51,14 +51,7 @@ struct frame_t : public page_t
 
     void retain()
     {
-        if (pin == 0)
-        {
-            mtx.lock();
-        }
-        else
-        {
-            std::cout << "!!!" << std::endl;
-        }
+        mtx.lock();
         ++pin;
     }
 
