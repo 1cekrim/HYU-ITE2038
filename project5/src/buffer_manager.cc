@@ -151,13 +151,11 @@ FileManager& BufferController::getFileManager(int file_id)
 
 void BufferController::release_frame(int frame_index)
 {
-    std::unique_lock<std::recursive_mutex> lock(mtx);
     buffer->at(frame_index).release();
 }
 
 void BufferController::retain_frame(int frame_index)
 {
-    std::unique_lock<std::recursive_mutex> lock(mtx);
     buffer->at(frame_index).retain();
 }
 
