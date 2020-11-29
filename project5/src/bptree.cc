@@ -75,18 +75,20 @@ bool BPTree::update(keyType key, const valType& value, int transaction_id)
         return false;
     }
 
-    node_tuple leaf;
-    CHECK(find_leaf(key, leaf));
-
-    int i = leaf.node.index_key<record_t>(key);
-    record_t before = leaf.node.records()[i];
-    leaf.node.records()[i].value = value;
-
     if (transaction_id != TransactionManager::invliad_transaction_id)
     {
         TransactionManager::instance().lock_acquire(
             get_table_id(), key, transaction_id, LockMode::EXCLUSIVE);
     }
+    node_tuple leaf;
+    CHECK(find_leaf(key, leaf));
+
+    BufferController::instance().get(manager.get_manager_id(),
+                                     leaf.node.pagenum, leaf.node);
+
+    int i = leaf.node.index_key<record_t>(key);
+    record_t before = leaf.node.records()[i];
+    leaf.node.records()[i].value = value;
 
     CHECK(commit_node(leaf));
 
@@ -517,6 +519,12 @@ bool BPTree::redistribute_nodes(node_tuple& target, node_tuple& neighbor,
 
 bool BPTree::find(keyType key, record_t& ret, int transaction_id)
 {
+    if (transaction_id != TransactionManager::invliad_transaction_id)
+    {
+        TransactionManager::instance().lock_acquire(
+            get_table_id(), key, transaction_id, LockMode::SHARED);
+    }
+    
     node_tuple leaf;
     if (!find_leaf(key, leaf))
     {
@@ -527,12 +535,6 @@ bool BPTree::find(keyType key, record_t& ret, int transaction_id)
     if (i == -1)
     {
         return false;
-    }
-
-    if (transaction_id != TransactionManager::invliad_transaction_id)
-    {
-        TransactionManager::instance().lock_acquire(
-            get_table_id(), key, transaction_id, LockMode::SHARED);
     }
 
     ret = leaf.node.get<record_t>(i);
