@@ -32,6 +32,13 @@ int LogManager::log(int transaction_id, LogType type)
     return number;
 }
 
+void LogManager::reset()
+{
+    std::unique_lock<std::mutex> crit{mtx};
+    logs.clear();
+    counter = 0;
+}
+
 std::vector<LogStruct> LogManager::trace_log(int transaction_id)
 {
     std::vector<LogStruct> result;

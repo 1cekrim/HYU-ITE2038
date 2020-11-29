@@ -107,6 +107,8 @@ bool TransactionManager::abort(int transaction_id)
     CHECK(it->second.abort());
     transactions.erase(it);
 
+    LogManager::instance().log(transaction_id, LogType::ABORT);
+
     return true;
 }
 
@@ -118,6 +120,8 @@ bool TransactionManager::commit(int id)
 
     CHECK(it->second.commit());
     transactions.erase(it);
+
+    LogManager::instance().log(id, LogType::COMMIT);
 
     return true;
 }

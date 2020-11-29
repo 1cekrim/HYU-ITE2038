@@ -74,6 +74,7 @@ bool BPTree::update(keyType key, const valType& value, int transaction_id)
     CHECK(find_leaf(key, leaf));
 
     int i = leaf.node.index_key<record_t>(key);
+    record_t before = leaf.node.records()[i];
     leaf.node.records()[i].value = value;
 
     if (transaction_id != TransactionManager::invliad_transaction_id)
@@ -86,6 +87,7 @@ bool BPTree::update(keyType key, const valType& value, int transaction_id)
     CHECK(commit_node(leaf));
 
     // update log
+    LogManager::instance().log(transaction_id, LogType::UPDATE, LockHash(get_table_id(), key), before, leaf.node.records()[i]);
 
     return true;
 }
@@ -523,6 +525,7 @@ bool BPTree::find(keyType key, record_t& ret, int transaction_id)
     }
 
     ret = leaf.node.get<record_t>(i);
+
     return true;
 }
 

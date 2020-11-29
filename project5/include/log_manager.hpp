@@ -44,6 +44,8 @@ class LogManager
 
     std::vector<LogStruct> trace_log(int transaction_id);
 
+    void reset();
+
     static constexpr auto invalid_log_number = -1;
 
  private:

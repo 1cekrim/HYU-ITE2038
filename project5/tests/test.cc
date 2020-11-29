@@ -75,7 +75,12 @@ void TEST_LOG()
 {
     TEST("log")
     {
-        
+        LogManager::instance().reset();
+        LockManager::instance().reset();
+        TransactionManager::instance().reset();
+
+        int trans_id1 = TransactionManager::instance().begin();
+        int trans_id2 = TransactionManager::instance().begin();
     }
     END()
 }
