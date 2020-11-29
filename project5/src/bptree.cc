@@ -77,8 +77,11 @@ bool BPTree::update(keyType key, const valType& value, int transaction_id)
 
     if (transaction_id != TransactionManager::invliad_transaction_id)
     {
-        TransactionManager::instance().lock_acquire(
-            get_table_id(), key, transaction_id, LockMode::EXCLUSIVE);
+        if (!TransactionManager::instance().lock_acquire(
+                get_table_id(), key, transaction_id, LockMode::EXCLUSIVE))
+        {
+            return false;
+        }
     }
     node_tuple leaf;
     CHECK(find_leaf(key, leaf));
@@ -521,10 +524,13 @@ bool BPTree::find(keyType key, record_t& ret, int transaction_id)
 {
     if (transaction_id != TransactionManager::invliad_transaction_id)
     {
-        TransactionManager::instance().lock_acquire(
-            get_table_id(), key, transaction_id, LockMode::SHARED);
+        if (!TransactionManager::instance().lock_acquire(
+                get_table_id(), key, transaction_id, LockMode::SHARED))
+        {
+            return false;
+        }
     }
-    
+
     node_tuple leaf;
     if (!find_leaf(key, leaf))
     {
