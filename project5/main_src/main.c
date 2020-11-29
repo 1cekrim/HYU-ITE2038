@@ -37,6 +37,7 @@
 // 실패할 경우 다시 시도한다.
 // 모든 스레드가 종료된 이후, 모든 record의 값이 repeat * num_thread인지
 // 확인한다.
+
 struct arg
 {
     int* tables;
@@ -51,7 +52,7 @@ void* thread_func(void* a);
 
 int main()
 {
-    test(5, 1, 100, 100);
+    test(5, 1, 20, 100);
 }
 
 int test(int num_thread, int num_tables, int num_records, int repeat)
@@ -179,32 +180,41 @@ void* thread_func(void* a)
     {
         for (int k = 0; k < num_records; ++k)
         {
-        ABORTED : {
-            int trx = trx_begin();
-            for (int j = 0; j < repeat; ++j)
+            int abort = 1;
+            while (abort)
             {
-                char ans[120];
-                int key = numbers[k];
-                if (db_find(tables[i], key, ans, trx))
+                abort = 0;
+                int trx = trx_begin();
+                for (int j = 0; j < repeat; ++j)
                 {
-                    goto ABORTED;
-                }
-                int before = atoi(ans);
-                int num = atoi(ans) + 1;
-                sprintf(ans, "%d", num);
-                if (db_update(tables[i], key, ans, trx))
-                {
-                    goto ABORTED;
-                }
+                    char ans[120];
+                    int key = numbers[k];
+                    if (db_find(tables[i], key, ans, trx))
+                    {
+                        abort = 1;
+                        break;
+                    }
+                    int before = atoi(ans);
+                    int num = atoi(ans) + 1;
+                    sprintf(ans, "%d", num);
+                    if (db_update(tables[i], key, ans, trx))
+                    {
+                        abort = 1;
+                        break;
+                    }
 
-                if (db_find(tables[i], key, ans, trx))
-                {
-                    goto ABORTED;
+                    if (db_find(tables[i], key, ans, trx))
+                    {
+                        abort = 1;
+                        break;
+                    }
+                    int after = atoi(ans);
                 }
-                int after = atoi(ans);
+                if (!abort)
+                {
+                    trx_commit(trx);
+                }
             }
-            trx_commit(trx);
-        }
         }
     }
 }
