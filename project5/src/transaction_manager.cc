@@ -2,9 +2,10 @@
 
 #include <algorithm>
 #include <iostream>
+
+#include "log_manager.hpp"
 #include "logger.hpp"
 #include "table_manager.hpp"
-#include "log_manager.hpp"
 
 int TransactionManager::begin()
 {
@@ -29,8 +30,8 @@ Transaction& TransactionManager::get(int transaction_id)
 bool TransactionManager::lock_acquire(int table_id, int64_t key, int trx_id,
                                       LockMode mode)
 {
-    std::unique_lock<std::mutex> crit{ mtx };
-    LockHash hash{ table_id, key };
+    std::unique_lock<std::mutex> crit { mtx };
+    LockHash hash { table_id, key };
 
     auto transaction = transactions.find(trx_id);
     if (transaction == transactions.end())
@@ -40,9 +41,10 @@ bool TransactionManager::lock_acquire(int table_id, int64_t key, int trx_id,
 
     auto& locks = transaction->second.locks;
     auto& state = transaction->second.state;
-    if (auto count =
-            std::count_if(locks.begin(), locks.end(),
-                          [&hash](auto& t) { return std::get<0>(t) == hash; });
+    if (auto count = std::count_if(locks.begin(), locks.end(),
+                                   [&hash](auto& t) {
+                                       return std::get<0>(t) == hash;
+                                   });
         count > 0)
     {
         CHECK(count == 1 || count == 2);
@@ -71,16 +73,15 @@ bool TransactionManager::lock_acquire(int table_id, int64_t key, int trx_id,
             LockManager::instance().lock_upgrade(table_id, key, trx_id, mode);
         crit.lock();
 
-        if (state == TransactionState::RUNNING)
+        if (state == TransactionState::ABORTED)
         {
-            CHECK(xlock != nullptr);
-            locks.emplace_back(hash, xlock);
-            return true;
+            return false;
         }
 
-        CHECK(state == TransactionState::ABORTED);
+        CHECK(xlock != nullptr);
+        locks.emplace_back(hash, xlock);
 
-        return false;
+        return true;
     }
 
     crit.unlock();
@@ -117,7 +118,7 @@ bool TransactionManager::commit(int id)
 {
     std::unique_lock<std::mutex> lock(mtx);
     auto it = transactions.find(id);
-    CHECK(it != transactions.end());
+    CHECK_WITH_LOG(it != transactions.end(), false, "trx id: %d", id);
 
     CHECK(it->second.commit());
     transactions.erase(it);
@@ -146,13 +147,15 @@ Transaction::Transaction() : transactionID(-1)
 }
 
 Transaction::Transaction(int id)
-    : transactionID(id), state(TransactionState::RUNNING)
+    : transactionID(id),
+      state(TransactionState::RUNNING)
 {
     // Do nothing
 }
 
 Transaction::Transaction(const Transaction& rhs)
-    : transactionID(rhs.transactionID), state(rhs.state.load())
+    : transactionID(rhs.transactionID),
+      state(rhs.state.load())
 {
     // Do nothing
 }
@@ -184,7 +187,8 @@ bool Transaction::abort()
     {
         if (log.type == LogType::UPDATE)
         {
-            TableManager::instance().update(log.hash.table_id, log.hash.key, log.before.value);
+            TableManager::instance().update(log.hash.table_id, log.hash.key,
+                                            log.before.value);
         }
     }
     // log undo
