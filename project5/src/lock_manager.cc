@@ -34,14 +34,14 @@ std::shared_ptr<lock_t> LockManager::lock_acquire(int table_id, int64_t key,
                                                   int trx_id, LockMode mode)
 {
     auto lock = std::make_shared<lock_t>(LockHash(table_id, key), mode, trx_id);
-    LockHash hash{ table_id, key };
+    LockHash hash { table_id, key };
     if (!lock)
     {
         return nullptr;
     }
 
     {
-        std::unique_lock<std::mutex> crit{ mtx };
+        std::unique_lock<std::mutex> crit { mtx };
         if (auto it = lock_table.find(hash);
             it == lock_table.end() || (it->second.mode == LockMode::SHARED &&
                                        lock->lockMode == LockMode::SHARED))
@@ -81,7 +81,6 @@ std::shared_ptr<lock_t> LockManager::lock_acquire(int table_id, int64_t key,
         TransactionManager::instance().abort(trx_id);
         return nullptr;
     }
-
     while (lock->wait())
     {
         std::this_thread::yield();
@@ -95,14 +94,14 @@ std::shared_ptr<lock_t> LockManager::lock_upgrade(int table_id, int64_t key,
 {
     CHECK_RET(mode == LockMode::EXCLUSIVE, nullptr);
     auto lock = std::make_shared<lock_t>(LockHash(table_id, key), mode, trx_id);
-    LockHash hash{ table_id, key };
+    LockHash hash { table_id, key };
     if (!lock)
     {
         return nullptr;
     }
 
     {
-        std::unique_lock<std::mutex> crit{ mtx };
+        std::unique_lock<std::mutex> crit { mtx };
         auto locklist_it = lock_table.find(hash);
         /*
         lock_upgrade는, SLock을 획득한 트랜잭션이 XLock을 획득하려 할 때
@@ -153,12 +152,18 @@ std::shared_ptr<lock_t> LockManager::lock_upgrade(int table_id, int64_t key,
         ++lock_list.wait_count;
     }
 
+    // if (deadlock_detection(trx_id))
+    // {
+    //     TransactionManager::instance().abort(trx_id);
+    //     return nullptr;
+    // }
+
     if (deadlock_detection(trx_id))
     {
         TransactionManager::instance().abort(trx_id);
+        lock_release(lock);
         return nullptr;
     }
-
     while (lock->wait())
     {
         std::this_thread::yield();
@@ -169,7 +174,7 @@ std::shared_ptr<lock_t> LockManager::lock_upgrade(int table_id, int64_t key,
 
 bool LockManager::deadlock_detection(int now_transaction_id)
 {
-    std::unique_lock<std::mutex> crit{ mtx };
+    std::unique_lock<std::mutex> crit { mtx };
 
     std::unordered_map<int, std::set<int>> graph;
 
@@ -203,7 +208,6 @@ bool LockManager::deadlock_detection(int now_transaction_id)
     {
         int now = q.front();
         q.pop();
-
         for (const auto next : graph[now])
         {
             if (std::find(visited.begin(), visited.end(), next) !=
@@ -238,15 +242,16 @@ bool LockManager::deadlock_detection(int now_transaction_id)
 bool LockManager::lock_release(std::shared_ptr<lock_t> lock_obj)
 {
     {
-        std::unique_lock<std::mutex> crit{ mtx };
+        std::unique_lock<std::mutex> crit { mtx };
         LockHash hash = lock_obj->hash;
 
         auto& lockList = lock_table[hash];
         auto& table = lockList.locks;
 
-        auto iter = std::find_if(
-            table.begin(), table.end(),
-            [lock_obj](auto& p) { return p.get() == lock_obj.get(); });
+        auto iter =
+            std::find_if(table.begin(), table.end(), [lock_obj](auto& p) {
+                return p.get() == lock_obj.get();
+            });
 
         CHECK(iter != table.end());
 
@@ -258,7 +263,6 @@ bool LockManager::lock_release(std::shared_ptr<lock_t> lock_obj)
         {
             // wait 중인걸 그냥 lock_release 해도 되나?
             // TODO: abort 될때 처리...
-            exit(-1);
             --lockList.wait_count;
         }
         table.erase(iter);
