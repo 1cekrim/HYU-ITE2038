@@ -118,7 +118,10 @@ bool TransactionManager::commit(int id)
 {
     std::unique_lock<std::mutex> lock(mtx);
     auto it = transactions.find(id);
-    CHECK_WITH_LOG(it != transactions.end(), false, "trx id: %d", id);
+    if (it != transactions.end())
+    {
+        return true;
+    }
 
     CHECK(it->second.commit());
     transactions.erase(it);
