@@ -68,6 +68,7 @@ bool TransactionManager::lock_acquire(int table_id, int64_t key, int trx_id,
         획득하려 시도한다는 의미다. 이 경우 LockManager의 lock_upgrade 메소드를
         통해 XLock을 추가해 준다.
         */
+    //    std::cout << "lock_upgrade\n";
         crit.unlock();
         auto xlock =
             LockManager::instance().lock_upgrade(table_id, key, trx_id, mode);
@@ -79,6 +80,7 @@ bool TransactionManager::lock_acquire(int table_id, int64_t key, int trx_id,
         }
 
         CHECK(xlock != nullptr);
+        // std::cout << "xlock emplaced " << trx_id << "\n";
         locks.emplace_back(hash, xlock);
 
         return true;
@@ -89,15 +91,16 @@ bool TransactionManager::lock_acquire(int table_id, int64_t key, int trx_id,
         LockManager::instance().lock_acquire(table_id, key, trx_id, mode);
     crit.lock();
 
-    if (state == TransactionState::RUNNING)
+    if(state == TransactionState::ABORTED)
     {
-        locks.emplace_back(hash, new_lock);
-        return true;
+        return false;
     }
 
-    CHECK(state == TransactionState::ABORTED);
+    locks.emplace_back(hash, new_lock);
+    
+    // std::cout << "lock emplaced " << trx_id << "\n";
 
-    return false;
+    return true;
 }
 
 bool TransactionManager::abort(int transaction_id)
@@ -118,7 +121,7 @@ bool TransactionManager::commit(int id)
 {
     std::unique_lock<std::mutex> lock(mtx);
     auto it = transactions.find(id);
-    if (it != transactions.end())
+    if (it == transactions.end())
     {
         return true;
     }
@@ -172,6 +175,7 @@ bool Transaction::commit()
 
 bool Transaction::lock_release()
 {
+    // std::cout << "trax lease " << transactionID << " " << locks.size() << '\n';
     for (auto& it : locks)
     {
         CHECK(LockManager::instance().lock_release(std::get<1>(it)));
@@ -186,6 +190,7 @@ bool Transaction::abort()
     std::unique_lock<std::mutex> crit(mtx);
     state = TransactionState::ABORTED;
     auto logs = LogManager::instance().trace_log(transactionID);
+    // std::cout << "abort: " << transactionID << '\n';
     for (const auto& log : logs)
     {
         if (log.type == LogType::UPDATE)

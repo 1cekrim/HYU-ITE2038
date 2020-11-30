@@ -855,7 +855,6 @@ void TEST_TABLE()
             }
             std::cout << "\n";
 
-            exit(-1);
         }
 
         TEST("shutdown db")
