@@ -170,24 +170,6 @@ void BufferController::retain_frame(int frame_index)
 
 bool BufferController::get(int file_id, pagenum_t pagenum, std::function<void(const page_t&)> func)
 {
-    // std::unique_lock<std::recursive_mutex> lock(mtx);
-    // int index = find(file_id, pagenum);
-    // if (index == INVALID_BUFFER_INDEX)
-    // {
-    //     index = load(file_id, pagenum);
-    // }
-
-    // CHECK_WITH_LOG(index != INVALID_BUFFER_INDEX, INVALID_BUFFER_INDEX,
-    //                "Buffer load failure. file: %d / pagenum: %ld", file_id,
-    //                pagenum);
-    // auto& buffer_frame = (*buffer)[index];
-    // // frame = buffer_frame;
-    // buffer_frame.copy_without_mtx(frame);
-
-    // CHECK_RET(update_recently_used(index, buffer_frame, true), INVALID_BUFFER_INDEX);
-
-    // return index;
-
     std::unique_lock<std::recursive_mutex> lock(mtx);
     int index = find(file_id, pagenum);
     if (index == INVALID_BUFFER_INDEX)
@@ -200,10 +182,6 @@ bool BufferController::get(int file_id, pagenum_t pagenum, std::function<void(co
                    pagenum);
     auto& buffer_frame = (*buffer)[index];
     buffer_frame.retain();
-    if (index == 0x189c && buffer_frame.parent() == 6300)
-    {
-        buffer_frame.print_frame();
-    }
     func(buffer_frame);
     CHECK_RET(update_recently_used(index, buffer_frame, true), INVALID_BUFFER_INDEX);
     buffer_frame.release();
@@ -213,23 +191,6 @@ bool BufferController::get(int file_id, pagenum_t pagenum, std::function<void(co
 
 bool BufferController::put(int file_id, pagenum_t pagenum, std::function<void(page_t&)> func)
 {
-    // std::unique_lock<std::recursive_mutex> lock(mtx);
-    // int index = find(file_id, pagenum);
-    // if (index == INVALID_BUFFER_INDEX)
-    // {
-    //     index = load(file_id, pagenum);
-    // }
-    // CHECK_WITH_LOG(index != INVALID_BUFFER_INDEX, false,
-    //                "Buffer load failure. file: %d / pagenum: %ld", file_id,
-    //                pagenum);
-    // auto& buffer_frame = (*buffer)[index];
-
-    // // 지금은 병렬 x
-    // buffer_frame.change_page(frame);
-    // buffer_frame.is_dirty = true;
-
-    // CHECK(update_recently_used(index, buffer_frame, true));
-
     std::unique_lock<std::recursive_mutex> lock(mtx);
     int index = find(file_id, pagenum);
     if (index == INVALID_BUFFER_INDEX)
@@ -242,16 +203,8 @@ bool BufferController::put(int file_id, pagenum_t pagenum, std::function<void(pa
                    pagenum);
     auto& buffer_frame = (*buffer)[index];
     buffer_frame.retain();
-    if (index == 0x189c && buffer_frame.parent() == 6300)
-    {
-        buffer_frame.print_frame();
-    }
     func(buffer_frame);
     CHECK_RET(update_recently_used(index, buffer_frame, true), INVALID_BUFFER_INDEX);
-    if (buffer_frame.pagenum >= 0x10000)
-    {
-        std::cout << buffer_frame.pagenum << '\n';
-    }
     buffer_frame.is_dirty = true;
     buffer_frame.release();
 

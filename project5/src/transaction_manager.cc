@@ -24,6 +24,8 @@ int TransactionManager::begin()
 
 Transaction& TransactionManager::get(int transaction_id)
 {
+    static std::mutex mmm;
+    std::unique_lock<std::mutex> lock(mmm);
     return transactions[transaction_id];
 }
 

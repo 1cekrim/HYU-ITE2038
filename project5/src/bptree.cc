@@ -170,10 +170,6 @@ bool BPTree::insert_into_parent(node_tuple& left, keyType key,
 
     int left_index;
 
-    if (key == 0xe80)
-    {
-        std::cout << "e80";
-    }
     CHECK(load_node(parent.id, [&](const page_t& page) {
         parent.node = page;
         left_index = get_left_index(page, left.id);
@@ -260,12 +256,6 @@ bool BPTree::insert_into_new_root(node_tuple& left, keyType key,
 bool BPTree::insert_into_node(node_tuple& parent, int left_index, keyType key,
                               node_tuple& right)
 {
-    if (left_index == 248)
-    {
-        parent.node.print_node();
-        right.node.print_node();
-        exit(-1);
-    }
     CHECK_WITH_LOG(left_index >= 0 && left_index < 248, false, "left_index: %d", left_index);
     CHECK(commit_node(parent.id, [&](page_t& page){
         page.insert<internal_t>({ key, right.id }, left_index);

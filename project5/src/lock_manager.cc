@@ -33,34 +33,36 @@ bool LockHash::operator==(const LockHash& rhs) const
 std::shared_ptr<lock_t> LockManager::lock_acquire(int table_id, int64_t key,
                                                   int trx_id, LockMode mode)
 {
-    auto lock = std::make_shared<lock_t>(LockHash(table_id, key), mode, trx_id);
-    LockHash hash { table_id, key };
-    if (!lock)
-    {
-        return nullptr;
-    }
+    std::shared_ptr<lock_t> lock;
 
     {
         std::unique_lock<std::mutex> crit { mtx };
         auto num = lock_table.size();
+        lock = std::make_shared<lock_t>(LockHash(table_id, key), mode, trx_id);
+        LockHash hash { table_id, key };
+        if (!lock)
+        {
+            return nullptr;
+    }
         num += 0;
         if (auto it = lock_table.find(hash);
             it == lock_table.end() || (it->second.mode == LockMode::SHARED &&
                                        lock->lockMode == LockMode::SHARED))
         {
-            // 바로 실행
-            if (it == lock_table.end())
-            {
-                // auto pair = std::make_pair(hash, LockList());
-                lock_table.insert_or_assign(hash, LockList());
-                it = lock_table.find(hash);
-            }
+            // // 바로 실행
+            // if (it == lock_table.end())
+            // {
+            //     lock_table.emplace(hash, LockList());
+            //     it = lock_table.find(hash);
+            // }
+            auto& list = lock_table[hash];
+            // std::cout << hash.key << ' ' << hash.table_id << std::endl;
             lock->state = LockState::ACQUIRED;
             lock->signal();
             lock->locked = false;
-            it->second.mode = mode;
-            it->second.locks.push_front(lock);
-            ++it->second.acquire_count;
+            list.mode = mode;
+            list.locks.push_front(lock);
+            ++list.acquire_count;
             return lock;
         }
 
