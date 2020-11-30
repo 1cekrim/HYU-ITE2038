@@ -82,6 +82,7 @@ std::shared_ptr<lock_t> LockManager::lock_acquire(int table_id, int64_t key,
     if (deadlock_detection(trx_id))
     {
         TransactionManager::instance().abort(trx_id);
+        lock_release(lock);
         return nullptr;
     }
     while (lock->wait())
@@ -155,18 +156,13 @@ std::shared_ptr<lock_t> LockManager::lock_upgrade(int table_id, int64_t key,
         ++lock_list.wait_count;
     }
 
-    // if (deadlock_detection(trx_id))
-    // {
-    //     TransactionManager::instance().abort(trx_id);
-    //     return nullptr;
-    // }
-
     if (deadlock_detection(trx_id))
     {
         TransactionManager::instance().abort(trx_id);
         lock_release(lock);
         return nullptr;
     }
+    
     while (lock->wait())
     {
         std::this_thread::yield();
