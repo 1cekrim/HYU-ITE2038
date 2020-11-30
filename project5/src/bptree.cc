@@ -560,35 +560,10 @@ bool BPTree::find_leaf(keyType key, node_tuple& node)
 
     while (!node.node.is_leaf())
     {
-        if (verbose_output)
-        {
-            std::cout << '[';
-            for (auto& internal : node.node.range<internal_t>())
-            {
-                std::cout << internal.key << ' ';
-            }
-            std::cout << "] \n";
-        }
-
         int idx = node.node.key_grt(key) - 1;
-
-        if (verbose_output)
-        {
-            printf("%d ->\n", idx);
-        }
         node.id = (idx == -1) ? node.node.leftmost()
                               : node.node.get<internal_t>(idx).node_id;
         CHECK(load_node(node));
-    }
-
-    if (verbose_output)
-    {
-        std::cout << "Leaf [";
-        for (auto& record : node.node.range<record_t>())
-        {
-            std::cout << record.key << " ";
-        }
-        std::cout << "] ->\n";
     }
 
     return true;
