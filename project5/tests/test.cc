@@ -689,7 +689,7 @@ void TEST_TABLE()
     auto buffer_size = 10000;
     auto num_records = 100000;
     auto repeat = 3;
-    auto table_num = 10;
+    auto table_num = 1;
     auto test_index = 0;
     auto test_table = [&]() {
         TEST("init db")
@@ -719,6 +719,10 @@ void TEST_TABLE()
             {
                 for (int i = 0; i < num_records; ++i)
                 {
+                    if (i == 3727 && repeat == 1)
+                    {
+                        std::cout << "3727";
+                    }
                     valType v;
                     std::stringstream ss;
                     ss << "test insert " << i;
@@ -850,6 +854,8 @@ void TEST_TABLE()
                 END()
             }
             std::cout << "\n";
+
+            exit(-1);
         }
 
         TEST("shutdown db")

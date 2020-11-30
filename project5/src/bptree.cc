@@ -56,11 +56,6 @@ bool BPTree::insert(keyType key, const valType& value)
         return start_new_tree(record);
     }
 
-    if (key == 0xfa0)
-    {
-        std::cout << "??";
-    }
-
     node_tuple leaf;
     CHECK(find_leaf(key, leaf));
 
@@ -174,7 +169,13 @@ bool BPTree::insert_into_parent(node_tuple& left, keyType key,
     }
 
     int left_index;
+
+    if (key == 0xe80)
+    {
+        std::cout << "e80";
+    }
     CHECK(load_node(parent.id, [&](const page_t& page) {
+        parent.node = page;
         left_index = get_left_index(page, left.id);
     }));
     
@@ -259,10 +260,13 @@ bool BPTree::insert_into_new_root(node_tuple& left, keyType key,
 bool BPTree::insert_into_node(node_tuple& parent, int left_index, keyType key,
                               node_tuple& right)
 {
-    if (key == 0x19630)
+    if (left_index == 248)
     {
-        std::cout << "19630";
+        parent.node.print_node();
+        right.node.print_node();
+        exit(-1);
     }
+    CHECK_WITH_LOG(left_index >= 0 && left_index < 248, false, "left_index: %d", left_index);
     CHECK(commit_node(parent.id, [&](page_t& page){
         page.insert<internal_t>({ key, right.id }, left_index);
     }));
@@ -458,6 +462,7 @@ bool BPTree::update_parent_with_commit(nodeId_t target_id, nodeId_t parent_id)
 bool BPTree::coalesce_nodes(node_tuple& target, node_tuple& neighbor,
                             node_tuple& parent, int k_prime)
 {
+
     if (target.node.is_leaf())
     {
         for (auto& rec : target.node.range<record_t>())
@@ -480,6 +485,7 @@ bool BPTree::coalesce_nodes(node_tuple& target, node_tuple& neighbor,
     CHECK(commit_node(neighbor.id, [&](page_t& page) {
         page = neighbor.node;
     }));
+
     CHECK(delete_entry(parent, k_prime));
     CHECK(free_node(target));
 
@@ -490,6 +496,7 @@ bool BPTree::redistribute_nodes(node_tuple& target, node_tuple& neighbor,
                                 node_tuple& parent, int k_prime,
                                 int k_prime_index, int neighbor_index)
 {
+    std::cout << "redistribute\n";
     if (neighbor_index != -1)
     {
         // left neighbor

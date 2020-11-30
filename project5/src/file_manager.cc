@@ -203,5 +203,8 @@ pagenum_t FileManager::create()
 
 bool FileManager::free(pagenum_t pagenum)
 {
+    header_frame frame;
+    get_file_header(frame);
+    std::cout << frame.page.headerPageHeader();
     return pageFree(pagenum);
 }

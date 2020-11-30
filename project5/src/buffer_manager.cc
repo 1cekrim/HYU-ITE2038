@@ -200,6 +200,10 @@ bool BufferController::get(int file_id, pagenum_t pagenum, std::function<void(co
                    pagenum);
     auto& buffer_frame = (*buffer)[index];
     buffer_frame.retain();
+    if (index == 0x189c && buffer_frame.parent() == 6300)
+    {
+        buffer_frame.print_frame();
+    }
     func(buffer_frame);
     CHECK_RET(update_recently_used(index, buffer_frame, true), INVALID_BUFFER_INDEX);
     buffer_frame.release();
@@ -238,6 +242,10 @@ bool BufferController::put(int file_id, pagenum_t pagenum, std::function<void(pa
                    pagenum);
     auto& buffer_frame = (*buffer)[index];
     buffer_frame.retain();
+    if (index == 0x189c && buffer_frame.parent() == 6300)
+    {
+        buffer_frame.print_frame();
+    }
     func(buffer_frame);
     CHECK_RET(update_recently_used(index, buffer_frame, true), INVALID_BUFFER_INDEX);
     if (buffer_frame.pagenum >= 0x10000)
