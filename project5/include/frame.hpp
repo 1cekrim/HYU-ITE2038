@@ -8,6 +8,7 @@
 #include <iostream>
 #include <memory>
 #include <mutex>
+#include <thread>
 
 #include "page.hpp"
 
@@ -52,10 +53,6 @@ struct frame_t : public page_t
     void retain()
     {
         mtx.lock();
-        if (pin < 0)
-        {
-            std::cout << "retain: " << pagenum << ", " << pin << std::endl;
-        }
         ++pin;
     }
 
@@ -63,12 +60,6 @@ struct frame_t : public page_t
     {
         mtx.unlock();
         --pin;
-        if (pin < 0)
-        {
-        std::cout << "release: " << pagenum << std::endl;
-            std::cout << "pin: " << pin << std::endl;
-            std::cout << "pin: " << pin << std::endl;
-        }
     }
 
     bool valid() const

@@ -17,7 +17,7 @@ constexpr auto VERBOSE_OUTPUT = false;
 constexpr auto DELAYED_MIN = 1;
 constexpr auto INVALID_NODE_ID = EMPTY_PAGE_NUMBER;
 
-using node_t = frame_t;
+using node_t = page_t;
 using nodeId_t = pagenum_t;
 using record_t = Record;
 using internal_t = Internal;
@@ -27,42 +27,11 @@ struct node_tuple
 {
     nodeId_t id;
     node_t node;
-    int buffer_index = INVALID_BUFFER_INDEX;
-    ~node_tuple()
-    {
-        
-        release();
-    }
     node_tuple() = default;
     node_tuple(const node_tuple&) = delete;
     node_tuple(node_tuple&&) = delete;
     node_tuple& operator=(const node_tuple&) = delete;
     node_tuple& operator=(node_tuple&&) = delete;
-
-    void set_buffer_index(int buffer_index)
-    {
-        release();
-        this->buffer_index = buffer_index;
-    }
-
-    void release()
-    {
-        if (buffer_index != INVALID_BUFFER_INDEX)
-        {
-            std::cout << "rel" << buffer_index << std::endl;
-            BufferController::instance().release_frame(buffer_index);
-            buffer_index = INVALID_BUFFER_INDEX;
-        }
-    }
-
-    int pin() const
-    {
-        if (buffer_index == INVALID_BUFFER_INDEX)
-        {
-            return -10000;
-        }
-        return BufferController::instance().buffer->at(buffer_index).pin;
-    }
 
     operator bool() const
     {
@@ -106,9 +75,8 @@ class BPTree
                             node_tuple& parent, int k_prime, int k_prime_index,
                             int neighbor_index);
     bool update_parent_with_commit(nodeId_t target_id, nodeId_t parent_id);
-    bool load_node(node_tuple& target);
-    bool commit_node(nodeId_t page, const node_t& n);
-    bool commit_node(const node_tuple& target);
+    bool load_node(nodeId_t page, std::function<void(const page_t&)> func);
+    bool commit_node(nodeId_t page, std::function<void(page_t&)> func);
     bool free_node(node_tuple& target);
     nodeId_t create_node();
     bool is_valid(nodeId_t node_id) const;

@@ -37,23 +37,23 @@ void TEST_LOG();
 
 int main()
 {
-    // void (*tests[])() = {
-    //     TEST_MULTITHREADING, TEST_POD, TEST_FILE_MANAGER, TEST_TABLE, TEST_BPT,
-    //     TEST_FILE,           TESTS
-    // };
-
-    // std::string testNames[] = {
-    //     "test multithreading", "test pod", "file_manager", "table", "bpt",
-    //     "test_file",           "TESTS"
-    // };
-
     void (*tests[])() = {
-        TEST_LOCK, TEST_TRANSACTION, TEST_LOG
+        TEST_POD, TEST_FILE_MANAGER, TEST_TABLE, TEST_BPT,
+        TEST_FILE,           TESTS
     };
 
     std::string testNames[] = {
-        "test lock", "test transaction", "test log"
+        "test pod", "file_manager", "table", "bpt",
+        "test_file",           "TESTS"
     };
+
+    // void (*tests[])() = {
+    //     TEST_LOCK, TEST_TRANSACTION, TEST_LOG
+    // };
+
+    // std::string testNames[] = {
+    //     "test lock", "test transaction", "test log"
+    // };
 
     for (int i = 0;
          i < static_cast<int>((sizeof(tests) / sizeof(void (*)(void)))); ++i)
@@ -687,7 +687,7 @@ void TEST_MULTITHREADING()
 void TEST_TABLE()
 {
     auto buffer_size = 10000;
-    auto num_records = 10000;
+    auto num_records = 100000;
     auto repeat = 3;
     auto table_num = 10;
     auto test_index = 0;

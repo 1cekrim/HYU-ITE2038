@@ -13,6 +13,7 @@
 #include <unordered_map>
 #include <vector>
 #include <atomic>
+#include <functional>
 
 #include "file_manager.hpp"
 #include "frame.hpp"
@@ -28,8 +29,8 @@ class BufferManager
 
     // node manager interface
     bool open(const std::string& name);
-    bool commit(pagenum_t pagenum, const frame_t& frame);
-    int load(pagenum_t pagenum, frame_t& frame);
+    bool commit(pagenum_t pagenum, std::function<void(page_t&)> func);
+    int load(pagenum_t pagenum, std::function<void(const page_t&)> func);
     pagenum_t create();
     bool free(pagenum_t pagenum);
     int get_manager_id() const;
@@ -53,8 +54,8 @@ class BufferController
     int openFileManager(const std::string& name);
     FileManager& getFileManager(int file_id);
 
-    int get(int file_id, pagenum_t pagenum, frame_t& frame);
-    bool put(int file_id, pagenum_t pagenum, const frame_t& frame);
+    bool get(int file_id, pagenum_t pagenum, std::function<void(const page_t&)> func);
+    bool put(int file_id, pagenum_t pagenum, std::function<void(page_t&)> func);
     int create(int file_id);
     bool free(int file_id, pagenum_t pagenum);
     void release_frame(int frame_index);

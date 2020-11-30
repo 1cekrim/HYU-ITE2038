@@ -36,19 +36,28 @@ bool BufferManager::open(const std::string& name)
     return true;
 }
 
-bool BufferManager::commit(pagenum_t pagenum, const frame_t& frame)
-{
-    return BufferController::instance().put(manager_id, pagenum, frame);
-}
+// bool BufferManager::commit(pagenum_t pagenum, const frame_t& frame)
+// {
+//     return BufferController::instance().put(manager_id, pagenum, frame);
+// }
 
-int BufferManager::load(pagenum_t pagenum, frame_t& frame)
+// int BufferManager::load(pagenum_t pagenum, frame_t& frame)
+// {
+    // int result = BufferController::instance().get(manager_id, pagenum, frame);
+    // if (result != INVALID_BUFFER_INDEX)
+    // {
+    //     BufferController::instance().retain_frame(result);
+    // }
+    // return result;
+// }
+
+bool BufferManager::commit(pagenum_t pagenum, std::function<void(page_t&)> func)
 {
-    int result = BufferController::instance().get(manager_id, pagenum, frame);
-    if (result != INVALID_BUFFER_INDEX)
-    {
-        BufferController::instance().retain_frame(result);
-    }
-    return result;
+    return BufferController::instance().put(manager_id, pagenum, func);
+}
+int BufferManager::load(pagenum_t pagenum, std::function<void(const page_t&)> func)
+{
+    return BufferController::instance().get(manager_id, pagenum, func);
 }
 
 pagenum_t BufferManager::create()
@@ -159,45 +168,84 @@ void BufferController::retain_frame(int frame_index)
     buffer->at(frame_index).retain();
 }
 
-int BufferController::get(int file_id, pagenum_t pagenum, frame_t& frame)
+bool BufferController::get(int file_id, pagenum_t pagenum, std::function<void(const page_t&)> func)
 {
+    // std::unique_lock<std::recursive_mutex> lock(mtx);
+    // int index = find(file_id, pagenum);
+    // if (index == INVALID_BUFFER_INDEX)
+    // {
+    //     index = load(file_id, pagenum);
+    // }
+
+    // CHECK_WITH_LOG(index != INVALID_BUFFER_INDEX, INVALID_BUFFER_INDEX,
+    //                "Buffer load failure. file: %d / pagenum: %ld", file_id,
+    //                pagenum);
+    // auto& buffer_frame = (*buffer)[index];
+    // // frame = buffer_frame;
+    // buffer_frame.copy_without_mtx(frame);
+
+    // CHECK_RET(update_recently_used(index, buffer_frame, true), INVALID_BUFFER_INDEX);
+
+    // return index;
+
     std::unique_lock<std::recursive_mutex> lock(mtx);
     int index = find(file_id, pagenum);
     if (index == INVALID_BUFFER_INDEX)
     {
         index = load(file_id, pagenum);
     }
-
+    
     CHECK_WITH_LOG(index != INVALID_BUFFER_INDEX, INVALID_BUFFER_INDEX,
                    "Buffer load failure. file: %d / pagenum: %ld", file_id,
                    pagenum);
     auto& buffer_frame = (*buffer)[index];
-    // frame = buffer_frame;
-    buffer_frame.copy_without_mtx(frame);
-
+    buffer_frame.retain();
+    func(buffer_frame);
     CHECK_RET(update_recently_used(index, buffer_frame, true), INVALID_BUFFER_INDEX);
+    buffer_frame.release();
 
-    return index;
+    return true;
 }
 
-bool BufferController::put(int file_id, pagenum_t pagenum, const frame_t& frame)
+bool BufferController::put(int file_id, pagenum_t pagenum, std::function<void(page_t&)> func)
 {
+    // std::unique_lock<std::recursive_mutex> lock(mtx);
+    // int index = find(file_id, pagenum);
+    // if (index == INVALID_BUFFER_INDEX)
+    // {
+    //     index = load(file_id, pagenum);
+    // }
+    // CHECK_WITH_LOG(index != INVALID_BUFFER_INDEX, false,
+    //                "Buffer load failure. file: %d / pagenum: %ld", file_id,
+    //                pagenum);
+    // auto& buffer_frame = (*buffer)[index];
+
+    // // 지금은 병렬 x
+    // buffer_frame.change_page(frame);
+    // buffer_frame.is_dirty = true;
+
+    // CHECK(update_recently_used(index, buffer_frame, true));
+
     std::unique_lock<std::recursive_mutex> lock(mtx);
     int index = find(file_id, pagenum);
     if (index == INVALID_BUFFER_INDEX)
     {
         index = load(file_id, pagenum);
     }
-    CHECK_WITH_LOG(index != INVALID_BUFFER_INDEX, false,
+    
+    CHECK_WITH_LOG(index != INVALID_BUFFER_INDEX, INVALID_BUFFER_INDEX,
                    "Buffer load failure. file: %d / pagenum: %ld", file_id,
                    pagenum);
     auto& buffer_frame = (*buffer)[index];
-
-    // 지금은 병렬 x
-    buffer_frame.change_page(frame);
+    buffer_frame.retain();
+    func(buffer_frame);
+    CHECK_RET(update_recently_used(index, buffer_frame, true), INVALID_BUFFER_INDEX);
+    if (buffer_frame.pagenum >= 0x10000)
+    {
+        std::cout << buffer_frame.pagenum << '\n';
+    }
     buffer_frame.is_dirty = true;
-
-    CHECK(update_recently_used(index, buffer_frame, true));
+    buffer_frame.release();
 
     return true;
 }

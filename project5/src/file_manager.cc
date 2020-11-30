@@ -45,14 +45,16 @@ bool FileManager::init_file_if_created()
     }
     file_created = false;
     header_frame headerPage {};
-    headerPage.frame.headerPageHeader().numberOfPages = 1;
+    headerPage.page.headerPageHeader().numberOfPages = 1;
     CHECK(set_file_header(headerPage));
     return true;
 }
 
 bool FileManager::get_file_header(header_frame& header) const
 {
-    int index = bufferManager->load(FILE_HEADER_PAGENUM, header.frame);
+    int index = bufferManager->load(FILE_HEADER_PAGENUM, [&](const page_t& page){
+        header.page = page;
+    });
     CHECK_WITH_LOG(index != INVALID_BUFFER_INDEX, false,
                    "get file header failure");
     header.buffer_index = index;
@@ -61,8 +63,9 @@ bool FileManager::get_file_header(header_frame& header) const
 
 bool FileManager::set_file_header(const header_frame& header)
 {
-    CHECK_WITH_LOG(bufferManager->commit(FILE_HEADER_PAGENUM, header.frame), false,
-                   "set file header failure");
+    CHECK(bufferManager->commit(FILE_HEADER_PAGENUM, [&](page_t& page) {
+        page = header.page;
+    }));
     return true;
 }
 
@@ -86,20 +89,12 @@ bool FileManager::read(long int seek, void* target, size_t size)
     return count != -1;
 }
 
-header_frame::~header_frame()
-{
-    if (buffer_index != -1)
-    {
-        BufferController::instance().release_frame(buffer_index);
-    }
-}
-
 // File에 Page 추가
 pagenum_t FileManager::pageCreate()
 {
     header_frame header;
     CHECK_RET(get_file_header(header), EMPTY_PAGE_NUMBER);
-    auto& fileHeader = header.frame.headerPageHeader();
+    auto& fileHeader = header.page.headerPageHeader();
     auto pagenum = fileHeader.freePageNumber;
     if (pagenum == EMPTY_PAGE_NUMBER)
     {
@@ -145,7 +140,7 @@ bool FileManager::pageFree(pagenum_t pagenum)
 
     header_frame header;
     CHECK(get_file_header(header));
-    auto& fileHeader = header.frame.headerPageHeader();
+    auto& fileHeader = header.page.headerPageHeader();
 
     page.freePageHeader().nextFreePageNumber = fileHeader.freePageNumber;
     CHECK_WITH_LOG(pageWrite(pagenum, page), false, "page write failure: %ld",
@@ -171,14 +166,14 @@ pagenum_t FileManager::root() const
     header_frame header;
     CHECK_RET(get_file_header(header), EMPTY_PAGE_NUMBER);
 
-    return header.frame.headerPageHeader().rootPageNumber;
+    return header.page.headerPageHeader().rootPageNumber;
 }
 
 bool FileManager::set_root(pagenum_t pagenum)
 {
     header_frame header;
     CHECK_RET(get_file_header(header), EMPTY_PAGE_NUMBER);
-    auto& fileHeader = header.frame.headerPageHeader();
+    auto& fileHeader = header.page.headerPageHeader();
 
     fileHeader.rootPageNumber = pagenum;
     CHECK_WITH_LOG(set_file_header(header), EMPTY_PAGE_NUMBER,

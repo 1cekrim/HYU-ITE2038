@@ -56,6 +56,11 @@ bool BPTree::insert(keyType key, const valType& value)
         return start_new_tree(record);
     }
 
+    if (key == 0xfa0)
+    {
+        std::cout << "??";
+    }
+
     node_tuple leaf;
     CHECK(find_leaf(key, leaf));
 
@@ -86,14 +91,13 @@ bool BPTree::update(keyType key, const valType& value, int transaction_id)
     node_tuple leaf;
     CHECK(find_leaf(key, leaf));
 
-    BufferController::instance().get(manager.get_manager_id(),
-                                     leaf.node.pagenum, leaf.node);
-
-    int i = leaf.node.index_key<record_t>(key);
-    record_t before = leaf.node.records()[i];
-    leaf.node.records()[i].value = value;
-
-    CHECK(commit_node(leaf));
+    record_t before;
+    int i;
+    CHECK(commit_node(leaf.id, [&](page_t& page){
+        i = page.index_key<record_t>(key);
+        before = page.records()[i];
+        page.records()[i].value = value;
+    }));
 
     // update log
     LogManager::instance().log(transaction_id, LogType::UPDATE,
@@ -105,14 +109,13 @@ bool BPTree::update(keyType key, const valType& value, int transaction_id)
 
 bool BPTree::insert_into_leaf(node_tuple& leaf, const record_t& rec)
 {
-    int insertion_point =
-        leaf.node.satisfy_condition_first<record_t>([&rec](auto& now) {
+    CHECK(commit_node(leaf.id, [&](page_t& page){
+        int insertion_point =
+        page.satisfy_condition_first<record_t>([&rec](auto& now) {
             return now.key >= rec.key;
         });
-
-    leaf.node.insert(rec, insertion_point);
-
-    CHECK(commit_node(leaf));
+        page.insert(rec, insertion_point);
+    }));
 
     return true;
 }
@@ -122,7 +125,6 @@ bool BPTree::insert_into_leaf_after_splitting(node_tuple& leaf,
 {
     node_tuple new_leaf { create_node() };
     new_leaf.node.set_is_leaf(true);
-
     int insertion_index =
         leaf.node.satisfy_condition_first<record_t>([&rec](auto& now) {
             return now.key >= rec.key;
@@ -132,6 +134,7 @@ bool BPTree::insert_into_leaf_after_splitting(node_tuple& leaf,
     temp.reserve(leaf_order + 1);
 
     auto back = std::back_inserter(temp);
+    
     leaf.node.range_copy<record_t>(back, 0, insertion_index);
     back = rec;
     leaf.node.range_copy<record_t>(back, insertion_index);
@@ -145,8 +148,16 @@ bool BPTree::insert_into_leaf_after_splitting(node_tuple& leaf,
     leaf.node.set_next_leaf(new_leaf.id);
     new_leaf.node.set_parent(leaf.node.parent());
 
-    CHECK(commit_node(leaf));
-    CHECK(commit_node(new_leaf));
+    // 어차피 insert는 멀티스레드 지원 안해도 되니 락 없이 commit 해도 됨.
+    CHECK(commit_node(leaf.id, [&](page_t& page){
+        page = leaf.node;
+    }));
+    CHECK(commit_node(new_leaf.id, [&](page_t& page){
+        page = new_leaf.node;
+    }));
+
+    // CHECK(commit_node(leaf));
+    // CHECK(commit_node(new_leaf));
 
     return insert_into_parent(leaf, new_leaf.node.get<record_t>(0).key,
                               new_leaf);
@@ -162,9 +173,11 @@ bool BPTree::insert_into_parent(node_tuple& left, keyType key,
         return insert_into_new_root(left, key, right);
     }
 
-    CHECK(load_node(parent));
-
-    int left_index = get_left_index(parent.node, left.id);
+    int left_index;
+    CHECK(load_node(parent.id, [&](const page_t& page) {
+        left_index = get_left_index(page, left.id);
+    }));
+    
     if (static_cast<int>(parent.node.nodePageHeader().numberOfKeys) <
         internal_order - 1)
     {
@@ -188,32 +201,22 @@ int BPTree::get_left_index(const node_t& parent, nodeId_t left_id) const
     return left_index + 1;
 }
 
-bool BPTree::load_node(node_tuple& target)
+bool BPTree::load_node(nodeId_t page, std::function<void(const page_t&)> func)
 {
-    int result = manager.load(target.id, target.node);
-    CHECK_WITH_LOG(result != INVALID_BUFFER_INDEX, false,
-                   "load node failure: %ld", target.id);
-    target.set_buffer_index(result);
+    CHECK(manager.load(page, std::move(func)));
     return true;
 }
 
-bool BPTree::commit_node(nodeId_t node_id, const node_t& node)
+bool BPTree::commit_node(nodeId_t page, std::function<void(page_t&)> func)
 {
-    CHECK_WITH_LOG(manager.commit(node_id, node), false,
-                   "commit node failure: %ld", node_id);
-    return true;
-}
-
-bool BPTree::commit_node(const node_tuple& target)
-{
-    CHECK_WITH_LOG(manager.commit(target.id, target.node), false,
-                   "commit node failure: %ld", target.id);
+    // CHECK_WITH_LOG(manager.commit(target.id, target.node), false,
+                //    "commit node failure: %ld", target.id);
+    CHECK(manager.commit(page, std::move(func)));
     return true;
 }
 
 bool BPTree::free_node(node_tuple& target)
 {
-    target.release();
     CHECK_WITH_LOG(manager.free(target.id), false, "free page failure: %ld",
                    target.id);
     return true;
@@ -233,15 +236,20 @@ bool BPTree::insert_into_new_root(node_tuple& left, keyType key,
     node_tuple root = { create_node() };
     CHECK(root);
 
-    root.node.set_leftmost(left.id);
-    root.node.emplace_back<internal_t>(key, right.id);
+    CHECK(commit_node(root.id, [&](page_t& page){
+        page.set_leftmost(left.id);
+        page.emplace_back<internal_t>(key, right.id);
+    }));
 
-    left.node.set_parent(root.id);
-    right.node.set_parent(root.id);
+    CHECK(commit_node(left.id, [&](page_t& page){
+        page = left.node;
+        page.set_parent(root.id);
+    }));
 
-    CHECK(commit_node(left));
-    CHECK(commit_node(right));
-    CHECK(commit_node(root));
+    CHECK(commit_node(right.id, [&](page_t& page){
+        page = right.node;
+        page.set_parent(root.id);
+    }));
 
     CHECK(manager.set_root(root.id));
 
@@ -251,8 +259,13 @@ bool BPTree::insert_into_new_root(node_tuple& left, keyType key,
 bool BPTree::insert_into_node(node_tuple& parent, int left_index, keyType key,
                               node_tuple& right)
 {
-    parent.node.insert<internal_t>({ key, right.id }, left_index);
-    CHECK(commit_node(parent));
+    if (key == 0x19630)
+    {
+        std::cout << "19630";
+    }
+    CHECK(commit_node(parent.id, [&](page_t& page){
+        page.insert<internal_t>({ key, right.id }, left_index);
+    }));
     return true;
 }
 
@@ -288,8 +301,12 @@ bool BPTree::insert_into_node_after_splitting(node_tuple& parent,
         CHECK(update_parent_with_commit(tmp.node_id, right.id));
     }
 
-    CHECK(commit_node(parent));
-    CHECK(commit_node(right));
+    CHECK(commit_node(parent.id, [&](page_t& page){
+        page = parent.node;
+    }));
+    CHECK(commit_node(right.id, [&](page_t& page){
+        page = right.node;
+    }));
 
     return insert_into_parent(parent, k_prime, right);
 }
@@ -314,7 +331,9 @@ bool BPTree::delete_entry(node_tuple& target, keyType key)
 {
     CHECK_WITH_LOG(remove_entry_from_node(target, key), false,
                    "remove entry from node failure: %ld", key);
-    CHECK(commit_node(target));
+    CHECK(commit_node(target.id, [&](page_t& page){
+        page = target.node;
+    }));
 
     if (target.id == manager.root())
     {
@@ -339,7 +358,9 @@ bool BPTree::delete_entry(node_tuple& target, keyType key)
 
     node_tuple parent;
     parent.id = target.node.parent();
-    CHECK(load_node(parent));
+    CHECK(load_node(parent.id, [&](const page_t& page){
+        parent.node = page;
+    }));
     CHECK(parent);
     CHECK(parent.node.number_of_keys() > 0);
 
@@ -354,7 +375,9 @@ bool BPTree::delete_entry(node_tuple& target, keyType key)
             : neighbor_index == 0
                   ? parent.node.leftmost()
                   : parent.node.get<internal_t>(neighbor_index - 1).node_id;
-    CHECK(load_node(neighbor));
+    CHECK(load_node(neighbor.id, [&](const page_t& page){
+        neighbor.node = page;
+    }));
 
     int capacity = target.node.is_leaf() ? leaf_order : internal_order - 1;
 
@@ -421,10 +444,13 @@ bool BPTree::adjust_root(node_tuple& root)
 
 bool BPTree::update_parent_with_commit(nodeId_t target_id, nodeId_t parent_id)
 {
-    node_tuple temp { target_id };
-    CHECK(load_node(temp));
-    temp.node.set_parent(parent_id);
-    CHECK(commit_node(temp));
+    // node_tuple temp { target_id };
+    CHECK(commit_node(target_id, [&](page_t& page){
+        page.set_parent(parent_id);
+    }));
+    // CHECK(load_node(temp));
+    // temp.node.set_parent(parent_id);
+    // CHECK(commit_node(temp));
 
     return true;
 }
@@ -451,7 +477,9 @@ bool BPTree::coalesce_nodes(node_tuple& target, node_tuple& neighbor,
         }
     }
 
-    CHECK(commit_node(neighbor));
+    CHECK(commit_node(neighbor.id, [&](page_t& page) {
+        page = neighbor.node;
+    }));
     CHECK(delete_entry(parent, k_prime));
     CHECK(free_node(target));
 
@@ -513,9 +541,15 @@ bool BPTree::redistribute_nodes(node_tuple& target, node_tuple& neighbor,
         }
     }
 
-    CHECK(commit_node(target));
-    CHECK(commit_node(neighbor));
-    CHECK(commit_node(parent));
+    CHECK(commit_node(target.id, [&](page_t& page){
+        page = target.node;
+    }));
+    CHECK(commit_node(neighbor.id, [&](page_t& page){
+        page = neighbor.node;
+    }));
+    CHECK(commit_node(parent.id, [&](page_t& page){
+        page = parent.node;
+    }));
 
     return true;
 }
@@ -556,14 +590,18 @@ bool BPTree::find_leaf(keyType key, node_tuple& node)
         return false;
     }
 
-    CHECK(load_node(node));
+    CHECK(load_node(node.id, [&](const page_t& page){
+        node.node = page;
+    }));
 
     while (!node.node.is_leaf())
     {
         int idx = node.node.key_grt(key) - 1;
         node.id = (idx == -1) ? node.node.leftmost()
                               : node.node.get<internal_t>(idx).node_id;
-        CHECK(load_node(node));
+        CHECK(load_node(node.id, [&](const page_t& page){
+        node.node = page;
+    }));
     }
 
     return true;
@@ -571,15 +609,23 @@ bool BPTree::find_leaf(keyType key, node_tuple& node)
 
 bool BPTree::start_new_tree(const record_t& rec)
 {
-    node_tuple root = { create_node() };
-    root.node.set_is_leaf(true);
-    CHECK(root);
+    // node_tuple root = { create_node() };
+    // root.node.set_is_leaf(true);
+    // CHECK(root);
 
-    root.node.insert(rec, 0);
+    // root.node.insert(rec, 0);
 
-    CHECK(commit_node(root));
-    CHECK(manager.set_root(root.id));
+    // CHECK(commit_node(root));
 
+    auto root_id = create_node();
+    CHECK(root_id);
+
+    CHECK(commit_node(root_id, [&](page_t& page){
+        page.set_is_leaf(true);
+        page.insert(rec, 0);
+    }));
+
+    CHECK(manager.set_root(root_id));
     return true;
 }
 
