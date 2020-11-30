@@ -53,9 +53,9 @@ struct lock_t
 struct LockList
 {
     std::list<std::shared_ptr<lock_t>> locks;
-    std::atomic<LockMode> mode = LockMode::EMPTY;
-    std::atomic<int> wait_count;
-    std::atomic<int> acquire_count;
+    LockMode mode = LockMode::EMPTY;
+    int wait_count;
+    int acquire_count;
     LockList();
     LockList(const LockList& rhs);
 

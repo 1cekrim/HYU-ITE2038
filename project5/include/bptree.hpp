@@ -3,6 +3,7 @@
 
 #include <memory>
 #include <string_view>
+#include <iostream>
 
 #include "buffer_manager.hpp"
 #include "page.hpp"
@@ -29,6 +30,7 @@ struct node_tuple
     int buffer_index = INVALID_BUFFER_INDEX;
     ~node_tuple()
     {
+        
         release();
     }
     node_tuple() = default;
@@ -47,6 +49,7 @@ struct node_tuple
     {
         if (buffer_index != INVALID_BUFFER_INDEX)
         {
+            std::cout << "rel" << buffer_index << std::endl;
             BufferController::instance().release_frame(buffer_index);
             buffer_index = INVALID_BUFFER_INDEX;
         }

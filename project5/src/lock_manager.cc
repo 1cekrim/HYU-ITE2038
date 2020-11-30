@@ -42,6 +42,8 @@ std::shared_ptr<lock_t> LockManager::lock_acquire(int table_id, int64_t key,
 
     {
         std::unique_lock<std::mutex> crit { mtx };
+        auto num = lock_table.size();
+        num += 0;
         if (auto it = lock_table.find(hash);
             it == lock_table.end() || (it->second.mode == LockMode::SHARED &&
                                        lock->lockMode == LockMode::SHARED))
@@ -49,7 +51,8 @@ std::shared_ptr<lock_t> LockManager::lock_acquire(int table_id, int64_t key,
             // 바로 실행
             if (it == lock_table.end())
             {
-                lock_table.emplace(hash, LockList());
+                // auto pair = std::make_pair(hash, LockList());
+                lock_table.insert_or_assign(hash, LockList());
                 it = lock_table.find(hash);
             }
             lock->state = LockState::ACQUIRED;
@@ -213,10 +216,18 @@ bool LockManager::deadlock_detection(int now_transaction_id)
             if (std::find(visited.begin(), visited.end(), next) !=
                 visited.end())
             {
-                // Deadlock detected!
+                for (const auto& node : graph)
+                {
+                    std::cout << "node " << node.first << ':';
+                    for (const auto& next : node.second)
+                    {
+                        std::cout << next << ' ';
+                    }
+                    std::cout << '\n';
+                }
                 return true;
             }
-            q.push(now);
+            q.push(next);
             visited.push_back(next);
         }
     }
@@ -369,9 +380,9 @@ LockList::LockList() : wait_count(0), acquire_count(0)
 }
 
 LockList::LockList(const LockList& rhs)
-    : mode(rhs.mode.load()),
-      wait_count(rhs.wait_count.load()),
-      acquire_count(rhs.acquire_count.load())
+    : mode(rhs.mode),
+      wait_count(rhs.wait_count),
+      acquire_count(rhs.acquire_count)
 {
     // Do nothing
 }
