@@ -62,7 +62,7 @@ std::shared_ptr<lock_t> LockManager::lock_acquire(int table_id, int64_t key,
             return nullptr;
         }
         num += 0;
-        if (key == 37 && trx_id == 150)
+        if (key == 37 && trx_id == 158)
         {
             std::cout << "special test\n";
             for (const auto& lock : lock_table)
