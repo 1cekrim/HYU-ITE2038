@@ -434,8 +434,8 @@ bool LockManager::lock_release(std::shared_ptr<lock_t> lock_obj)
                 }
                 else
                 {
-                    // 무조건 SLock이다
-                    lockList.mode = LockMode::SHARED;
+                    // 무조건 남은 하나를 따라간다.
+                    lockList.mode = lockList.locks.front()->lockMode;
                 }
             }
 
