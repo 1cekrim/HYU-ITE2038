@@ -401,43 +401,70 @@ bool LockManager::lock_release(std::shared_ptr<lock_t> lock_obj)
                     // std::cout << "sxlock -> ";
                 }
             }
-            else
-            {
-                if (lockList.acquire_count == 1)
-                {
-                    // SLock인가 XLock인가?
-                    /*
-                        만약 front가 SLock일 경우
-                            유일한 XLock을 지웠다 -> mode를 SLock으로
-                            XLock이 남아있다 -> 변경 X
-                        XLock일 경우
-                            변경 X
 
-                    */
-                    if (lockList.locks.front()->lockMode == LockMode::SHARED)
-                    {
-                        bool flag = true;
-                        auto it = std::next(lockList.locks.begin(), 1);
-                        for (int i = 0; i < lockList.wait_count; ++i)
-                        {
-                            if (it->get()->lockMode == LockMode::EXCLUSIVE)
-                            {
-                                flag = false;
-                                break;
-                            }
-                        }
-                        if (flag)
-                        {
-                            lockList.mode = LockMode::SHARED;
-                        }
-                    }
-                }
-                else
+            bool flag = true;
+            for (const auto& it : lockList.locks)
+            {
+                if (it->lockMode == LockMode::EXCLUSIVE)
                 {
-                    // 무조건 남은 하나를 따라간다.
-                    lockList.mode = lockList.locks.front()->lockMode;
+                    flag = false;
+                    break;
                 }
             }
+
+            if (flag)
+            {
+                lockList.mode = LockMode::SHARED;
+            }
+            else
+            {
+                lockList.mode = LockMode::EXCLUSIVE;
+            }
+                        
+            // else
+            // {
+            //     if (lockList.acquire_count == 1)
+            //     {
+            //         // SLock인가 XLock인가?
+            //         /*
+            //             만약 front가 SLock일 경우
+            //                 유일한 XLock을 지웠다 -> mode를 SLock으로
+            //                 XLock이 남아있다 -> 변경 X
+            //             XLock일 경우
+            //                 변경 X
+
+            //         */
+            //         if (lockList.locks.front()->lockMode == LockMode::SHARED)
+            //         {
+                        // bool flag = true;
+                        // auto it = std::next(lockList.locks.begin(), 1);
+                        // for (int i = 0; i < lockList.wait_count; ++i)
+                        // {
+                        //     if (it->get()->lockMode == LockMode::EXCLUSIVE)
+                        //     {
+                        //         flag = false;
+                        //         break;
+                        //     }
+                        // }
+                        // if (flag)
+                        // {
+                        //     lockList.mode = LockMode::SHARED;
+                        // }
+            //         }
+            //     }
+            //     else
+            //     {
+            //         if (lockList.acquire_count == 2)
+            //         {
+
+            //         }
+            //         else
+            //         {
+            //             // 무조건 남은 하나를 따라간다.
+            //             lockList.mode = lockList.locks.front()->lockMode;
+            //         }
+            //     }
+            // }
 
             // std::cout << "acquire > 0. end.\n";
             return true;
