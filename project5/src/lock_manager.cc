@@ -350,7 +350,7 @@ bool LockManager::lock_release(std::shared_ptr<lock_t> lock_obj)
     {
         std::unique_lock<std::mutex> crit { mtx };
         LockHash hash = lock_obj->hash;
-
+        std::cout << "release start (" << lock_obj->hash.key << ") -> ";
         auto& lockList = lock_table[hash];
         auto& table = lockList.locks;
 
@@ -363,12 +363,14 @@ bool LockManager::lock_release(std::shared_ptr<lock_t> lock_obj)
 
         if (iter->get()->state == LockState::ACQUIRED)
         {
+            std::cout << "acquire -> ";
             --lockList.acquire_count;
         }
         else
         {
             // wait 중인걸 그냥 lock_release 해도 되나?
             // TODO: abort 될때 처리...
+            std::cout << "wait -> ";
             --lockList.wait_count;
         }
         table.erase(iter);
@@ -391,14 +393,17 @@ bool LockManager::lock_release(std::shared_ptr<lock_t> lock_obj)
                     ++lockList.acquire_count;
                     --lockList.wait_count;
                     second->signal();
+                    std::cout << "sxlock -> ";
                 }
             }
+            std::cout << "acquire > 0. end.\n";
             return true;
         }
 
         if (lockList.wait_count == 0)
         {
             lock_table.erase(hash);
+            std::cout << "wait == 0. end.\n";
             return true;
         }
 
@@ -412,6 +417,7 @@ bool LockManager::lock_release(std::shared_ptr<lock_t> lock_obj)
             ++lockList.acquire_count;
             --lockList.wait_count;
             target->signal();
+            std::cout << "front xlock. end.\n";
             return true;
         }
 
@@ -422,13 +428,16 @@ bool LockManager::lock_release(std::shared_ptr<lock_t> lock_obj)
             if (it->lockMode == LockMode::EXCLUSIVE)
             {
                 lockList.mode = LockMode::EXCLUSIVE;
+                std::cout << "xlock acquired -> ";
                 break;
             }
             it->state = LockState::ACQUIRED;
             ++lockList.acquire_count;
             --lockList.wait_count;
             it->signal();
+            std::cout << "slock acquired -> ";
         }
+    std::cout << "return true. mode: " << lockList.mode << '\n';;
     }
 
     return true;
