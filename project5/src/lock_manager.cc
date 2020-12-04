@@ -35,14 +35,14 @@ std::ostream& operator<<(std::ostream& os, const LockMode& dt)
     switch (dt)
     {
         case LockMode::EMPTY:
-         os << "EMPTY";
-         break;
+            os << "EMPTY";
+            break;
         case LockMode::EXCLUSIVE:
-         os << "EXCLUSIVE";
-         break;
+            os << "EXCLUSIVE";
+            break;
         case LockMode::SHARED:
-         os << "SHARED";
-         break;
+            os << "SHARED";
+            break;
     }
     return os;
 }
@@ -68,7 +68,8 @@ std::shared_ptr<lock_t> LockManager::lock_acquire(int table_id, int64_t key,
             for (const auto& lock : lock_table)
             {
                 const auto& list = lock.second;
-                std::cout << "lock:" << lock.first.table_id << " " << lock.first.key << '\n';
+                std::cout << "lock:" << lock.first.table_id << " "
+                          << lock.first.key << '\n';
                 list.print();
             }
             auto it = lock_table.find(hash);
@@ -94,7 +95,8 @@ std::shared_ptr<lock_t> LockManager::lock_acquire(int table_id, int64_t key,
             //     lock_table.emplace(hash, LockList());
             //     it = lock_table.find(hash);
             // }
-            // std::cout << "new lock: " << trx_id << ", table_id: " << table_id << ", key:" << key << "\n";
+            // std::cout << "new lock: " << trx_id << ", table_id: " << table_id
+            // << ", key:" << key << "\n";
             auto& list = lock_table[hash];
             // std::cout << hash.key << ' ' << hash.table_id << std::endl;
             lock->state = LockState::ACQUIRED;
@@ -103,7 +105,8 @@ std::shared_ptr<lock_t> LockManager::lock_acquire(int table_id, int64_t key,
             list.mode = mode;
             list.locks.push_front(lock);
             ++list.acquire_count;
-            std::cout << "trx_id: " << trx_id << "table_id: " << table_id << ", key: " << key << " pass\n";
+            std::cout << "trx_id: " << trx_id << "table_id: " << table_id
+                      << ", key: " << key << " pass\n";
             return lock;
         }
 
@@ -137,7 +140,8 @@ std::shared_ptr<lock_t> LockManager::lock_acquire(int table_id, int64_t key,
         }
         return nullptr;
     }
-    std::cout << "trx_id: " << trx_id << "table_id: " << table_id << ", key: " << key << " wait\n";
+    std::cout << "trx_id: " << trx_id << "table_id: " << table_id
+              << ", key: " << key << " wait\n";
     while (lock->wait())
     {
         std::this_thread::yield();
@@ -280,7 +284,8 @@ bool LockManager::deadlock_detection(int now_transaction_id)
         for (const auto& lock : lock_table)
         {
             const auto& list = lock.second;
-            std::cout << "lock:" << lock.first.table_id << " " << lock.first.key << '\n';
+            std::cout << "lock:" << lock.first.table_id << " " << lock.first.key
+                      << '\n';
             list.print();
         }
     }
@@ -396,6 +401,44 @@ bool LockManager::lock_release(std::shared_ptr<lock_t> lock_obj)
                     std::cout << "sxlock -> ";
                 }
             }
+            else
+            {
+                if (lockList.acquire_count == 1)
+                {
+                    // SLock인가 XLock인가?
+                    /*
+                        만약 front가 SLock일 경우
+                            유일한 XLock을 지웠다 -> mode를 SLock으로
+                            XLock이 남아있다 -> 변경 X
+                        XLock일 경우
+                            변경 X
+
+                    */
+                    if (lockList.locks.front()->lockMode == LockMode::SHARED)
+                    {
+                        bool flag = true;
+                        auto it = std::next(lockList.locks.begin(), 1);
+                        for (int i = 0; i < lockList.wait_count; ++i)
+                        {
+                            if (it->get()->lockMode == LockMode::EXCLUSIVE)
+                            {
+                                flag = false;
+                                break;
+                            }
+                        }
+                        if (flag)
+                        {
+                            lockList.mode = LockMode::SHARED;
+                        }
+                    }
+                }
+                else
+                {
+                    // 무조건 SLock이다
+                    lockList.mode = LockMode::SHARED;
+                }
+            }
+
             std::cout << "acquire > 0. end.\n";
             return true;
         }
@@ -437,7 +480,8 @@ bool LockManager::lock_release(std::shared_ptr<lock_t> lock_obj)
             it->signal();
             std::cout << "slock acquired -> ";
         }
-    std::cout << "return true. mode: " << lockList.mode << '\n';;
+        std::cout << "return true. mode: " << lockList.mode << '\n';
+        ;
     }
 
     return true;
