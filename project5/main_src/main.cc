@@ -1,4 +1,4 @@
-#include "dbms.h"
+#include "dbms_api.hpp"
 
 #include <stdint.h>
 #include <stdio.h>
@@ -401,7 +401,7 @@ XLT_func(void* args)
 			sprintf(val, "%ld", keys[i]);
 			ret = db_update(table_ids[i], keys[i], val, transaction_id);
 			if (ret != 0) {
-				printf("INCORRECT: fail to db_update()\n");
+				printf("INCORRECT: fail to db_find()\n");
 				return NULL;
 			}
 		}
@@ -554,7 +554,7 @@ MLT_func(void* args)
 				sprintf(val, "%ld", keys[i] * (rand() % 100));
 				ret = db_update(table_ids[i], keys[i], val, transaction_id);
 				if (ret != 0) {
-					printf("INCORRECT: fail to db_find()\n");
+					printf("INCORRECT: fail to db_update()\n");
 					return NULL;
 				}
 			}
