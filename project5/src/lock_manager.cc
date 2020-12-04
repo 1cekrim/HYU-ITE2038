@@ -85,6 +85,15 @@ std::shared_ptr<lock_t> LockManager::lock_acquire(int table_id, int64_t key,
     {
         TransactionManager::instance().abort(trx_id);
         lock_release(lock);
+        std::cout << "\nafter\n";
+        if (trx_id == 150)
+        {
+            for (const auto& lock : lock_table)
+            {
+                const auto& list = lock.second;
+                list.print();
+            }
+        }
         return nullptr;
     }
     while (lock->wait())
