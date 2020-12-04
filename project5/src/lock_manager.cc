@@ -239,6 +239,7 @@ bool LockManager::deadlock_detection(int now_transaction_id)
         for (const auto& lock : lock_table)
         {
             const auto& list = lock.second;
+            std::cout << "lock:" << lock.first.table_id << " " << lock.first.key << '\n';
             list.print();
         }
     }
