@@ -184,7 +184,6 @@ bool LockManager::deadlock_detection(int now_transaction_id)
         const auto& list = lock.second;
         const auto wait_begin =
             std::next(list.locks.begin(), list.acquire_count);
-            // list.print();
         for (auto acquire = list.locks.begin(); acquire != wait_begin;
              ++acquire)
         {
@@ -215,15 +214,6 @@ bool LockManager::deadlock_detection(int now_transaction_id)
             if (std::find(visited.begin(), visited.end(), next) !=
                 visited.end())
             {
-                // for (const auto& node : graph)
-                // {
-                //     std::cout << "node " << node.first << ':';
-                //     for (const auto& next : node.second)
-                //     {
-                //         std::cout << next << ' ';
-                //     }
-                //     std::cout << '\n';
-                // }
                 return true;
             }
             q.push(next);

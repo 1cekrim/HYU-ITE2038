@@ -35,7 +35,7 @@ $(TARGET): $(TARGET_OBJ) $(OBJS_FOR_LIB)
 	mkdir -p $(BUILDS)
 	mkdir -p $(LIBS)
 	make static_library
-	$(CC) $(CFLAGS) -o $(BUILDS)$@ $(TARGET_OBJ) -L $(LIBS) -lbpt -lstdc++
+	# $(CC) $(CFLAGS) -o $(BUILDS)$@ $(TARGET_OBJ) -L $(LIBS) -lbpt -lstdc++
 
 $(TEST_TARGET): $(OBJS_FOR_LIB) $(TEST_OBJ)
 	mkdir -p $(BUILDS)

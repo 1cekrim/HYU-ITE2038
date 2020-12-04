@@ -7,8 +7,6 @@
 #include "table_manager.hpp"
 #include "transaction_manager.hpp"
 
-extern "C" {
-
 int init_db(int buf_num)
 {
     LockManager::instance().reset();
@@ -60,7 +58,9 @@ int db_update(int table_id, int64_t key, char* values, int trx_id)
     }
 
     TableManager::char_to_valType(record.value, values);
-    return TableManager::instance().update(table_id, key, record.value, trx_id) ? 0 : 1;
+    return TableManager::instance().update(table_id, key, record.value, trx_id)
+               ? 0
+               : 1;
 }
 
 int db_delete(int table_id, int64_t key)
@@ -86,5 +86,4 @@ int trx_begin()
 int trx_commit(int trx_id)
 {
     return TransactionManager::instance().commit(trx_id) ? 0 : -1;
-}
 }

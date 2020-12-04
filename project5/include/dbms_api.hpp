@@ -3,8 +3,6 @@
 
 #include <stdint.h>
 
-extern "C" {
-
 int init_db(int buf_num);
 
 int open_table(char* pathname);
@@ -24,6 +22,5 @@ int shutdown_db();
 int trx_begin();
 
 int trx_commit(int trx_id);
-}
 
 #endif /* __DBMS_API_HPP__*/
