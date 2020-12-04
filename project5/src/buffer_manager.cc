@@ -160,12 +160,14 @@ FileManager& BufferController::getFileManager(int file_id)
 
 void BufferController::release_frame(int frame_index)
 {
-    buffer->at(frame_index).release();
+    exit(-1);
+    // buffer->at(frame_index).release();
 }
 
 void BufferController::retain_frame(int frame_index)
 {
-    buffer->at(frame_index).retain();
+    exit(-1);
+    // buffer->at(frame_index).retain();
 }
 
 bool BufferController::get(int file_id, pagenum_t pagenum, std::function<void(const page_t&)> func)
@@ -181,10 +183,13 @@ bool BufferController::get(int file_id, pagenum_t pagenum, std::function<void(co
                    "Buffer load failure. file: %d / pagenum: %ld", file_id,
                    pagenum);
     auto& buffer_frame = (*buffer)[index];
-    buffer_frame.retain();
-    func(buffer_frame);
-    CHECK_RET(update_recently_used(index, buffer_frame, true), INVALID_BUFFER_INDEX);
-    buffer_frame.release();
+    {
+        std::shared_lock<std::shared_mutex> crit (buffer_frame.mtx);
+        ++buffer_frame.pin;
+        func(buffer_frame);
+        CHECK_RET(update_recently_used(index, buffer_frame, true), INVALID_BUFFER_INDEX);
+        --buffer_frame.pin;
+    }
 
     return true;
 }
@@ -202,11 +207,14 @@ bool BufferController::put(int file_id, pagenum_t pagenum, std::function<void(pa
                    "Buffer load failure. file: %d / pagenum: %ld", file_id,
                    pagenum);
     auto& buffer_frame = (*buffer)[index];
-    buffer_frame.retain();
-    func(buffer_frame);
-    CHECK_RET(update_recently_used(index, buffer_frame, true), INVALID_BUFFER_INDEX);
-    buffer_frame.is_dirty = true;
-    buffer_frame.release();
+     {
+        std::unique_lock<std::shared_mutex> crit (buffer_frame.mtx);
+        ++buffer_frame.pin;
+        func(buffer_frame);
+        CHECK_RET(update_recently_used(index, buffer_frame, true), INVALID_BUFFER_INDEX);
+        buffer_frame.is_dirty = true;
+        --buffer_frame.pin;
+    }
 
     return true;
 }

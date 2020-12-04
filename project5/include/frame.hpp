@@ -23,7 +23,7 @@ struct frame_t : public page_t
     int next;
     int prev;
     bool is_dirty;
-    std::recursive_mutex mtx;
+    std::shared_mutex mtx;
 
     void print_frame()
     {
@@ -50,17 +50,17 @@ struct frame_t : public page_t
         this->entry = frame.entry;
     }
 
-    void retain()
-    {
-        mtx.lock();
-        ++pin;
-    }
+    // void retain()
+    // {
+    //     mtx.lock();
+    //     ++pin;
+    // }
 
-    void release()
-    {
-        mtx.unlock();
-        --pin;
-    }
+    // void release()
+    // {
+    //     mtx.unlock();
+    //     --pin;
+    // }
 
     bool valid() const
     {
