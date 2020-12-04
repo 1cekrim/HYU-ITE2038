@@ -55,6 +55,7 @@ std::shared_ptr<lock_t> LockManager::lock_acquire(int table_id, int64_t key,
             //     lock_table.emplace(hash, LockList());
             //     it = lock_table.find(hash);
             // }
+            std::cout << "new lock: " << trx_id << ", table_id: " << table_id << ", key:" << key << "\n";
             auto& list = lock_table[hash];
             // std::cout << hash.key << ' ' << hash.table_id << std::endl;
             lock->state = LockState::ACQUIRED;
