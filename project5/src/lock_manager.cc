@@ -43,7 +43,7 @@ std::shared_ptr<lock_t> LockManager::lock_acquire(int table_id, int64_t key,
         if (!lock)
         {
             return nullptr;
-    }
+        }
         num += 0;
         if (auto it = lock_table.find(hash);
             it == lock_table.end() || (it->second.mode == LockMode::SHARED &&
@@ -164,7 +164,7 @@ std::shared_ptr<lock_t> LockManager::lock_upgrade(int table_id, int64_t key,
         lock_release(lock);
         return nullptr;
     }
-    
+
     while (lock->wait())
     {
         std::this_thread::yield();
@@ -173,11 +173,31 @@ std::shared_ptr<lock_t> LockManager::lock_upgrade(int table_id, int64_t key,
     return lock;
 }
 
+void LockManager::dfs(int now, std::unordered_map<int, graph_node>& graph,
+                      bool& stop)
+{
+    graph[now].visited = true;
+    for (const auto& next : graph[now].next)
+    {
+        if (graph[next].visited)
+        {
+            stop = true;
+            return;
+        }
+        dfs(next, graph, stop);
+        if (stop)
+        {
+            return;
+        }
+    }
+    graph[now].visited = false;
+}
+
 bool LockManager::deadlock_detection(int now_transaction_id)
 {
     std::unique_lock<std::mutex> crit { mtx };
 
-    std::unordered_map<int, std::set<int>> graph;
+    std::unordered_map<int, graph_node> graph;
 
     for (const auto& lock : lock_table)
     {
@@ -195,46 +215,71 @@ bool LockManager::deadlock_detection(int now_transaction_id)
                 {
                     continue;
                 }
-                graph[acquire_id].insert(wait_id);
+                graph[wait_id].next.insert(acquire_id);
+                graph[wait_id].visited = false;
             }
         }
     }
 
-    std::queue<int> q;
-    q.push(now_transaction_id);
-    std::vector<int> visited;
-    visited.push_back(now_transaction_id);
+    bool deadlock = false;
+    dfs(now_transaction_id, graph, deadlock);
 
-    while (!q.empty())
-    {
-        int now = q.front();
-        q.pop();
-        for (const auto next : graph[now])
-        {
-            if (std::find(visited.begin(), visited.end(), next) !=
-                visited.end())
-            {
-                return true;
-            }
-            q.push(next);
-            visited.push_back(next);
-        }
-    }
+    return deadlock;
 
-    if constexpr (false)
-    {
-        std::cout << "\ndeadlock detection next\n";
+    // std::queue<int> q;
+    // q.push(now_transaction_id);
+    // std::vector<int> visited;
 
-        for (const auto& node : graph)
-        {
-            std::cout << "node " << node.first << ':';
-            for (const auto& next : node.second)
-            {
-                std::cout << next << ' ';
-            }
-            std::cout << '\n';
-        }
-    }
+    // while (!q.empty())
+    // {
+    //     int now = q.front();
+    //     q.pop();
+    //      if (std::find(visited.begin(), visited.end(), now) !=
+    //             visited.end())
+    //         {
+    //             std::cout << "deadlock!: ";
+    //             for (const auto& visit : visited)
+    //             {
+    //                 std::cout << visit << ' ';
+    //             }
+    //             std::cout << '\n';
+    //             for (const auto& lock : lock_table)
+    //             {
+    //                 lock.second.print();
+    //             }
+    //             for (const auto& node : graph)
+    //             {
+    //                 std::cout << "node " << node.first << ':';
+    //                 for (const auto& next : node.second)
+    //                 {
+    //                     std::cout << next << ' ';
+    //                 }
+    //                 std::cout << '\n';
+    //             }
+    //             return true;
+    //         }
+    //         visited.push_back(now);
+    //     for (const auto next : graph[now])
+    //     {
+
+    //         q.push(next);
+    //     }
+    // }
+
+    // if constexpr (false)
+    // {
+    //     std::cout << "\ndeadlock detection next\n";
+
+    //     for (const auto& node : graph)
+    //     {
+    //         std::cout << "node " << node.first << ':';
+    //         for (const auto& next : node.second)
+    //         {
+    //             std::cout << next << ' ';
+    //         }
+    //         std::cout << '\n';
+    //     }
+    // }
 
     return false;
 }

@@ -6,6 +6,8 @@
 #include <list>
 #include <map>
 #include <memory>
+#include <set>
+#include <unordered_map>
 #include <mutex>
 
 enum class LockMode
@@ -98,12 +100,19 @@ class LockManager
                                          LockMode mode);
     const std::map<LockHash, LockList>& get_table() const;
     bool deadlock_detection(int now_transaction_id);
-
     void reset();
 
  private:
     std::mutex mtx;
     std::map<LockHash, LockList> lock_table;
+
+    struct graph_node
+    {
+        std::set<int> next;
+        bool visited;
+    };
+
+    void dfs(int now, std::unordered_map<int, graph_node>& graph, bool& stop);
 
     LockManager() = default;
 };
