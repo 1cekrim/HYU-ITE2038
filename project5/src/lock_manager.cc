@@ -45,6 +45,16 @@ std::shared_ptr<lock_t> LockManager::lock_acquire(int table_id, int64_t key,
             return nullptr;
         }
         num += 0;
+        if (key == 37 && trx_id == 150)
+        {
+            std::cout << "special test\n";
+            for (const auto& lock : lock_table)
+            {
+                const auto& list = lock.second;
+                std::cout << "lock:" << lock.first.table_id << " " << lock.first.key << '\n';
+                list.print();
+            }
+        }
         if (auto it = lock_table.find(hash);
             it == lock_table.end() || (it->second.mode == LockMode::SHARED &&
                                        lock->lockMode == LockMode::SHARED))
