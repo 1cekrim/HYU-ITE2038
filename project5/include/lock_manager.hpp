@@ -6,9 +6,9 @@
 #include <list>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <set>
 #include <unordered_map>
-#include <mutex>
 
 enum class LockMode
 {
@@ -64,6 +64,8 @@ struct LockList
     void print() const
     {
         std::cout << "acquire: " << acquire_count << ", wait: " << wait_count
+                  << "mode: "
+                  << (mode == LockMode::EXCLUSIVE ? "EXCLUSIVE" : "SHARED")
                   << std::endl;
         for (auto& it : locks)
         {
