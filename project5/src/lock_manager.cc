@@ -62,33 +62,33 @@ std::shared_ptr<lock_t> LockManager::lock_acquire(int table_id, int64_t key,
             return nullptr;
         }
         num += 0;
-        if (key == 37 && trx_id == 158)
-        {
-            std::cout << "special test\n";
-            for (const auto& lock : lock_table)
-            {
-                const auto& list = lock.second;
-                std::cout << "lock:" << lock.first.table_id << " "
-                          << lock.first.key << '\n';
-                list.print();
-            }
-            auto it = lock_table.find(hash);
-            if (it == lock_table.end())
-            {
-                std::cout << "end??\n";
-            }
-            else
-            {
-                std::cout << "hmm...\n";
-                it->second.print();
-                std::cout << "\nlockMode:" << lock->lockMode << "\n";
-            }
-        }
+        // if (key == 37 && trx_id == 158)
+        // {
+        //     std::cout << "special test\n";
+        //     for (const auto& lock : lock_table)
+        //     {
+        //         const auto& list = lock.second;
+        //         std::cout << "lock:" << lock.first.table_id << " "
+        //                   << lock.first.key << '\n';
+        //         list.print();
+        //     }
+        //     auto it = lock_table.find(hash);
+        //     if (it == lock_table.end())
+        //     {
+        //         std::cout << "end??\n";
+        //     }
+        //     else
+        //     {
+        //         std::cout << "hmm...\n";
+        //         it->second.print();
+        //         std::cout << "\nlockMode:" << lock->lockMode << "\n";
+        //     }
+        // }
         if (auto it = lock_table.find(hash);
             it == lock_table.end() || (it->second.mode == LockMode::SHARED &&
                                        lock->lockMode == LockMode::SHARED))
         {
-            std::cout << "in if\n";
+            // std::cout << "in if\n";
             // // 바로 실행
             // if (it == lock_table.end())
             // {
@@ -105,8 +105,8 @@ std::shared_ptr<lock_t> LockManager::lock_acquire(int table_id, int64_t key,
             list.mode = mode;
             list.locks.push_front(lock);
             ++list.acquire_count;
-            std::cout << "trx_id: " << trx_id << "table_id: " << table_id
-                      << ", key: " << key << " pass\n";
+            // std::cout << "trx_id: " << trx_id << "table_id: " << table_id
+            //           << ", key: " << key << " pass\n";
             return lock;
         }
 
@@ -129,19 +129,19 @@ std::shared_ptr<lock_t> LockManager::lock_acquire(int table_id, int64_t key,
     {
         TransactionManager::instance().abort(trx_id);
         lock_release(lock);
-        std::cout << "\nafter\n";
-        if (trx_id == 150)
-        {
-            for (const auto& lock : lock_table)
-            {
-                const auto& list = lock.second;
-                list.print();
-            }
-        }
+        // std::cout << "\nafter\n";
+        // if (trx_id == 150)
+        // {
+        //     for (const auto& lock : lock_table)
+        //     {
+        //         const auto& list = lock.second;
+        //         list.print();
+        //     }
+        // }
         return nullptr;
     }
-    std::cout << "trx_id: " << trx_id << "table_id: " << table_id
-              << ", key: " << key << " wait\n";
+    // std::cout << "trx_id: " << trx_id << "table_id: " << table_id
+    //           << ", key: " << key << " wait\n";
     while (lock->wait())
     {
         std::this_thread::yield();
@@ -279,16 +279,16 @@ bool LockManager::deadlock_detection(int now_transaction_id)
     bool deadlock = false;
     dfs(now_transaction_id, graph, deadlock);
 
-    if (deadlock && now_transaction_id == 150)
-    {
-        for (const auto& lock : lock_table)
-        {
-            const auto& list = lock.second;
-            std::cout << "lock:" << lock.first.table_id << " " << lock.first.key
-                      << '\n';
-            list.print();
-        }
-    }
+    // if (deadlock && now_transaction_id == 150)
+    // {
+    //     for (const auto& lock : lock_table)
+    //     {
+    //         const auto& list = lock.second;
+    //         std::cout << "lock:" << lock.first.table_id << " " << lock.first.key
+    //                   << '\n';
+    //         list.print();
+    //     }
+    // }
 
     return deadlock;
 
@@ -355,7 +355,7 @@ bool LockManager::lock_release(std::shared_ptr<lock_t> lock_obj)
     {
         std::unique_lock<std::mutex> crit { mtx };
         LockHash hash = lock_obj->hash;
-        std::cout << "release start (" << lock_obj->hash.key << ") -> ";
+        // std::cout << "release start (" << lock_obj->hash.key << ") -> ";
         auto& lockList = lock_table[hash];
         auto& table = lockList.locks;
 
@@ -368,14 +368,14 @@ bool LockManager::lock_release(std::shared_ptr<lock_t> lock_obj)
 
         if (iter->get()->state == LockState::ACQUIRED)
         {
-            std::cout << "acquire -> ";
+            // std::cout << "acquire -> ";
             --lockList.acquire_count;
         }
         else
         {
             // wait 중인걸 그냥 lock_release 해도 되나?
             // TODO: abort 될때 처리...
-            std::cout << "wait -> ";
+            // std::cout << "wait -> ";
             --lockList.wait_count;
         }
         table.erase(iter);
@@ -398,7 +398,7 @@ bool LockManager::lock_release(std::shared_ptr<lock_t> lock_obj)
                     ++lockList.acquire_count;
                     --lockList.wait_count;
                     second->signal();
-                    std::cout << "sxlock -> ";
+                    // std::cout << "sxlock -> ";
                 }
             }
             else
@@ -439,14 +439,14 @@ bool LockManager::lock_release(std::shared_ptr<lock_t> lock_obj)
                 }
             }
 
-            std::cout << "acquire > 0. end.\n";
+            // std::cout << "acquire > 0. end.\n";
             return true;
         }
 
         if (lockList.wait_count == 0)
         {
             lock_table.erase(hash);
-            std::cout << "wait == 0. end.\n";
+            // std::cout << "wait == 0. end.\n";
             return true;
         }
 
@@ -460,7 +460,7 @@ bool LockManager::lock_release(std::shared_ptr<lock_t> lock_obj)
             ++lockList.acquire_count;
             --lockList.wait_count;
             target->signal();
-            std::cout << "front xlock. end.\n";
+            // std::cout << "front xlock. end.\n";
             return true;
         }
 
@@ -471,16 +471,16 @@ bool LockManager::lock_release(std::shared_ptr<lock_t> lock_obj)
             if (it->lockMode == LockMode::EXCLUSIVE)
             {
                 lockList.mode = LockMode::EXCLUSIVE;
-                std::cout << "xlock acquired -> ";
+                // std::cout << "xlock acquired -> ";
                 break;
             }
             it->state = LockState::ACQUIRED;
             ++lockList.acquire_count;
             --lockList.wait_count;
             it->signal();
-            std::cout << "slock acquired -> ";
+            // std::cout << "slock acquired -> ";
         }
-        std::cout << "return true. mode: " << lockList.mode << '\n';
+        // std::cout << "return true. mode: " << lockList.mode << '\n';
         ;
     }
 
