@@ -30,6 +30,23 @@ bool LockHash::operator==(const LockHash& rhs) const
     return table_id == rhs.table_id && key == rhs.key;
 }
 
+std::ostream& operator<<(std::ostream& os, const LockMode& dt)
+{
+    switch (dt)
+    {
+        case LockMode::EMPTY:
+         os << "EMPTY";
+         break;
+        case LockMode::EXCLUSIVE:
+         os << "EXCLUSIVE";
+         break;
+        case LockMode::SHARED:
+         os << "SHARED";
+         break;
+    }
+    return os;
+}
+
 std::shared_ptr<lock_t> LockManager::lock_acquire(int table_id, int64_t key,
                                                   int trx_id, LockMode mode)
 {
@@ -62,12 +79,15 @@ std::shared_ptr<lock_t> LockManager::lock_acquire(int table_id, int64_t key,
             else
             {
                 std::cout << "hmm...\n";
+                it->second.print();
+                std::cout << "\nlockMode:" << lock->lockMode << "\n";
             }
         }
         if (auto it = lock_table.find(hash);
             it == lock_table.end() || (it->second.mode == LockMode::SHARED &&
                                        lock->lockMode == LockMode::SHARED))
         {
+            std::cout << "in if\n";
             // // 바로 실행
             // if (it == lock_table.end())
             // {

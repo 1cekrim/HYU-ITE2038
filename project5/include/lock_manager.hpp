@@ -16,6 +16,7 @@ enum class LockMode
     EXCLUSIVE = 1,
     EMPTY = 2
 };
+std::ostream& operator<<(std::ostream& os, const LockMode& dt);
 
 enum class LockState
 {
