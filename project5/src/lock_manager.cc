@@ -224,6 +224,15 @@ bool LockManager::deadlock_detection(int now_transaction_id)
     bool deadlock = false;
     dfs(now_transaction_id, graph, deadlock);
 
+    if (deadlock && now_transaction_id == 150)
+    {
+        for (const auto& lock : lock_table)
+        {
+            const auto& list = lock.second;
+            list.print();
+        }
+    }
+
     return deadlock;
 
     // std::queue<int> q;
