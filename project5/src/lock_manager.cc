@@ -54,6 +54,15 @@ std::shared_ptr<lock_t> LockManager::lock_acquire(int table_id, int64_t key,
                 std::cout << "lock:" << lock.first.table_id << " " << lock.first.key << '\n';
                 list.print();
             }
+            auto it = lock_table.find(hash);
+            if (it == lock_table.end())
+            {
+                std::cout << "end??\n";
+            }
+            else
+            {
+                std::cout << "hmm...\n";
+            }
         }
         if (auto it = lock_table.find(hash);
             it == lock_table.end() || (it->second.mode == LockMode::SHARED &&
@@ -65,7 +74,7 @@ std::shared_ptr<lock_t> LockManager::lock_acquire(int table_id, int64_t key,
             //     lock_table.emplace(hash, LockList());
             //     it = lock_table.find(hash);
             // }
-            std::cout << "new lock: " << trx_id << ", table_id: " << table_id << ", key:" << key << "\n";
+            // std::cout << "new lock: " << trx_id << ", table_id: " << table_id << ", key:" << key << "\n";
             auto& list = lock_table[hash];
             // std::cout << hash.key << ' ' << hash.table_id << std::endl;
             lock->state = LockState::ACQUIRED;
@@ -74,6 +83,7 @@ std::shared_ptr<lock_t> LockManager::lock_acquire(int table_id, int64_t key,
             list.mode = mode;
             list.locks.push_front(lock);
             ++list.acquire_count;
+            std::cout << "trx_id: " << trx_id << "table_id: " << table_id << ", key: " << key << " pass\n";
             return lock;
         }
 
@@ -107,6 +117,7 @@ std::shared_ptr<lock_t> LockManager::lock_acquire(int table_id, int64_t key,
         }
         return nullptr;
     }
+    std::cout << "trx_id: " << trx_id << "table_id: " << table_id << ", key: " << key << " wait\n";
     while (lock->wait())
     {
         std::this_thread::yield();
