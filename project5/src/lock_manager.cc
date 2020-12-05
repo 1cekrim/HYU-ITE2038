@@ -50,40 +50,16 @@ std::ostream& operator<<(std::ostream& os, const LockMode& dt)
 std::shared_ptr<lock_t> LockManager::lock_acquire(int table_id, int64_t key,
                                                   int trx_id, LockMode mode)
 {
-    std::shared_ptr<lock_t> lock;
+    std::shared_ptr<lock_t> lock =
+        std::make_shared<lock_t>(LockHash(table_id, key), mode, trx_id);
+    LockHash hash { table_id, key };
+    if (!lock)
+    {
+        return nullptr;
+    }
 
     {
         std::unique_lock<std::mutex> crit { mtx };
-        auto num = lock_table.size();
-        lock = std::make_shared<lock_t>(LockHash(table_id, key), mode, trx_id);
-        LockHash hash { table_id, key };
-        if (!lock)
-        {
-            return nullptr;
-        }
-        num += 0;
-        // if (key == 37 && trx_id == 158)
-        // {
-        //     std::cout << "special test\n";
-        //     for (const auto& lock : lock_table)
-        //     {
-        //         const auto& list = lock.second;
-        //         std::cout << "lock:" << lock.first.table_id << " "
-        //                   << lock.first.key << '\n';
-        //         list.print();
-        //     }
-        //     auto it = lock_table.find(hash);
-        //     if (it == lock_table.end())
-        //     {
-        //         std::cout << "end??\n";
-        //     }
-        //     else
-        //     {
-        //         std::cout << "hmm...\n";
-        //         it->second.print();
-        //         std::cout << "\nlockMode:" << lock->lockMode << "\n";
-        //     }
-        // }
         if (auto it = lock_table.find(hash);
             it == lock_table.end() || (it->second.mode == LockMode::SHARED &&
                                        lock->lockMode == LockMode::SHARED))
@@ -97,6 +73,7 @@ std::shared_ptr<lock_t> LockManager::lock_acquire(int table_id, int64_t key,
             // }
             // std::cout << "new lock: " << trx_id << ", table_id: " << table_id
             // << ", key:" << key << "\n";
+
             auto& list = lock_table[hash];
             // std::cout << hash.key << ' ' << hash.table_id << std::endl;
             lock->state = LockState::ACQUIRED;
@@ -105,6 +82,7 @@ std::shared_ptr<lock_t> LockManager::lock_acquire(int table_id, int64_t key,
             list.mode = mode;
             list.locks.push_front(lock);
             ++list.acquire_count;
+
             // std::cout << "trx_id: " << trx_id << "table_id: " << table_id
             //           << ", key: " << key << " pass\n";
             return lock;
@@ -267,10 +245,6 @@ bool LockManager::deadlock_detection(int now_transaction_id)
             for (auto wait = wait_begin; wait != list.locks.end(); ++wait)
             {
                 auto wait_id = wait->get()->ownerTransactionID;
-                // if (acquire_id == wait_id)
-                // {
-                //     continue;
-                // }
                 graph[wait_id].next.insert(acquire_id);
                 graph[wait_id].visited = false;
             }
@@ -280,84 +254,7 @@ bool LockManager::deadlock_detection(int now_transaction_id)
     bool deadlock = false;
     dfs(now_transaction_id, graph, deadlock);
 
-    // std::cout << "lock tables" << now_transaction_id << "\n";
-    // for (const auto& lock : lock_table)
-    // {
-    //     const auto& list = lock.second;
-    //     std::cout << "lock:" << lock.first.table_id << " " << lock.first.key
-    //                 << std::endl;
-    //     list.print();
-    // }
-    // std::cout << "graph" << std::endl;
-    // for (const auto& node : graph)
-    // {
-    //     std::cout << "node " << node.first << ':';
-    //     for (const auto& next : node.second.next)
-    //     {
-    //         std::cout << next << ' ';
-    //     }
-    //     std::cout << std::endl;
-    // }
-    // std::cout << "end" << std::endl;
-
     return deadlock;
-
-    // std::queue<int> q;
-    // q.push(now_transaction_id);
-    // std::vector<int> visited;
-
-    // while (!q.empty())
-    // {
-    //     int now = q.front();
-    //     q.pop();
-    //      if (std::find(visited.begin(), visited.end(), now) !=
-    //             visited.end())
-    //         {
-    //             std::cout << "deadlock!: ";
-    //             for (const auto& visit : visited)
-    //             {
-    //                 std::cout << visit << ' ';
-    //             }
-    //             std::cout << '\n';
-    //             for (const auto& lock : lock_table)
-    //             {
-    //                 lock.second.print();
-    //             }
-    //             for (const auto& node : graph)
-    //             {
-    //                 std::cout << "node " << node.first << ':';
-    //                 for (const auto& next : node.second)
-    //                 {
-    //                     std::cout << next << ' ';
-    //                 }
-    //                 std::cout << '\n';
-    //             }
-    //             return true;
-    //         }
-    //         visited.push_back(now);
-    //     for (const auto next : graph[now])
-    //     {
-
-    //         q.push(next);
-    //     }
-    // }
-
-    // if constexpr (false)
-    // {
-    //     std::cout << "\ndeadlock detection next\n";
-
-    // for (const auto& node : graph)
-    // {
-    //     std::cout << "node " << node.first << ':';
-    //     for (const auto& next : node.second)
-    //     {
-    //         std::cout << next << ' ';
-    //     }
-    //     std::cout << '\n';
-    // }
-    // }
-
-    return false;
 }
 
 bool LockManager::lock_release(std::shared_ptr<lock_t> lock_obj)
@@ -453,52 +350,6 @@ bool LockManager::lock_release(std::shared_ptr<lock_t> lock_obj)
                 lockList.mode = LockMode::EXCLUSIVE;
             }
 
-            // else
-            // {
-            //     if (lockList.acquire_count == 1)
-            //     {
-            //         // SLock인가 XLock인가?
-            //         /*
-            //             만약 front가 SLock일 경우
-            //                 유일한 XLock을 지웠다 -> mode를 SLock으로
-            //                 XLock이 남아있다 -> 변경 X
-            //             XLock일 경우
-            //                 변경 X
-
-            //         */
-            //         if (lockList.locks.front()->lockMode == LockMode::SHARED)
-            //         {
-            // bool flag = true;
-            // auto it = std::next(lockList.locks.begin(), 1);
-            // for (int i = 0; i < lockList.wait_count; ++i)
-            // {
-            //     if (it->get()->lockMode == LockMode::EXCLUSIVE)
-            //     {
-            //         flag = false;
-            //         break;
-            //     }
-            // }
-            // if (flag)
-            // {
-            //     lockList.mode = LockMode::SHARED;
-            // }
-            //         }
-            //     }
-            //     else
-            //     {
-            //         if (lockList.acquire_count == 2)
-            //         {
-
-            //         }
-            //         else
-            //         {
-            //             // 무조건 남은 하나를 따라간다.
-            //             lockList.mode = lockList.locks.front()->lockMode;
-            //         }
-            //     }
-            // }
-
-            // std::cout << "acquire > 0. end.\n";
             return true;
         }
 
