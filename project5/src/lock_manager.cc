@@ -346,15 +346,15 @@ bool LockManager::deadlock_detection(int now_transaction_id)
     // {
     //     std::cout << "\ndeadlock detection next\n";
 
-        // for (const auto& node : graph)
-        // {
-        //     std::cout << "node " << node.first << ':';
-        //     for (const auto& next : node.second)
-        //     {
-        //         std::cout << next << ' ';
-        //     }
-        //     std::cout << '\n';
-        // }
+    // for (const auto& node : graph)
+    // {
+    //     std::cout << "node " << node.first << ':';
+    //     for (const auto& next : node.second)
+    //     {
+    //         std::cout << next << ' ';
+    //     }
+    //     std::cout << '\n';
+    // }
     // }
 
     return false;
@@ -376,6 +376,23 @@ bool LockManager::lock_release(std::shared_ptr<lock_t> lock_obj)
 
         // CHECK(iter != table.end());
         // 없는거 release 하려하면 그냥 통과
+        /*
+         왜 lockList에 없는 lock을 지우려는 상황이 발생하는가?
+         이는 lock_upgrade의 구현 때문이다.
+         lock_upgrade의 return value가 transaction의 lock list에 추가된다.
+         그런데 만약, lock list에 해당 트랜잭션의 slock만 존재할 경우,
+         lock_upgrade는 최적화를 위해 해당 slock을 그냥 xlock으로 변환한다.
+         변환한 이후, 변환된 xlock(slock이었던 것)의 shared_ptr을 반환한다.
+         그러면 이게 트랜잭션의 lock list에 emplace 되는데, 이건 이미 트랜잭션의
+         lock list에 추가되어 있는 상태다! 이렇게 lock list에 중복된
+         shared_ptr이 들어가고, 해당 트랜잭션이 abort 된다면
+         transaction::abort에서 이미 lock_release된 lock을 lock_release 하게
+         된다. 기존 구현에서는, lock list에 존재하지 않는 lock을 release 하려는
+         상황이 발생했을 때, 논리적 오류로 취급했다. 하지만 위와 같은 상황을
+         처리하기 위해 논리적 오류가 아니라고 결론지었다. 트랜잭션의 lock list에
+         emplace 할 때마다 중복 검사하는 것은 비효율적이다. 다른 부분의 로직에
+         문제가 없는 걸 확인했으니 release에서 처리해도 될 것 같다.
+        */
         if (iter == table.end())
         {
             return true;
@@ -435,7 +452,7 @@ bool LockManager::lock_release(std::shared_ptr<lock_t> lock_obj)
             {
                 lockList.mode = LockMode::EXCLUSIVE;
             }
-                        
+
             // else
             // {
             //     if (lockList.acquire_count == 1)
@@ -451,20 +468,20 @@ bool LockManager::lock_release(std::shared_ptr<lock_t> lock_obj)
             //         */
             //         if (lockList.locks.front()->lockMode == LockMode::SHARED)
             //         {
-                        // bool flag = true;
-                        // auto it = std::next(lockList.locks.begin(), 1);
-                        // for (int i = 0; i < lockList.wait_count; ++i)
-                        // {
-                        //     if (it->get()->lockMode == LockMode::EXCLUSIVE)
-                        //     {
-                        //         flag = false;
-                        //         break;
-                        //     }
-                        // }
-                        // if (flag)
-                        // {
-                        //     lockList.mode = LockMode::SHARED;
-                        // }
+            // bool flag = true;
+            // auto it = std::next(lockList.locks.begin(), 1);
+            // for (int i = 0; i < lockList.wait_count; ++i)
+            // {
+            //     if (it->get()->lockMode == LockMode::EXCLUSIVE)
+            //     {
+            //         flag = false;
+            //         break;
+            //     }
+            // }
+            // if (flag)
+            // {
+            //     lockList.mode = LockMode::SHARED;
+            // }
             //         }
             //     }
             //     else
