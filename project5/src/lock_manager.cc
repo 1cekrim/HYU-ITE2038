@@ -285,10 +285,10 @@ bool LockManager::deadlock_detection(int now_transaction_id)
     {
         const auto& list = lock.second;
         std::cout << "lock:" << lock.first.table_id << " " << lock.first.key
-                    << '\n';
+                    << std::endl;
         list.print();
     }
-    std::cout << "graph";
+    std::cout << "graph" << std::endl;
     for (const auto& node : graph)
     {
         std::cout << "node " << node.first << ':';
@@ -296,9 +296,9 @@ bool LockManager::deadlock_detection(int now_transaction_id)
         {
             std::cout << next << ' ';
         }
-        std::cout << '\n';
+        std::cout << std::endl;
     }
-    std::cout << "end\n";
+    std::cout << "end" << std::endl;
 
     return deadlock;
 
