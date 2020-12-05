@@ -279,28 +279,25 @@ bool LockManager::deadlock_detection(int now_transaction_id)
     bool deadlock = false;
     dfs(now_transaction_id, graph, deadlock);
 
-    if (deadlock)
+    std::cout << "lock tables" << now_transaction_id << "\n";
+    for (const auto& lock : lock_table)
     {
-        std::cout << "lock tables\n";
-        for (const auto& lock : lock_table)
-        {
-            const auto& list = lock.second;
-            std::cout << "lock:" << lock.first.table_id << " " << lock.first.key
-                      << '\n';
-            list.print();
-        }
-        std::cout << "graph";
-        for (const auto& node : graph)
-        {
-            std::cout << "node " << node.first << ':';
-            for (const auto& next : node.second.next)
-            {
-                std::cout << next << ' ';
-            }
-            std::cout << '\n';
-        }
-        std::cout << "end\n";
+        const auto& list = lock.second;
+        std::cout << "lock:" << lock.first.table_id << " " << lock.first.key
+                    << '\n';
+        list.print();
     }
+    std::cout << "graph";
+    for (const auto& node : graph)
+    {
+        std::cout << "node " << node.first << ':';
+        for (const auto& next : node.second.next)
+        {
+            std::cout << next << ' ';
+        }
+        std::cout << '\n';
+    }
+    std::cout << "end\n";
 
     return deadlock;
 
