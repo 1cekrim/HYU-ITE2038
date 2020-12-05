@@ -231,6 +231,7 @@ std::shared_ptr<lock_t> LockManager::lock_upgrade(int table_id, int64_t key,
 void LockManager::dfs(int now, std::unordered_map<int, graph_node>& graph,
                       bool& stop)
 {
+    std::cout << "dfs: " << now << '\n';
     graph[now].visited = true;
     for (const auto& next : graph[now].next)
     {
