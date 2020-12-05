@@ -124,25 +124,26 @@ std::shared_ptr<lock_t> LockManager::lock_acquire(int table_id, int64_t key,
         table.locks.emplace_back(lock);
         ++table.wait_count;
     }
+
+    if (deadlock_detection(trx_id))
+    {
+        TransactionManager::instance().abort(trx_id);
+        lock_release(lock);
+        // std::cout << "\nafter\n";
+        // if (trx_id == 150)
+        // {
+        //     for (const auto& lock : lock_table)
+        //     {
+        //         const auto& list = lock.second;
+        //         list.print();
+        //     }
+        // }
+        return nullptr;
+    }
     // std::cout << "trx_id: " << trx_id << "table_id: " << table_id
     //           << ", key: " << key << " wait\n";
     while (lock->wait())
     {
-        if (deadlock_detection(trx_id))
-        {
-            TransactionManager::instance().abort(trx_id);
-            lock_release(lock);
-            // std::cout << "\nafter\n";
-            // if (trx_id == 150)
-            // {
-            //     for (const auto& lock : lock_table)
-            //     {
-            //         const auto& list = lock.second;
-            //         list.print();
-            //     }
-            // }
-            return nullptr;
-        }
         std::this_thread::yield();
     }
 
@@ -212,14 +213,15 @@ std::shared_ptr<lock_t> LockManager::lock_upgrade(int table_id, int64_t key,
         ++lock_list.wait_count;
     }
 
+    if (deadlock_detection(trx_id))
+    {
+        TransactionManager::instance().abort(trx_id);
+        lock_release(lock);
+        return nullptr;
+    }
+
     while (lock->wait())
     {
-        if (deadlock_detection(trx_id))
-        {
-            TransactionManager::instance().abort(trx_id);
-            lock_release(lock);
-            return nullptr;
-        }
         std::this_thread::yield();
     }
 
@@ -282,8 +284,7 @@ bool LockManager::deadlock_detection(int now_transaction_id)
     //     for (const auto& lock : lock_table)
     //     {
     //         const auto& list = lock.second;
-    //         std::cout << "lock:" << lock.first.table_id << " " <<
-    //         lock.first.key
+    //         std::cout << "lock:" << lock.first.table_id << " " << lock.first.key
     //                   << '\n';
     //         list.print();
     //     }
@@ -419,7 +420,7 @@ bool LockManager::lock_release(std::shared_ptr<lock_t> lock_obj)
             {
                 lockList.mode = LockMode::EXCLUSIVE;
             }
-
+                        
             // else
             // {
             //     if (lockList.acquire_count == 1)
@@ -435,20 +436,20 @@ bool LockManager::lock_release(std::shared_ptr<lock_t> lock_obj)
             //         */
             //         if (lockList.locks.front()->lockMode == LockMode::SHARED)
             //         {
-            // bool flag = true;
-            // auto it = std::next(lockList.locks.begin(), 1);
-            // for (int i = 0; i < lockList.wait_count; ++i)
-            // {
-            //     if (it->get()->lockMode == LockMode::EXCLUSIVE)
-            //     {
-            //         flag = false;
-            //         break;
-            //     }
-            // }
-            // if (flag)
-            // {
-            //     lockList.mode = LockMode::SHARED;
-            // }
+                        // bool flag = true;
+                        // auto it = std::next(lockList.locks.begin(), 1);
+                        // for (int i = 0; i < lockList.wait_count; ++i)
+                        // {
+                        //     if (it->get()->lockMode == LockMode::EXCLUSIVE)
+                        //     {
+                        //         flag = false;
+                        //         break;
+                        //     }
+                        // }
+                        // if (flag)
+                        // {
+                        //     lockList.mode = LockMode::SHARED;
+                        // }
             //         }
             //     }
             //     else
