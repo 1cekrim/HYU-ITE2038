@@ -30,7 +30,7 @@ struct Transaction
     bool lock_release();
     int transactionID;
     std::atomic<TransactionState> state;
-    std::list<std::tuple<LockHash, std::shared_ptr<lock_t>>> locks;
+    std::list<std::tuple<LockHash, lock_t*>> locks;
     std::mutex mtx;
 };
 

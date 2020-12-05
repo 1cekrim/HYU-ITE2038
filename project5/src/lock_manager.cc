@@ -47,11 +47,13 @@ std::ostream& operator<<(std::ostream& os, const LockMode& dt)
     return os;
 }
 
-std::shared_ptr<lock_t> LockManager::lock_acquire(int table_id, int64_t key,
+lock_t* LockManager::lock_acquire(int table_id, int64_t key,
                                                   int trx_id, LockMode mode)
 {
-    std::shared_ptr<lock_t> lock =
-        std::make_shared<lock_t>(LockHash(table_id, key), mode, trx_id);
+    std::unique_ptr<lock_t> lock =
+        std::make_unique<lock_t>(LockHash(table_id, key), mode, trx_id);
+    auto lock_ptr = lock.get();
+
     LockHash hash { table_id, key };
     if (!lock)
     {
@@ -80,12 +82,12 @@ std::shared_ptr<lock_t> LockManager::lock_acquire(int table_id, int64_t key,
             lock->signal();
             lock->locked = false;
             list.mode = mode;
-            list.locks.push_front(lock);
+            list.locks.emplace_front(std::move(lock));
             ++list.acquire_count;
 
             // std::cout << "trx_id: " << trx_id << "table_id: " << table_id
             //           << ", key: " << key << " pass\n";
-            return lock;
+            return lock_ptr;
         }
 
         // TODO: Transaction 관련 추가
@@ -99,40 +101,32 @@ std::shared_ptr<lock_t> LockManager::lock_acquire(int table_id, int64_t key,
         {
             table.mode = LockMode::EXCLUSIVE;
         }
-        table.locks.emplace_back(lock);
+        table.locks.emplace_back(std::move(lock));
         ++table.wait_count;
     }
 
     if (deadlock_detection(trx_id))
     {
         TransactionManager::instance().abort(trx_id);
-        lock_release(lock);
-        // std::cout << "\nafter\n";
-        // if (trx_id == 150)
-        // {
-        //     for (const auto& lock : lock_table)
-        //     {
-        //         const auto& list = lock.second;
-        //         list.print();
-        //     }
-        // }
+        lock_release(lock_ptr);
         return nullptr;
     }
-    // std::cout << "trx_id: " << trx_id << "table_id: " << table_id
-    //           << ", key: " << key << " wait\n";
+
+
     while (lock->wait())
     {
         std::this_thread::yield();
     }
 
-    return lock;
+    return lock_ptr;
 }
 
-std::shared_ptr<lock_t> LockManager::lock_upgrade(int table_id, int64_t key,
+lock_t*LockManager::lock_upgrade(int table_id, int64_t key,
                                                   int trx_id, LockMode mode)
 {
     CHECK_RET(mode == LockMode::EXCLUSIVE, nullptr);
-    auto lock = std::make_shared<lock_t>(LockHash(table_id, key), mode, trx_id);
+    auto lock = std::make_unique<lock_t>(LockHash(table_id, key), mode, trx_id);
+    auto lock_ptr = lock.get();
     LockHash hash { table_id, key };
     if (!lock)
     {
@@ -173,9 +167,9 @@ std::shared_ptr<lock_t> LockManager::lock_upgrade(int table_id, int64_t key,
             lock->signal();
             lock->locked = false;
             lock_list.mode = mode;
-            lock_list.locks.push_back(lock);
+            lock_list.locks.emplace_back(std::move(lock));
             ++lock_list.acquire_count;
-            return lock;
+            return lock_ptr;
         }
         /*
         일반적인 경우. lock_list에 다른 트랜잭션의 lock이 존재할 경우
@@ -187,14 +181,14 @@ std::shared_ptr<lock_t> LockManager::lock_upgrade(int table_id, int64_t key,
         lock->state = LockState::WAITING;
         lock->locked = true;
         lock_list.mode = LockMode::EXCLUSIVE;
-        lock_list.locks.emplace_back(lock);
+        lock_list.locks.emplace_back(std::move(lock));
         ++lock_list.wait_count;
     }
 
     if (deadlock_detection(trx_id))
     {
         TransactionManager::instance().abort(trx_id);
-        lock_release(lock);
+        lock_release(lock_ptr);
         return nullptr;
     }
 
@@ -203,7 +197,7 @@ std::shared_ptr<lock_t> LockManager::lock_upgrade(int table_id, int64_t key,
         std::this_thread::yield();
     }
 
-    return lock;
+    return lock_ptr;
 }
 
 void LockManager::dfs(int now, std::unordered_map<int, graph_node>& graph,
@@ -257,7 +251,7 @@ bool LockManager::deadlock_detection(int now_transaction_id)
     return deadlock;
 }
 
-bool LockManager::lock_release(std::shared_ptr<lock_t> lock_obj)
+bool LockManager::lock_release(lock_t* lock_obj)
 {
     {
         std::unique_lock<std::mutex> crit { mtx };
@@ -268,7 +262,7 @@ bool LockManager::lock_release(std::shared_ptr<lock_t> lock_obj)
 
         auto iter =
             std::find_if(table.begin(), table.end(), [lock_obj](auto& p) {
-                return p.get() == lock_obj.get();
+                return p.get() == lock_obj;
             });
 
         // CHECK(iter != table.end());
