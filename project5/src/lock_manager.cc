@@ -113,7 +113,7 @@ lock_t* LockManager::lock_acquire(int table_id, int64_t key,
     }
 
 
-    while (lock->wait())
+    while (lock_ptr->wait())
     {
         std::this_thread::yield();
     }
@@ -192,7 +192,7 @@ lock_t*LockManager::lock_upgrade(int table_id, int64_t key,
         return nullptr;
     }
 
-    while (lock->wait())
+    while (lock_ptr->wait())
     {
         std::this_thread::yield();
     }
