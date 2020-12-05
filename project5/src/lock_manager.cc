@@ -374,7 +374,12 @@ bool LockManager::lock_release(std::shared_ptr<lock_t> lock_obj)
                 return p.get() == lock_obj.get();
             });
 
-        CHECK(iter != table.end());
+        // CHECK(iter != table.end());
+        // 없는거 release 하려하면 그냥 통과
+        if (iter == table.end())
+        {
+            return true;
+        }
 
         if (iter->get()->state == LockState::ACQUIRED)
         {
