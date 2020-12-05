@@ -231,7 +231,7 @@ std::shared_ptr<lock_t> LockManager::lock_upgrade(int table_id, int64_t key,
 void LockManager::dfs(int now, std::unordered_map<int, graph_node>& graph,
                       bool& stop)
 {
-    std::cout << "dfs: " << now << std::endl;
+    // std::cout << "dfs: " << now << std::endl;
     graph[now].visited = true;
     for (const auto& next : graph[now].next)
     {
@@ -280,25 +280,25 @@ bool LockManager::deadlock_detection(int now_transaction_id)
     bool deadlock = false;
     dfs(now_transaction_id, graph, deadlock);
 
-    std::cout << "lock tables" << now_transaction_id << "\n";
-    for (const auto& lock : lock_table)
-    {
-        const auto& list = lock.second;
-        std::cout << "lock:" << lock.first.table_id << " " << lock.first.key
-                    << std::endl;
-        list.print();
-    }
-    std::cout << "graph" << std::endl;
-    for (const auto& node : graph)
-    {
-        std::cout << "node " << node.first << ':';
-        for (const auto& next : node.second.next)
-        {
-            std::cout << next << ' ';
-        }
-        std::cout << std::endl;
-    }
-    std::cout << "end" << std::endl;
+    // std::cout << "lock tables" << now_transaction_id << "\n";
+    // for (const auto& lock : lock_table)
+    // {
+    //     const auto& list = lock.second;
+    //     std::cout << "lock:" << lock.first.table_id << " " << lock.first.key
+    //                 << std::endl;
+    //     list.print();
+    // }
+    // std::cout << "graph" << std::endl;
+    // for (const auto& node : graph)
+    // {
+    //     std::cout << "node " << node.first << ':';
+    //     for (const auto& next : node.second.next)
+    //     {
+    //         std::cout << next << ' ';
+    //     }
+    //     std::cout << std::endl;
+    // }
+    // std::cout << "end" << std::endl;
 
     return deadlock;
 
