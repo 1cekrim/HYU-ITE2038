@@ -267,10 +267,10 @@ bool LockManager::deadlock_detection(int now_transaction_id)
             for (auto wait = wait_begin; wait != list.locks.end(); ++wait)
             {
                 auto wait_id = wait->get()->ownerTransactionID;
-                if (acquire_id == wait_id)
-                {
-                    continue;
-                }
+                // if (acquire_id == wait_id)
+                // {
+                //     continue;
+                // }
                 graph[wait_id].next.insert(acquire_id);
                 graph[wait_id].visited = false;
             }
