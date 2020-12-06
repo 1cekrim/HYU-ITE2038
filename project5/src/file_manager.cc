@@ -52,9 +52,10 @@ bool FileManager::init_file_if_created()
 
 bool FileManager::get_file_header(header_frame& header) const
 {
-    int index = bufferManager->load(FILE_HEADER_PAGENUM, [&](const page_t& page){
-        header.page = page;
-    });
+    int index =
+        bufferManager->load(FILE_HEADER_PAGENUM, [&](const page_t& page) {
+            header.page = page;
+        });
     CHECK_WITH_LOG(index != INVALID_BUFFER_INDEX, false,
                    "get file header failure");
     header.buffer_index = index;
@@ -102,15 +103,13 @@ pagenum_t FileManager::pageCreate()
         page_t page {};
         CHECK_WITH_LOG(pageWrite(pagenum, page), EMPTY_PAGE_NUMBER,
                        "write page failure: %ld", pagenum);
-        CHECK_WITH_LOG(pageRead(pagenum, page), EMPTY_PAGE_NUMBER,
-                       "write page failure: %ld", pagenum);
         ++fileHeader.numberOfPages;
     }
     else
     {
         page_t page {};
-        CHECK_WITH_LOG(pageRead(pagenum, page), EMPTY_PAGE_NUMBER,
-                       "read page failure: %ld", pagenum);
+        CHECK_WITH_LOG(pageWrite(pagenum, page), EMPTY_PAGE_NUMBER,
+                       "write page failure: %ld", pagenum);
         fileHeader.freePageNumber = page.freePageHeader().nextFreePageNumber;
     }
 
@@ -135,8 +134,6 @@ bool FileManager::pageRead(pagenum_t pagenum, page_t& page)
 bool FileManager::pageFree(pagenum_t pagenum)
 {
     page_t page {};
-    CHECK_WITH_LOG(pageRead(pagenum, page), false, "page read failure: %ld",
-                   pagenum);
 
     header_frame header;
     CHECK(get_file_header(header));
@@ -203,8 +200,5 @@ pagenum_t FileManager::create()
 
 bool FileManager::free(pagenum_t pagenum)
 {
-    header_frame frame;
-    get_file_header(frame);
-    std::cout << frame.page.headerPageHeader();
     return pageFree(pagenum);
 }
