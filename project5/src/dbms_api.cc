@@ -15,6 +15,12 @@ int init_db(int buf_num)
     return TableManager::instance().init_db(buf_num) ? 0 : -1;
 }
 
+int init_db(int buf_num, int flag, int log_num, char* log_path, char* logmsg)
+{
+    // TODO: 구현
+    return 0;
+}
+
 int open_table(char* pathname)
 {
     int table_id = TableManager::instance().open_table(pathname);
