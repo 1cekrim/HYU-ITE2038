@@ -703,6 +703,7 @@ bool BPTree::find(keyType key, record_t& ret, int transaction_id)
             case LockState::ACQUIRED:
                 break;
             case LockState::ABORTED:
+                TransactionManager::instance().abort(transaction_id);
                 return false;
             case LockState::WAITING:
                 trx.mtx.lock();
