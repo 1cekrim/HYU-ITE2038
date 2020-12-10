@@ -35,6 +35,12 @@ struct Transaction
     std::mutex mtx;
 };
 
+struct LockAcquireResult
+{
+    lock_t* lock;
+    LockState state;
+};
+
 class TransactionManager
 {
  public:
@@ -50,8 +56,8 @@ class TransactionManager
     bool abort(int transaction_id);
     void reset();
 
-    LockState lock_acquire(int table_id, int64_t key, int trx_id, LockMode mode);
-    void lock_wait();
+    LockAcquireResult lock_acquire(int table_id, int64_t key, int trx_id, LockMode mode);
+    void lock_wait(lock_t* lock);
 
     static constexpr int invliad_transaction_id = 0;
 

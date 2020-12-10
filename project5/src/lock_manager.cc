@@ -60,6 +60,9 @@ std::ostream& operator<<(std::ostream& os, const LockState& dt)
         case LockState::WAITING:
             os << "WAITING";
             break;
+        case LockState::ABORTED:
+            os << "ABORTED";
+            break;
     }
     return os;
 }

@@ -80,6 +80,7 @@ class BPTree
 
  private:
     bool find_leaf(keyType key, node_tuple& ret);
+    bool exist_key(keyType key);
     bool insert_into_leaf(node_tuple& leaf, const record_t& rec);
     bool insert_into_leaf_after_splitting(node_tuple& leaf,
                                           const record_t& rec);

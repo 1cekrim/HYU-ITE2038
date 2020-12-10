@@ -121,7 +121,6 @@ bool BufferManager::set_root(pagenum_t pagenum)
 
 bool BufferController::init_buffer(std::size_t buffer_size)
 {
-    std::unique_lock<std::recursive_mutex> lock(mtx);
     CHECK_WITH_LOG(this->buffer_size < buffer_size, false,
                    "cannot be made smaller than the current buffer size %ld",
                    this->buffer_size);
@@ -153,7 +152,6 @@ bool BufferController::init_buffer(std::size_t buffer_size)
 
 bool BufferController::clear_buffer()
 {
-    std::unique_lock<std::recursive_mutex> lock(mtx);
     if (!valid_buffer_controller)
     {
         return true;
@@ -193,7 +191,6 @@ FileManager& BufferController::getFileManager(int file_id)
 
 void BufferController::release_frame(int file_id, pagenum_t pagenum)
 {
-    std::unique_lock<std::recursive_mutex> lock(mtx);
     int index = find(file_id, pagenum);
     if (index == INVALID_BUFFER_INDEX)
     {
@@ -208,7 +205,6 @@ void BufferController::release_frame(int file_id, pagenum_t pagenum)
 
 void BufferController::retain_frame(int file_id, pagenum_t pagenum)
 {
-    std::unique_lock<std::recursive_mutex> lock(mtx);
     int index = find(file_id, pagenum);
     if (index == INVALID_BUFFER_INDEX)
     {
@@ -223,7 +219,6 @@ void BufferController::retain_frame(int file_id, pagenum_t pagenum)
 
 void BufferController::release_frame_shared(int file_id, pagenum_t pagenum)
 {
-    std::unique_lock<std::recursive_mutex> lock(mtx);
     int index = find(file_id, pagenum);
     if (index == INVALID_BUFFER_INDEX)
     {
@@ -237,7 +232,6 @@ void BufferController::release_frame_shared(int file_id, pagenum_t pagenum)
 
 void BufferController::retain_frame_shared(int file_id, pagenum_t pagenum)
 {
-    std::unique_lock<std::recursive_mutex> lock(mtx);
     int index = find(file_id, pagenum);
     if (index == INVALID_BUFFER_INDEX)
     {
@@ -252,7 +246,6 @@ void BufferController::retain_frame_shared(int file_id, pagenum_t pagenum)
 
 int BufferController::get(int file_id, pagenum_t pagenum, page_t& page)
 {
-    std::unique_lock<std::recursive_mutex> lock(mtx);
     int index = find(file_id, pagenum);
     if (index == INVALID_BUFFER_INDEX)
     {
@@ -289,7 +282,6 @@ int BufferController::get(int file_id, pagenum_t pagenum, page_t& page)
 
 bool BufferController::put(int file_id, pagenum_t pagenum, const page_t& frame)
 {
-    std::unique_lock<std::recursive_mutex> lock(mtx);
     int index = find(file_id, pagenum);
     if (index == INVALID_BUFFER_INDEX)
     {
@@ -328,7 +320,6 @@ bool BufferController::put(int file_id, pagenum_t pagenum, const page_t& frame)
 
 int BufferController::create(int file_id)
 {
-    std::unique_lock<std::recursive_mutex> lock(mtx);
     auto& fileManager = getFileManager(file_id);
     auto pagenum = fileManager.create();
 
@@ -343,7 +334,6 @@ int BufferController::create(int file_id)
 
 pagenum_t BufferController::frame_id_to_pagenum(int frame_id)
 {
-    std::unique_lock<std::recursive_mutex> lock(mtx);
     CHECK_WITH_LOG(frame_id != INVALID_BUFFER_INDEX, EMPTY_PAGE_NUMBER,
                    "invalid frame id: %d", frame_id);
     pagenum_t result = buffer->at(frame_id).pagenum;
@@ -352,7 +342,6 @@ pagenum_t BufferController::frame_id_to_pagenum(int frame_id)
 
 bool BufferController::free(int file_id, pagenum_t pagenum)
 {
-    std::unique_lock<std::recursive_mutex> lock(mtx);
     int index = find(file_id, pagenum);
     if (index != INVALID_BUFFER_INDEX)
     {
@@ -448,12 +437,6 @@ void BufferController::forget_index(int file_id, pagenum_t pagenum)
 
 bool BufferController::sync(bool lock)
 {
-    std::unique_lock<std::recursive_mutex> crit(mtx, std::defer_lock);
-    if (lock)
-    {
-        crit.lock();
-    }
-
     if (!valid_buffer_controller)
     {
         return true;
@@ -473,7 +456,6 @@ bool BufferController::sync(bool lock)
 
 bool BufferController::fsync(int file_id, bool free_flag)
 {
-    std::unique_lock<std::recursive_mutex> lock(mtx);
     if (!valid_buffer_controller)
     {
         return true;

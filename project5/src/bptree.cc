@@ -86,13 +86,13 @@ int BPTree::get_table_id() const
 
 bool BPTree::insert(keyType key, const valType& value)
 {
-    record_t record;
     // 중복을 허용하지 않음
-    if (find(key, record))
+    if (exist_key(key))
     {
         return false;
     }
 
+    record_t record;
     record = { key, value };
 
     if (!is_valid(manager.root()))
@@ -120,24 +120,45 @@ bool BPTree::insert(keyType key, const valType& value)
 
 bool BPTree::update(keyType key, const valType& value, int transaction_id)
 {
-    record_t record;
-    if (!find(key, record))
+    std::unique_lock<std::mutex> buffer_latch {BufferController::instance().mtx};
+    if (!exist_key(key))
     {
         return false;
     }
 
     node_tuple leaf;
     CHECK(find_leaf(key, leaf));
-
+    
     scoped_node_latch latch { manager.get_manager_id(), leaf.id };
+
+    // if (transaction_id != TransactionManager::invliad_transaction_id)
+    // {
+    //     if (!TransactionManager::instance().lock_acquire(
+    //             get_table_id(), key, transaction_id, LockMode::EXCLUSIVE,
+    //             leaf.id, manager))
+    //     {
+    //         return false;
+    //     }
+    // }
 
     if (transaction_id != TransactionManager::invliad_transaction_id)
     {
-        if (!TransactionManager::instance().lock_acquire(
-                get_table_id(), key, transaction_id, LockMode::EXCLUSIVE,
-                leaf.id, manager))
+        auto [lock, state] = TransactionManager::instance().lock_acquire(
+                get_table_id(), key, transaction_id, LockMode::EXCLUSIVE);
+        switch (state)
         {
-            return false;
+            case LockState::INVALID:
+                return false;
+            case LockState::ACQUIRED:
+                break;
+            case LockState::ABORTED:
+                return false;
+            case LockState::WAITING:
+                latch.unlock();
+                buffer_latch.unlock();
+                TransactionManager::instance().lock_wait(lock);
+                buffer_latch.lock();
+                latch.lock();
         }
     }
 
@@ -364,8 +385,7 @@ bool BPTree::insert_into_node_after_splitting(node_tuple& parent,
 
 bool BPTree::delete_key(keyType key)
 {
-    record_t record;
-    if (!find(key, record))
+    if (!exist_key(key))
     {
         return false;
     }
@@ -588,8 +608,27 @@ bool BPTree::redistribute_nodes(node_tuple& target, node_tuple& neighbor,
     return true;
 }
 
+bool BPTree::exist_key(keyType key)
+{
+    node_tuple leaf;
+    if (!find_leaf(key, leaf))
+    {
+        return false;
+    }
+
+    int i = leaf.node.index_key<record_t>(key);
+    if (i == -1)
+    {
+        return false;
+    }
+
+    return true;
+}
+
 bool BPTree::find(keyType key, record_t& ret, int transaction_id)
 {
+    std::unique_lock<std::mutex> latch {BufferController::instance().mtx};
+
     node_tuple leaf;
     if (!find_leaf(key, leaf))
     {
@@ -600,11 +639,22 @@ bool BPTree::find(keyType key, record_t& ret, int transaction_id)
 
     if (transaction_id != TransactionManager::invliad_transaction_id)
     {
-        if (!TransactionManager::instance().lock_acquire(
-                get_table_id(), key, transaction_id, LockMode::SHARED, leaf.id,
-                manager))
+        auto [lock, state] = TransactionManager::instance().lock_acquire(
+                get_table_id(), key, transaction_id, LockMode::SHARED);
+        switch (state)
         {
-            return false;
+            case LockState::INVALID:
+                return false;
+            case LockState::ACQUIRED:
+                break;
+            case LockState::ABORTED:
+                return false;
+            case LockState::WAITING:
+                latch_shared.unlock_shared();
+                latch.unlock();
+                TransactionManager::instance().lock_wait(lock);
+                latch.lock();
+                latch_shared.lock_shared();
         }
     }
 

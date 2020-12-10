@@ -22,7 +22,8 @@ enum class LockState
 {
     INVALID,
     WAITING,
-    ACQUIRED
+    ACQUIRED,
+    ABORTED
 };
 std::ostream& operator<<(std::ostream& os, const LockState& dt);
 

@@ -9,7 +9,6 @@
 
 int TransactionManager::begin()
 {
-    std::unique_lock<std::mutex> lock(mtx);
     int id = ++counter;
 
     if (transactions.find(id) != transactions.end())
@@ -24,21 +23,24 @@ int TransactionManager::begin()
 
 Transaction& TransactionManager::get(int transaction_id)
 {
-    static std::mutex mmm;
-    std::unique_lock<std::mutex> lock(mmm);
     return transactions[transaction_id];
 }
 
-bool TransactionManager::lock_acquire(int table_id, int64_t key, int trx_id,
-                                      LockMode mode, pagenum_t page, manager_t& manager)
+void TransactionManager::lock_wait(lock_t* lock)
 {
-    std::unique_lock<std::mutex> crit { mtx };
+    get(lock->ownerTransactionID).mtx.unlock();
+    LockManager::instance().lock_wait(lock);
+}
+
+LockAcquireResult TransactionManager::lock_acquire(int table_id, int64_t key,
+                                                   int trx_id, LockMode mode)
+{
     LockHash hash { table_id, key };
 
     auto transaction = transactions.find(trx_id);
     if (transaction == transactions.end())
     {
-        return false;
+        return { nullptr, LockState::INVALID };
     }
 
     auto& locks = transaction->second.locks;
@@ -49,7 +51,6 @@ bool TransactionManager::lock_acquire(int table_id, int64_t key, int trx_id,
                                    });
         count > 0)
     {
-        CHECK(count == 1 || count == 2);
         auto aleady_lock_mode =
             count == 1 ? LockMode::SHARED : LockMode::EXCLUSIVE;
         // 왜 아래의 if문과 같은 로직이 가능한가?
@@ -62,7 +63,8 @@ bool TransactionManager::lock_acquire(int table_id, int64_t key, int trx_id,
         */
         if (mode == LockMode::SHARED || aleady_lock_mode == LockMode::EXCLUSIVE)
         {
-            return true;
+            // TODO: 이거 nullptr 리턴해도 되나?
+            return { nullptr, LockState::ACQUIRED };
         }
 
         /*
@@ -73,53 +75,53 @@ bool TransactionManager::lock_acquire(int table_id, int64_t key, int trx_id,
         auto xlock =
             LockManager::instance().lock_upgrade(table_id, key, trx_id, mode);
 
-        if(!xlock)
+        if (!xlock)
         {
             TransactionManager::instance().abort(trx_id);
-            return false;
+            return { nullptr, LockState::ABORTED };
         }
+
+        locks.emplace_back(hash, xlock);
 
         if (xlock->state == LockState::WAITING)
         {
             // Acquire the transaction latch
             get(trx_id).mtx.lock();
             crit.unlock();
-            LockManager::instance().lock_wait(xlock);
-            crit.lock();
+            return { xlock, LockState::WAITING };
+            // LockManager::instance().lock_wait(xlock);
+            // crit.lock();
         }
 
-        locks.emplace_back(hash, xlock);
-        
-        return true;
+        return { xlock, LockState::ACQUIRED };
     }
 
     auto new_lock =
         LockManager::instance().lock_acquire(table_id, key, trx_id, mode);
 
+    if (!new_lock)
+    {
+        TransactionManager::instance().abort(trx_id);
+        return { nullptr, LockState::ABORTED };
+    }
 
-    if(!new_lock)
-        {
-            TransactionManager::instance().abort(trx_id);
-            return false;
-        }
+    locks.emplace_back(hash, new_lock);
 
-        if (new_lock->state == LockState::WAITING)
-        {
-            // Acquire the transaction latch
-            get(trx_id).mtx.lock();
-            crit.unlock();
-            LockManager::instance().lock_wait(new_lock);
-            crit.lock();
-        }
+    if (new_lock->state == LockState::WAITING)
+    {
+        // Acquire the transaction latch
+        get(trx_id).mtx.lock();
+        crit.unlock();
+        return { new_lock, LockState::WAITING };
+        // LockManager::instance().lock_wait(new_lock);
+        // crit.lock();
+    }
 
-        locks.emplace_back(hash, new_lock);
-        
-        return true;
+    return { new_lock, LockState::ACQUIRED };
 }
 
 bool TransactionManager::abort(int transaction_id)
 {
-    // std::unique_lock<std::mutex> lock(mtx);
     auto it = transactions.find(transaction_id);
     CHECK(it != transactions.end());
 
@@ -133,7 +135,6 @@ bool TransactionManager::abort(int transaction_id)
 
 bool TransactionManager::commit(int id)
 {
-    std::unique_lock<std::mutex> lock(mtx);
     auto it = transactions.find(id);
     if (it == transactions.end())
     {
@@ -150,7 +151,6 @@ bool TransactionManager::commit(int id)
 
 void TransactionManager::reset()
 {
-    std::unique_lock<std::mutex> lock(mtx);
     counter = 0;
     transactions.clear();
 }
@@ -182,14 +182,14 @@ Transaction::Transaction(const Transaction& rhs)
 
 bool Transaction::commit()
 {
-    // std::unique_lock<std::mutex> crit(mtx);
     // TODO: log commit
     return lock_release();
 }
 
 bool Transaction::lock_release()
 {
-    // std::cout << "trax lease " << transactionID << " " << locks.size() << '\n';
+    // std::cout << "trax lease " << transactionID << " " << locks.size() <<
+    // '\n';
     for (auto& it : locks)
     {
         CHECK(LockManager::instance().lock_release(std::get<1>(it)));
@@ -201,7 +201,6 @@ bool Transaction::lock_release()
 
 bool Transaction::abort()
 {
-    // std::unique_lock<std::mutex> crit(mtx);
     state = TransactionState::ABORTED;
     auto logs = LogManager::instance().trace_log(transactionID);
     // std::cout << "abort: " << transactionID << '\n';
