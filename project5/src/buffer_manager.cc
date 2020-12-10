@@ -158,16 +158,34 @@ FileManager& BufferController::getFileManager(int file_id)
     return *fileManagers.at(file_id);
 }
 
-void BufferController::release_frame(int frame_index)
+void BufferController::release_frame(int file_id, pagenum_t pagenum)
 {
-    exit(-1);
-    // buffer->at(frame_index).release();
+    std::unique_lock<std::recursive_mutex> lock(mtx);
+    int index = find(file_id, pagenum);
+    if (index == INVALID_BUFFER_INDEX)
+    {
+        std::cerr << "Logical error";
+        exit(-1);
+    }
+
+    auto& frame = buffer->at(index);
+    frame.mtx.lock();
+    ++frame.pin;
 }
 
-void BufferController::retain_frame(int frame_index)
+void BufferController::retain_frame(int file_id, pagenum_t pagenum)
 {
-    exit(-1);
-    // buffer->at(frame_index).retain();
+    std::unique_lock<std::recursive_mutex> lock(mtx);
+    int index = find(file_id, pagenum);
+    if (index == INVALID_BUFFER_INDEX)
+    {
+        std::cerr << "Logical error";
+        exit(-1);
+    }
+
+    auto& frame = buffer->at(index);
+    frame.mtx.unlock();
+    --frame.pin;
 }
 
 bool BufferController::get(int file_id, pagenum_t pagenum, std::function<void(const page_t&)> func)

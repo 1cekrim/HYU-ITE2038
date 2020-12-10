@@ -58,8 +58,8 @@ class BufferController
     bool put(int file_id, pagenum_t pagenum, std::function<void(page_t&)> func);
     int create(int file_id);
     bool free(int file_id, pagenum_t pagenum);
-    void release_frame(int frame_index);
-    void retain_frame(int frame_index);
+    void release_frame(int file_id, pagenum_t pagenum);
+    void retain_frame(int file_id, pagenum_t pagenum);
     bool sync(bool lock = true);
     bool fsync(int file_id, bool free_flag = false);
     bool init_buffer(std::size_t buffer_size);
