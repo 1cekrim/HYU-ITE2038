@@ -51,14 +51,47 @@ bool BufferManager::open(const std::string& name)
     // return result;
 // }
 
-bool BufferManager::commit(pagenum_t pagenum, std::function<void(page_t&)> func)
+// bool BufferManager::commit(pagenum_t pagenum, std::function<void(page_t&)> func, bool auto_release)
+// {
+//     return BufferController::instance().put(manager_id, pagenum, func, auto_release);
+// }
+
+int BufferManager::load(pagenum_t pagenum, page_t& page)
 {
-    return BufferController::instance().put(manager_id, pagenum, func);
+    int result = BufferController::instance().get(manager_id, pagenum, page);
+    return result;
 }
-int BufferManager::load(pagenum_t pagenum, std::function<void(const page_t&)> func)
+
+bool BufferManager::commit(pagenum_t pagenum, const page_t& page)
 {
-    return BufferController::instance().get(manager_id, pagenum, func);
+    return BufferController::instance().put(manager_id, pagenum, page);
 }
+
+// int BufferManager::load(pagenum_t pagenum, std::function<void(const page_t&)> func, bool auto_release)
+// {
+//     return BufferController::instance().get(manager_id, pagenum, func, auto_release);
+// }
+
+void BufferManager::release(pagenum_t pagenum)
+{
+    BufferController::instance().release_frame(manager_id, pagenum);
+}
+
+void BufferManager::retain(pagenum_t pagenum)
+{
+    BufferController::instance().retain_frame(manager_id, pagenum);
+}
+
+void BufferManager::release_shared(pagenum_t pagenum)
+{
+    BufferController::instance().release_frame_shared(manager_id, pagenum);
+}
+
+void BufferManager::retain_shared(pagenum_t pagenum)
+{
+    BufferController::instance().retain_frame_shared(manager_id, pagenum);
+}
+
 
 pagenum_t BufferManager::create()
 {
@@ -169,8 +202,8 @@ void BufferController::release_frame(int file_id, pagenum_t pagenum)
     }
 
     auto& frame = buffer->at(index);
-    frame.mtx.lock();
-    ++frame.pin;
+    --frame.pin;
+    frame.mtx.unlock();
 }
 
 void BufferController::retain_frame(int file_id, pagenum_t pagenum)
@@ -184,11 +217,40 @@ void BufferController::retain_frame(int file_id, pagenum_t pagenum)
     }
 
     auto& frame = buffer->at(index);
-    frame.mtx.unlock();
-    --frame.pin;
+    frame.mtx.lock();
+    ++frame.pin;
 }
 
-bool BufferController::get(int file_id, pagenum_t pagenum, std::function<void(const page_t&)> func)
+void BufferController::release_frame_shared(int file_id, pagenum_t pagenum)
+{
+    std::unique_lock<std::recursive_mutex> lock(mtx);
+    int index = find(file_id, pagenum);
+    if (index == INVALID_BUFFER_INDEX)
+    {
+        std::cerr << "Logical error";
+        exit(-1);
+    }
+    auto& frame = buffer->at(index);
+    --frame.pin;    
+    frame.mtx.unlock_shared();
+}
+
+void BufferController::retain_frame_shared(int file_id, pagenum_t pagenum)
+{
+    std::unique_lock<std::recursive_mutex> lock(mtx);
+    int index = find(file_id, pagenum);
+    if (index == INVALID_BUFFER_INDEX)
+    {
+        std::cerr << "Logical error";
+        exit(-1);
+    }
+
+    auto& frame = buffer->at(index);
+    frame.mtx.lock_shared();
+    ++frame.pin;
+}
+
+bool BufferController::get(int file_id, pagenum_t pagenum, page_t& frame)
 {
     std::unique_lock<std::recursive_mutex> lock(mtx);
     int index = find(file_id, pagenum);
@@ -201,18 +263,31 @@ bool BufferController::get(int file_id, pagenum_t pagenum, std::function<void(co
                    "Buffer load failure. file: %d / pagenum: %ld", file_id,
                    pagenum);
     auto& buffer_frame = (*buffer)[index];
-    {
-        std::shared_lock<std::shared_mutex> crit (buffer_frame.mtx);
-        ++buffer_frame.pin;
-        func(buffer_frame);
-        CHECK_RET(update_recently_used(index, buffer_frame, true), INVALID_BUFFER_INDEX);
-        --buffer_frame.pin;
-    }
+    frame = buffer_frame;
 
-    return true;
+    CHECK_RET(update_recently_used(index, buffer_frame, true), INVALID_BUFFER_INDEX);
+
+    return index;
+    // auto& buffer_frame = (*buffer)[index];
+    // {
+    //     // std::shared_lock<std::shared_mutex> crit (buffer_frame.mtx);
+    //     buffer_frame.mtx.lock_shared();
+    //     std::cout << "lock\n";
+    //     ++buffer_frame.pin;
+    //     func(buffer_frame);
+    //     CHECK_RET(update_recently_used(index, buffer_frame, true), INVALID_BUFFER_INDEX);
+    //     if (auto_release)
+    //     {
+    //         std::cout << "release\n";
+    //         --buffer_frame.pin;
+    //         buffer_frame.mtx.unlock_shared();
+    //     }
+    // }
+
+    // return true;
 }
 
-bool BufferController::put(int file_id, pagenum_t pagenum, std::function<void(page_t&)> func)
+bool BufferController::put(int file_id, pagenum_t pagenum, const page_t& frame)
 {
     std::unique_lock<std::recursive_mutex> lock(mtx);
     int index = find(file_id, pagenum);
@@ -225,16 +300,30 @@ bool BufferController::put(int file_id, pagenum_t pagenum, std::function<void(pa
                    "Buffer load failure. file: %d / pagenum: %ld", file_id,
                    pagenum);
     auto& buffer_frame = (*buffer)[index];
-     {
-        std::unique_lock<std::shared_mutex> crit (buffer_frame.mtx);
-        ++buffer_frame.pin;
-        func(buffer_frame);
-        CHECK_RET(update_recently_used(index, buffer_frame, true), INVALID_BUFFER_INDEX);
-        buffer_frame.is_dirty = true;
-        --buffer_frame.pin;
-    }
 
-    return true;
+    buffer_frame.change_page(frame);
+    buffer_frame.is_dirty = true;
+
+    CHECK_RET(update_recently_used(index, buffer_frame, true), INVALID_BUFFER_INDEX);
+
+    return index;
+
+    // auto& buffer_frame = (*buffer)[index];
+    //  {
+    //     // std::unique_lock<std::shared_mutex> crit (buffer_frame.mtx);
+    //     buffer_frame.mtx.lock();
+    //     ++buffer_frame.pin;
+    //     func(buffer_frame);
+    //     CHECK_RET(update_recently_used(index, buffer_frame, true), INVALID_BUFFER_INDEX);
+    //     buffer_frame.is_dirty = true;
+    //     if (auto_release)
+    //     {
+    //         --buffer_frame.pin;
+    //         buffer_frame.mtx.unlock();
+    //     }
+    // }
+
+    // return true;
 }
 
 int BufferController::create(int file_id)

@@ -39,6 +39,18 @@ struct node_tuple
     }
 };
 
+class scoped_node_latch
+{
+    public:
+        scoped_node_latch(int manager_id, nodeId_t id);
+        ~scoped_node_latch();
+        void lock();
+        void unlock();
+    private:
+        int manager_id;
+        nodeId_t id;
+};
+
 class BPTree
 {
  public:
@@ -75,8 +87,9 @@ class BPTree
                             node_tuple& parent, int k_prime, int k_prime_index,
                             int neighbor_index);
     bool update_parent_with_commit(nodeId_t target_id, nodeId_t parent_id);
-    bool load_node(nodeId_t page, std::function<void(const page_t&)> func);
-    bool commit_node(nodeId_t page, std::function<void(page_t&)> func);
+    bool load_node(node_tuple& target);
+    bool commit_node(nodeId_t page, const node_t& n);
+    bool commit_node(const node_tuple& target);
     bool free_node(node_tuple& target);
     nodeId_t create_node();
     bool is_valid(nodeId_t node_id) const;

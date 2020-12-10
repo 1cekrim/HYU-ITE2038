@@ -29,9 +29,15 @@ class BufferManager
 
     // node manager interface
     bool open(const std::string& name);
-    bool commit(pagenum_t pagenum, std::function<void(page_t&)> func);
-    int load(pagenum_t pagenum, std::function<void(const page_t&)> func);
+    // bool commit(pagenum_t pagenum, std::function<void(page_t&)> func, bool auto_release = true);
+    // int load(pagenum_t pagenum, std::function<void(const page_t&)> func, bool auto_release = true);
+    bool commit(pagenum_t pagenum, const page_t& page);
+    int load(pagenum_t pagenum, page_t& page);
     pagenum_t create();
+    void release(pagenum_t pagenum);
+    void retain(pagenum_t pagenum);
+    void release_shared(pagenum_t pagenum);
+    void retain_shared(pagenum_t pagenum);
     bool free(pagenum_t pagenum);
     int get_manager_id() const;
     pagenum_t root() const;
@@ -54,12 +60,16 @@ class BufferController
     int openFileManager(const std::string& name);
     FileManager& getFileManager(int file_id);
 
-    bool get(int file_id, pagenum_t pagenum, std::function<void(const page_t&)> func);
-    bool put(int file_id, pagenum_t pagenum, std::function<void(page_t&)> func);
+    // bool get(int file_id, pagenum_t pagenum, std::function<void(const page_t&)> func, bool auto_release = true);
+    // bool put(int file_id, pagenum_t pagenum, std::function<void(page_t&)> func, bool auto_release = true);
+    int get(int file_id, pagenum_t pagenum, page_t& frame);
+    bool put(int file_id, pagenum_t pagenum, const page_t& frame);
     int create(int file_id);
     bool free(int file_id, pagenum_t pagenum);
     void release_frame(int file_id, pagenum_t pagenum);
     void retain_frame(int file_id, pagenum_t pagenum);
+    void release_frame_shared(int file_id, pagenum_t pagenum);
+    void retain_frame_shared(int file_id, pagenum_t pagenum);
     bool sync(bool lock = true);
     bool fsync(int file_id, bool free_flag = false);
     bool init_buffer(std::size_t buffer_size);

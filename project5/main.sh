@@ -11,4 +11,4 @@ cd /mnt/tmpfs
 rm /mnt/tmpfs/*.db
 rm /mnt/tmpfs/main
 cd ~/github/2020_ite2038_2019027192/project5
-make clean
+# make clean

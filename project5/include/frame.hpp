@@ -51,6 +51,12 @@ struct frame_t : public page_t
         this->entry = frame.entry;
     }
 
+    void change_page(const page_t& page)
+    {
+        this->header = page.header;
+        this->entry = page.entry;
+    }
+
     // void retain()
     // {
     //     mtx.lock();

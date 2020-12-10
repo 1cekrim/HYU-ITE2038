@@ -202,6 +202,8 @@ void LockManager::lock_wait(lock_t* lock_obj)
     {
         std::this_thread::yield();
     }
+
+    std::unique_lock<std::mutex> crit {TransactionManager::instance().get(lock_obj->ownerTransactionID).mtx};
 }
 
 void LockManager::dfs(int now, std::unordered_map<int, graph_node>& graph,
@@ -422,11 +424,10 @@ bool lock_t::wait() const
 
 void lock_t::signal()
 {
-    locked = false;
-
-    // TODO: state 관련도 정리할 필요가 있음
-
     auto& transaction = TransactionManager::instance().get(ownerTransactionID);
+    std::unique_lock<std::mutex> crit {transaction.mtx};
+
+    locked = false;
     transaction.state = TransactionState::RUNNING;
 }
 

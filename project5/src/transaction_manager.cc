@@ -30,7 +30,7 @@ Transaction& TransactionManager::get(int transaction_id)
 }
 
 bool TransactionManager::lock_acquire(int table_id, int64_t key, int trx_id,
-                                      LockMode mode)
+                                      LockMode mode, pagenum_t page, manager_t& manager)
 {
     std::unique_lock<std::mutex> crit { mtx };
     LockHash hash { table_id, key };
@@ -73,7 +73,7 @@ bool TransactionManager::lock_acquire(int table_id, int64_t key, int trx_id,
         auto xlock =
             LockManager::instance().lock_upgrade(table_id, key, trx_id, mode);
 
-        if (!xlock)
+        if(!xlock)
         {
             TransactionManager::instance().abort(trx_id);
             return false;
@@ -81,37 +81,40 @@ bool TransactionManager::lock_acquire(int table_id, int64_t key, int trx_id,
 
         if (xlock->state == LockState::WAITING)
         {
+            // Acquire the transaction latch
+            get(trx_id).mtx.lock();
             crit.unlock();
             LockManager::instance().lock_wait(xlock);
             crit.lock();
         }
 
-        CHECK(xlock != nullptr);
-
         locks.emplace_back(hash, xlock);
-
+        
         return true;
     }
 
     auto new_lock =
         LockManager::instance().lock_acquire(table_id, key, trx_id, mode);
 
+
     if(!new_lock)
-    {
-        TransactionManager::instance().abort(trx_id);
-        return false;
-    }
+        {
+            TransactionManager::instance().abort(trx_id);
+            return false;
+        }
 
-    if (new_lock->state == LockState::WAITING)
-    {
-        crit.unlock();
-        LockManager::instance().lock_wait(new_lock);
-        crit.lock();
-    }
+        if (new_lock->state == LockState::WAITING)
+        {
+            // Acquire the transaction latch
+            get(trx_id).mtx.lock();
+            crit.unlock();
+            LockManager::instance().lock_wait(new_lock);
+            crit.lock();
+        }
 
-    locks.emplace_back(hash, new_lock);
-    
-    return true;
+        locks.emplace_back(hash, new_lock);
+        
+        return true;
 }
 
 bool TransactionManager::abort(int transaction_id)
@@ -179,7 +182,7 @@ Transaction::Transaction(const Transaction& rhs)
 
 bool Transaction::commit()
 {
-    std::unique_lock<std::mutex> crit(mtx);
+    // std::unique_lock<std::mutex> crit(mtx);
     // TODO: log commit
     return lock_release();
 }
@@ -198,7 +201,7 @@ bool Transaction::lock_release()
 
 bool Transaction::abort()
 {
-    std::unique_lock<std::mutex> crit(mtx);
+    // std::unique_lock<std::mutex> crit(mtx);
     state = TransactionState::ABORTED;
     auto logs = LogManager::instance().trace_log(transactionID);
     // std::cout << "abort: " << transactionID << '\n';
