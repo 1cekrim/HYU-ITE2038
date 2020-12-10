@@ -82,7 +82,6 @@ LockAcquireResult TransactionManager::lock_acquire(int table_id, int64_t key,
 
         if (!xlock)
         {
-            TransactionManager::instance().abort(trx_id);
             return { nullptr, LockState::ABORTED };
         }
 
@@ -102,7 +101,6 @@ LockAcquireResult TransactionManager::lock_acquire(int table_id, int64_t key,
 
     if (!new_lock)
     {
-        TransactionManager::instance().abort(trx_id);
         return { nullptr, LockState::ABORTED };
     }
 
@@ -119,7 +117,6 @@ LockAcquireResult TransactionManager::lock_acquire(int table_id, int64_t key,
 
 bool TransactionManager::abort(int transaction_id)
 {
-    std::unique_lock<std::mutex> trx_latch { mtx };
     auto it = transactions.find(transaction_id);
     CHECK(it != transactions.end());
 
@@ -187,12 +184,11 @@ bool Transaction::commit()
     return lock_release();
 }
 
-bool Transaction::lock_release()
+bool Transaction::lock_release(bool abort)
 {
-    std::unique_lock<std::mutex> latch { mtx };
     for (auto& it : locks)
     {
-        CHECK(LockManager::instance().lock_release(std::get<1>(it)));
+        CHECK(LockManager::instance().lock_release(std::get<1>(it), abort));
     }
 
     locks.clear();
@@ -213,5 +209,5 @@ bool Transaction::abort()
         }
     }
     // log undo
-    return lock_release();
+    return lock_release(true);
 }

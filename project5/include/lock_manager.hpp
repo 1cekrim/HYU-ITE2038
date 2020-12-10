@@ -100,7 +100,7 @@ class LockManager
     }
     lock_t* lock_acquire(int table_id, int64_t key, int trx_id,
                                          LockMode mode);
-    bool lock_release(lock_t* lock_obj);
+    bool lock_release(lock_t* lock_obj, bool abort = false);
     lock_t* lock_upgrade(int table_id, int64_t key, int trx_id,
                                          LockMode mode);
     void lock_wait(lock_t* lock_obj);

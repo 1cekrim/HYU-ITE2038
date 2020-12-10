@@ -268,10 +268,14 @@ bool LockManager::deadlock_detection(int now_transaction_id)
     return deadlock;
 }
 
-bool LockManager::lock_release(lock_t* lock_obj)
+bool LockManager::lock_release(lock_t* lock_obj, bool abort)
 {
     {
-        std::unique_lock<std::mutex> crit { mtx };
+        std::unique_lock<std::mutex> crit { mtx, std::defer_lock };
+        if (!abort)
+        {
+            crit.lock();
+        }
         LockHash hash = lock_obj->hash;
         // std::cout << "release start (" << lock_obj->hash.key << ") -> ";
         auto& lockList = lock_table[hash];

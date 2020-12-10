@@ -28,7 +28,7 @@ struct Transaction
     Transaction(const Transaction& rhs);
     bool commit();
     bool abort();
-    bool lock_release();
+    bool lock_release(bool abort = false);
     int transactionID;
     std::atomic<TransactionState> state;
     std::list<std::tuple<LockHash, lock_t*>> locks;
