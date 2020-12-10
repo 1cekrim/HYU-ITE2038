@@ -24,6 +24,7 @@ enum class LockState
     WAITING,
     ACQUIRED
 };
+std::ostream& operator<<(std::ostream& os, const LockState& dt);
 
 struct LockHash
 {
@@ -101,6 +102,7 @@ class LockManager
     bool lock_release(lock_t* lock_obj);
     lock_t* lock_upgrade(int table_id, int64_t key, int trx_id,
                                          LockMode mode);
+    void lock_wait(lock_t* lock_obj);
     const std::map<LockHash, LockList>& get_table() const;
     bool deadlock_detection(int now_transaction_id);
     void reset();

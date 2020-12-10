@@ -47,12 +47,30 @@ std::ostream& operator<<(std::ostream& os, const LockMode& dt)
     return os;
 }
 
+std::ostream& operator<<(std::ostream& os, const LockState& dt)
+{
+    switch (dt)
+    {
+        case LockState::INVALID:
+            os << "INVALID";
+            break;
+        case LockState::ACQUIRED:
+            os << "ACQUIRED";
+            break;
+        case LockState::WAITING:
+            os << "WAITING";
+            break;
+    }
+    return os;
+}
+
 lock_t* LockManager::lock_acquire(int table_id, int64_t key,
                                                   int trx_id, LockMode mode)
 {
     std::unique_ptr<lock_t> lock =
         std::make_unique<lock_t>(LockHash(table_id, key), mode, trx_id);
     auto lock_ptr = lock.get();
+    lock->state = LockState::WAITING;
 
     LockHash hash { table_id, key };
     if (!lock)
@@ -66,18 +84,8 @@ lock_t* LockManager::lock_acquire(int table_id, int64_t key,
             it == lock_table.end() || (it->second.mode == LockMode::SHARED &&
                                        lock->lockMode == LockMode::SHARED))
         {
-            // std::cout << "in if\n";
-            // // 바로 실행
-            // if (it == lock_table.end())
-            // {
-            //     lock_table.emplace(hash, LockList());
-            //     it = lock_table.find(hash);
-            // }
-            // std::cout << "new lock: " << trx_id << ", table_id: " << table_id
-            // << ", key:" << key << "\n";
-
             auto& list = lock_table[hash];
-            // std::cout << hash.key << ' ' << hash.table_id << std::endl;
+
             lock->state = LockState::ACQUIRED;
             lock->signal();
             lock->locked = false;
@@ -85,8 +93,6 @@ lock_t* LockManager::lock_acquire(int table_id, int64_t key,
             list.locks.emplace_front(std::move(lock));
             ++list.acquire_count;
 
-            // std::cout << "trx_id: " << trx_id << "table_id: " << table_id
-            //           << ", key: " << key << " pass\n";
             return lock_ptr;
         }
 
@@ -107,15 +113,9 @@ lock_t* LockManager::lock_acquire(int table_id, int64_t key,
 
     if (deadlock_detection(trx_id))
     {
-        TransactionManager::instance().abort(trx_id);
+        // TransactionManager::instance().abort(trx_id);
         lock_release(lock_ptr);
         return nullptr;
-    }
-
-
-    while (lock_ptr->wait())
-    {
-        std::this_thread::yield();
     }
 
     return lock_ptr;
@@ -126,6 +126,7 @@ lock_t*LockManager::lock_upgrade(int table_id, int64_t key,
 {
     CHECK_RET(mode == LockMode::EXCLUSIVE, nullptr);
     auto lock = std::make_unique<lock_t>(LockHash(table_id, key), mode, trx_id);
+    lock->state = LockState::WAITING;
     auto lock_ptr = lock.get();
     LockHash hash { table_id, key };
     if (!lock)
@@ -187,17 +188,20 @@ lock_t*LockManager::lock_upgrade(int table_id, int64_t key,
 
     if (deadlock_detection(trx_id))
     {
-        TransactionManager::instance().abort(trx_id);
+        // TransactionManager::instance().abort(trx_id);
         lock_release(lock_ptr);
         return nullptr;
     }
 
-    while (lock_ptr->wait())
+    return lock_ptr;
+}
+
+void LockManager::lock_wait(lock_t* lock_obj)
+{
+    while (lock_obj->wait())
     {
         std::this_thread::yield();
     }
-
-    return lock_ptr;
 }
 
 void LockManager::dfs(int now, std::unordered_map<int, graph_node>& graph,

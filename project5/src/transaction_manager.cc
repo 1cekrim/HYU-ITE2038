@@ -42,7 +42,7 @@ bool TransactionManager::lock_acquire(int table_id, int64_t key, int trx_id,
     }
 
     auto& locks = transaction->second.locks;
-    auto& state = transaction->second.state;
+    // auto& state = transaction->second.state;
     if (auto count = std::count_if(locks.begin(), locks.end(),
                                    [&hash](auto& t) {
                                        return std::get<0>(t) == hash;
@@ -70,44 +70,53 @@ bool TransactionManager::lock_acquire(int table_id, int64_t key, int trx_id,
         획득하려 시도한다는 의미다. 이 경우 LockManager의 lock_upgrade 메소드를
         통해 XLock을 추가해 준다.
         */
-    //    std::cout << "lock_upgrade\n";
-        crit.unlock();
         auto xlock =
             LockManager::instance().lock_upgrade(table_id, key, trx_id, mode);
-        crit.lock();
 
-        if (state == TransactionState::ABORTED)
+        if (!xlock)
         {
+            TransactionManager::instance().abort(trx_id);
             return false;
         }
 
+        if (xlock->state == LockState::WAITING)
+        {
+            crit.unlock();
+            LockManager::instance().lock_wait(xlock);
+            crit.lock();
+        }
+
         CHECK(xlock != nullptr);
-        // std::cout << "xlock emplaced " << trx_id << "\n";
+
         locks.emplace_back(hash, xlock);
 
         return true;
     }
 
-    crit.unlock();
     auto new_lock =
         LockManager::instance().lock_acquire(table_id, key, trx_id, mode);
-    crit.lock();
 
-    if(state == TransactionState::ABORTED)
+    if(!new_lock)
     {
+        TransactionManager::instance().abort(trx_id);
         return false;
+    }
+
+    if (new_lock->state == LockState::WAITING)
+    {
+        crit.unlock();
+        LockManager::instance().lock_wait(new_lock);
+        crit.lock();
     }
 
     locks.emplace_back(hash, new_lock);
     
-    // std::cout << "lock emplaced " << trx_id << "\n";
-
     return true;
 }
 
 bool TransactionManager::abort(int transaction_id)
 {
-    std::unique_lock<std::mutex> lock(mtx);
+    // std::unique_lock<std::mutex> lock(mtx);
     auto it = transactions.find(transaction_id);
     CHECK(it != transactions.end());
 
