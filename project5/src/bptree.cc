@@ -120,7 +120,10 @@ bool BPTree::insert(keyType key, const valType& value)
 
 bool BPTree::update(keyType key, const valType& value, int transaction_id)
 {
-    std::unique_lock<std::mutex> buffer_latch {BufferController::instance().mtx};
+    std::unique_lock<std::mutex> buffer_latch {
+        BufferController::instance().mtx
+    };
+
     if (!exist_key(key))
     {
         return false;
@@ -128,7 +131,7 @@ bool BPTree::update(keyType key, const valType& value, int transaction_id)
 
     node_tuple leaf;
     CHECK(find_leaf(key, leaf));
-    
+
     scoped_node_latch latch { manager.get_manager_id(), leaf.id };
 
     // if (transaction_id != TransactionManager::invliad_transaction_id)
@@ -143,8 +146,14 @@ bool BPTree::update(keyType key, const valType& value, int transaction_id)
 
     if (transaction_id != TransactionManager::invliad_transaction_id)
     {
+        std::unique_lock<std::mutex> trxmanager_latch {
+            TransactionManager::instance().mtx
+        };
+        auto& trx = TransactionManager::instance().get(transaction_id);
+        // std::unique_lock<std::mutex> trx_latch { trx.mtx };
+
         auto [lock, state] = TransactionManager::instance().lock_acquire(
-                get_table_id(), key, transaction_id, LockMode::EXCLUSIVE);
+            get_table_id(), key, transaction_id, LockMode::EXCLUSIVE);
         switch (state)
         {
             case LockState::INVALID:
@@ -154,8 +163,11 @@ bool BPTree::update(keyType key, const valType& value, int transaction_id)
             case LockState::ABORTED:
                 return false;
             case LockState::WAITING:
+                trx.mtx.lock();
+                trxmanager_latch.unlock();
                 latch.unlock();
                 buffer_latch.unlock();
+                trx.mtx.unlock();
                 TransactionManager::instance().lock_wait(lock);
                 buffer_latch.lock();
                 latch.lock();
@@ -173,6 +185,8 @@ bool BPTree::update(keyType key, const valType& value, int transaction_id)
     LogManager::instance().log(transaction_id, LogType::UPDATE,
                                LockHash(get_table_id(), key), before,
                                leaf.node.records()[i]);
+
+    CHECK(commit_node(leaf));
 
     return true;
 }
@@ -627,7 +641,9 @@ bool BPTree::exist_key(keyType key)
 
 bool BPTree::find(keyType key, record_t& ret, int transaction_id)
 {
-    std::unique_lock<std::mutex> latch {BufferController::instance().mtx};
+    std::unique_lock<std::mutex> buffer_latch {
+        BufferController::instance().mtx
+    };
 
     node_tuple leaf;
     if (!find_leaf(key, leaf))
@@ -639,8 +655,13 @@ bool BPTree::find(keyType key, record_t& ret, int transaction_id)
 
     if (transaction_id != TransactionManager::invliad_transaction_id)
     {
+        std::unique_lock<std::mutex> trx_latch {
+            TransactionManager::instance().mtx
+        };
+        auto& trx = TransactionManager::instance().get(transaction_id);
+        
         auto [lock, state] = TransactionManager::instance().lock_acquire(
-                get_table_id(), key, transaction_id, LockMode::SHARED);
+            get_table_id(), key, transaction_id, LockMode::SHARED);
         switch (state)
         {
             case LockState::INVALID:
@@ -650,10 +671,13 @@ bool BPTree::find(keyType key, record_t& ret, int transaction_id)
             case LockState::ABORTED:
                 return false;
             case LockState::WAITING:
+                trx.mtx.lock();
+                trx_latch.unlock();
                 latch_shared.unlock_shared();
-                latch.unlock();
+                buffer_latch.unlock();
+                trx.mtx.unlock();
                 TransactionManager::instance().lock_wait(lock);
-                latch.lock();
+                buffer_latch.lock();
                 latch_shared.lock_shared();
         }
     }

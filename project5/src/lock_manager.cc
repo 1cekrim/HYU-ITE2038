@@ -67,8 +67,8 @@ std::ostream& operator<<(std::ostream& os, const LockState& dt)
     return os;
 }
 
-lock_t* LockManager::lock_acquire(int table_id, int64_t key,
-                                                  int trx_id, LockMode mode)
+lock_t* LockManager::lock_acquire(int table_id, int64_t key, int trx_id,
+                                  LockMode mode)
 {
     std::unique_ptr<lock_t> lock =
         std::make_unique<lock_t>(LockHash(table_id, key), mode, trx_id);
@@ -90,7 +90,9 @@ lock_t* LockManager::lock_acquire(int table_id, int64_t key,
             auto& list = lock_table[hash];
 
             lock->state = LockState::ACQUIRED;
-            lock->signal();
+            // lock->signal();
+            auto& transaction = TransactionManager::instance().get(trx_id);
+            transaction.state = TransactionState::RUNNING;
             lock->locked = false;
             list.mode = mode;
             list.locks.emplace_front(std::move(lock));
@@ -124,8 +126,8 @@ lock_t* LockManager::lock_acquire(int table_id, int64_t key,
     return lock_ptr;
 }
 
-lock_t*LockManager::lock_upgrade(int table_id, int64_t key,
-                                                  int trx_id, LockMode mode)
+lock_t* LockManager::lock_upgrade(int table_id, int64_t key, int trx_id,
+                                  LockMode mode)
 {
     CHECK_RET(mode == LockMode::EXCLUSIVE, nullptr);
     auto lock = std::make_unique<lock_t>(LockHash(table_id, key), mode, trx_id);
@@ -168,7 +170,8 @@ lock_t*LockManager::lock_upgrade(int table_id, int64_t key,
         if (lock_list.wait_count == 0 && lock_list.acquire_count == 1)
         {
             lock->state = LockState::ACQUIRED;
-            lock->signal();
+            // auto& transaction = TransactionManager::instance().get(trx_id);
+            // transaction.state = TransactionState::RUNNING;
             lock->locked = false;
             lock_list.mode = mode;
             lock_list.locks.emplace_back(std::move(lock));
@@ -206,7 +209,12 @@ void LockManager::lock_wait(lock_t* lock_obj)
         std::this_thread::yield();
     }
 
-    std::unique_lock<std::mutex> crit {TransactionManager::instance().get(lock_obj->ownerTransactionID).mtx};
+    std::unique_lock<std::mutex> trx_latch {
+        TransactionManager::instance().mtx
+    };
+    std::unique_lock<std::mutex> crit {
+        TransactionManager::instance().get(lock_obj->ownerTransactionID).mtx
+    };
 }
 
 void LockManager::dfs(int now, std::unordered_map<int, graph_node>& graph,
@@ -428,7 +436,8 @@ bool lock_t::wait() const
 void lock_t::signal()
 {
     auto& transaction = TransactionManager::instance().get(ownerTransactionID);
-    std::unique_lock<std::mutex> crit {transaction.mtx};
+    std::unique_lock<std::mutex> crit { transaction.mtx };
+    // std::cout << "signal\n";
 
     locked = false;
     transaction.state = TransactionState::RUNNING;

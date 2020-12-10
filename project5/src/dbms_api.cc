@@ -58,10 +58,10 @@ int db_find(int table_id, int64_t key, char* ret_val, int trx_id)
 int db_update(int table_id, int64_t key, char* values, int trx_id)
 {
     record_t record;
-    if (!TableManager::instance().find(table_id, key, record))
-    {
-        return -1;
-    }
+    // if (!TableManager::instance().find(table_id, key, record))
+    // {
+    //     return -1;
+    // }
 
     TableManager::char_to_valType(record.value, values);
     return TableManager::instance().update(table_id, key, record.value, trx_id)

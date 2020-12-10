@@ -61,9 +61,9 @@ class TransactionManager
 
     static constexpr int invliad_transaction_id = 0;
 
+    std::mutex mtx;
  private:
     std::atomic<int> counter;
-    std::mutex mtx;
     std::unordered_map<int, Transaction> transactions;
 
     TransactionManager() : counter(0)

@@ -107,9 +107,9 @@ class LockManager
     const std::map<LockHash, LockList>& get_table() const;
     bool deadlock_detection(int now_transaction_id);
     void reset();
+    std::mutex mtx;
 
  private:
-    std::mutex mtx;
     std::map<LockHash, LockList> lock_table;
 
     struct graph_node
