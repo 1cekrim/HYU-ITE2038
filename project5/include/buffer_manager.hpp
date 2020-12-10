@@ -3,7 +3,9 @@
 
 #include <unistd.h>
 
+#include <atomic>
 #include <cstdio>
+#include <functional>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -12,8 +14,6 @@
 #include <string_view>
 #include <unordered_map>
 #include <vector>
-#include <atomic>
-#include <functional>
 
 #include "file_manager.hpp"
 #include "frame.hpp"
@@ -29,8 +29,9 @@ class BufferManager
 
     // node manager interface
     bool open(const std::string& name);
-    // bool commit(pagenum_t pagenum, std::function<void(page_t&)> func, bool auto_release = true);
-    // int load(pagenum_t pagenum, std::function<void(const page_t&)> func, bool auto_release = true);
+    // bool commit(pagenum_t pagenum, std::function<void(page_t&)> func, bool
+    // auto_release = true); int load(pagenum_t pagenum,
+    // std::function<void(const page_t&)> func, bool auto_release = true);
     bool commit(pagenum_t pagenum, const page_t& page);
     int load(pagenum_t pagenum, page_t& page);
     pagenum_t create();
@@ -60,8 +61,10 @@ class BufferController
     int openFileManager(const std::string& name);
     FileManager& getFileManager(int file_id);
 
-    // bool get(int file_id, pagenum_t pagenum, std::function<void(const page_t&)> func, bool auto_release = true);
-    // bool put(int file_id, pagenum_t pagenum, std::function<void(page_t&)> func, bool auto_release = true);
+    // bool get(int file_id, pagenum_t pagenum, std::function<void(const
+    // page_t&)> func, bool auto_release = true); bool put(int file_id,
+    // pagenum_t pagenum, std::function<void(page_t&)> func, bool auto_release =
+    // true);
     int get(int file_id, pagenum_t pagenum, page_t& frame);
     bool put(int file_id, pagenum_t pagenum, const page_t& frame);
     int create(int file_id);
@@ -82,7 +85,7 @@ class BufferController
     friend class BufferLRUTraversalPolicy;
     friend void TEST_BUFFER();
     friend class node_tuple;
-    
+
     std::mutex mtx;
 
  private:

@@ -26,7 +26,7 @@ struct NodePageHeader
     uint32_t numberOfKeys;
     std::array<uint8_t, 104> reserved;
     pagenum_t onePageNumber;
-    
+
     friend std::ostream& operator<<(std::ostream& os,
                                     const NodePageHeader& nph);
 };
@@ -105,7 +105,7 @@ struct Internals
     }
 };
 
-template <typename It>
+template<typename It>
 struct range_t
 {
     It b, e;
@@ -154,17 +154,17 @@ struct page_t
         Records records;
         Internals internals;
     } entry;
-    
-    template <typename T>
+
+    template<typename T>
     const T& getEntry() const;
 
-    template <typename T>
+    template<typename T>
     T& getEntry();
 
-    template <typename T>
+    template<typename T>
     const T& getHeader() const;
 
-    template <typename T>
+    template<typename T>
     T& getHeader();
 
     HeaderPageHeader& headerPageHeader()
@@ -217,7 +217,7 @@ struct page_t
         return entry.internals;
     }
 
-    template <typename T>
+    template<typename T>
     void push_back(const T& value)
     {
         static_assert(std::is_same<Record, T>::value ||
@@ -228,7 +228,7 @@ struct page_t
             getHeader<NodePageHeader>().numberOfKeys++)] = value;
     }
 
-    template <typename T, typename K, typename B>
+    template<typename T, typename K, typename B>
     void emplace_back(const K& key, const B& v)
     {
         static_assert(std::is_same<Record, T>::value ||
@@ -250,7 +250,7 @@ struct page_t
         }
     }
 
-    template <typename T>
+    template<typename T>
     void insert(const T& entry, int insertion_point)
     {
         static_assert(std::is_same<Record, T>::value ||
@@ -270,7 +270,7 @@ struct page_t
         entries[insertion_point] = entry;
     }
 
-    template <typename T>
+    template<typename T>
     void erase(int erase_point)
     {
         static_assert(std::is_same<Record, T>::value ||
@@ -290,7 +290,7 @@ struct page_t
         --header.numberOfKeys;
     }
 
-    template <typename T>
+    template<typename T>
     decltype(auto) range(std::size_t begin = 0, std::size_t end = 0)
     {
         static_assert(std::is_same<Record, T>::value ||
@@ -306,7 +306,7 @@ struct page_t
                        std::next(std::begin(getEntry<S>()), end));
     }
 
-    template <typename T, typename It>
+    template<typename T, typename It>
     void range_copy(It it, int begin = 0, int end = -1)
     {
         static_assert(std::is_same<Record, T>::value ||
@@ -321,7 +321,7 @@ struct page_t
                   std::next(std::begin(getEntry<S>()), end), it);
     }
 
-    template <typename T, typename It>
+    template<typename T, typename It>
     void range_assignment(It begin, It end)
     {
         static_assert(std::is_same<Record, T>::value ||
@@ -332,14 +332,14 @@ struct page_t
         getHeader<NodePageHeader>().numberOfKeys = std::distance(begin, end);
     }
 
-    template <typename T>
+    template<typename T>
     int satisfy_condition_first(std::function<bool(const T&)> condition) const
     {
         static_assert(std::is_same<Record, T>::value ||
                       std::is_same<Internal, T>::value);
         using S = typename std::conditional<std::is_same<Record, T>::value,
                                             Records, Internals>::type;
-        int index{};
+        int index {};
         auto n = static_cast<int>(getHeader<NodePageHeader>().numberOfKeys);
         auto& arr = getEntry<S>();
         while (index < n && !condition(arr[index]))
@@ -349,14 +349,14 @@ struct page_t
         return index;
     }
 
-    template <typename T>
+    template<typename T>
     int index_key(keyType key) const
     {
         static_assert(std::is_same<Record, T>::value ||
                       std::is_same<Internal, T>::value);
         using S = typename std::conditional<std::is_same<Record, T>::value,
                                             Records, Internals>::type;
-        int index{};
+        int index {};
         auto n = static_cast<int>(getHeader<NodePageHeader>().numberOfKeys);
         auto& arr = getEntry<S>();
         while (index < n && arr[index].key != key)
@@ -368,7 +368,7 @@ struct page_t
 
     int key_grt(keyType key) const
     {
-        int index{};
+        int index {};
         auto n = number_of_keys();
         auto& arr = internals();
         while (index < n && arr[index].key <= key)
@@ -378,7 +378,7 @@ struct page_t
         return index;
     }
 
-    template <typename T>
+    template<typename T>
     T& get(std::size_t idx)
     {
         static_assert(std::is_same<Record, T>::value ||
@@ -388,13 +388,13 @@ struct page_t
         return getEntry<S>()[idx];
     }
 
-    template <typename T>
+    template<typename T>
     T& first()
     {
         return get<T>(0);
     }
 
-    template <typename T>
+    template<typename T>
     T& back()
     {
         return get<T>(number_of_keys() - 1);

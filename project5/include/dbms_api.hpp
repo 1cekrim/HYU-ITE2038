@@ -4,7 +4,8 @@
 #include <stdint.h>
 
 int init_db(int buf_num);
-int init_db(int buf_num, int flag, int log_num, char* log_path, char* logmsg_path);
+int init_db(int buf_num, int flag, int log_num, char* log_path,
+            char* logmsg_path);
 
 int open_table(char* pathname);
 

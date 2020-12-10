@@ -7,8 +7,8 @@
 #include <mutex>
 #include <unordered_map>
 
-#include "lock_manager.hpp"
 #include "buffer_manager.hpp"
+#include "lock_manager.hpp"
 
 // class lock_t;
 // class LockHash;
@@ -56,12 +56,14 @@ class TransactionManager
     bool abort(int transaction_id);
     void reset();
 
-    LockAcquireResult lock_acquire(int table_id, int64_t key, int trx_id, LockMode mode);
+    LockAcquireResult lock_acquire(int table_id, int64_t key, int trx_id,
+                                   LockMode mode);
     void lock_wait(lock_t* lock);
 
     static constexpr int invliad_transaction_id = 0;
 
     std::mutex mtx;
+
  private:
     std::atomic<int> counter;
     std::unordered_map<int, Transaction> transactions;

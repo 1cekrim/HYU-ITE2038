@@ -17,8 +17,8 @@ constexpr auto FILE_HEADER_PAGENUM = 0;
 
 struct header_frame
 {
-   page_t page;
-   int buffer_index = -1;
+    page_t page;
+    int buffer_index = -1;
 };
 
 class FileManager

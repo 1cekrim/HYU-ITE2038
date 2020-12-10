@@ -80,7 +80,8 @@ bool TableManager::insert(int table_id, keyType key, const valType& value)
     return tables[table_id]->tree.insert(key, value);
 }
 
-bool TableManager::update(int table_id, keyType key, const valType& value, int trx_id)
+bool TableManager::update(int table_id, keyType key, const valType& value,
+                          int trx_id)
 {
     if (!valid_table_manager || tables.find(table_id) == tables.end())
     {

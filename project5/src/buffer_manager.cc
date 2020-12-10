@@ -43,17 +43,19 @@ bool BufferManager::open(const std::string& name)
 
 // int BufferManager::load(pagenum_t pagenum, frame_t& frame)
 // {
-    // int result = BufferController::instance().get(manager_id, pagenum, frame);
-    // if (result != INVALID_BUFFER_INDEX)
-    // {
-    //     BufferController::instance().retain_frame(result);
-    // }
-    // return result;
+// int result = BufferController::instance().get(manager_id, pagenum, frame);
+// if (result != INVALID_BUFFER_INDEX)
+// {
+//     BufferController::instance().retain_frame(result);
+// }
+// return result;
 // }
 
-// bool BufferManager::commit(pagenum_t pagenum, std::function<void(page_t&)> func, bool auto_release)
+// bool BufferManager::commit(pagenum_t pagenum, std::function<void(page_t&)>
+// func, bool auto_release)
 // {
-//     return BufferController::instance().put(manager_id, pagenum, func, auto_release);
+//     return BufferController::instance().put(manager_id, pagenum, func,
+//     auto_release);
 // }
 
 int BufferManager::load(pagenum_t pagenum, page_t& page)
@@ -67,9 +69,11 @@ bool BufferManager::commit(pagenum_t pagenum, const page_t& page)
     return BufferController::instance().put(manager_id, pagenum, page);
 }
 
-// int BufferManager::load(pagenum_t pagenum, std::function<void(const page_t&)> func, bool auto_release)
+// int BufferManager::load(pagenum_t pagenum, std::function<void(const page_t&)>
+// func, bool auto_release)
 // {
-//     return BufferController::instance().get(manager_id, pagenum, func, auto_release);
+//     return BufferController::instance().get(manager_id, pagenum, func,
+//     auto_release);
 // }
 
 void BufferManager::release(pagenum_t pagenum)
@@ -91,7 +95,6 @@ void BufferManager::retain_shared(pagenum_t pagenum)
 {
     BufferController::instance().retain_frame_shared(manager_id, pagenum);
 }
-
 
 pagenum_t BufferManager::create()
 {
@@ -226,7 +229,7 @@ void BufferController::release_frame_shared(int file_id, pagenum_t pagenum)
         exit(-1);
     }
     auto& frame = buffer->at(index);
-    --frame.pin;    
+    --frame.pin;
     frame.mtx.unlock_shared();
 }
 
@@ -251,14 +254,15 @@ int BufferController::get(int file_id, pagenum_t pagenum, page_t& page)
     {
         index = load(file_id, pagenum);
     }
-    
+
     CHECK_WITH_LOG(index != INVALID_BUFFER_INDEX, INVALID_BUFFER_INDEX,
                    "Buffer load failure. file: %d / pagenum: %ld", file_id,
                    pagenum);
     auto& buffer_frame = (*buffer)[index];
     page = buffer_frame;
 
-    CHECK_RET(update_recently_used(index, buffer_frame, true), INVALID_BUFFER_INDEX);
+    CHECK_RET(update_recently_used(index, buffer_frame, true),
+              INVALID_BUFFER_INDEX);
 
     return index;
     // auto& buffer_frame = (*buffer)[index];
@@ -268,8 +272,8 @@ int BufferController::get(int file_id, pagenum_t pagenum, page_t& page)
     //     std::cout << "lock\n";
     //     ++buffer_frame.pin;
     //     func(buffer_frame);
-    //     CHECK_RET(update_recently_used(index, buffer_frame, true), INVALID_BUFFER_INDEX);
-    //     if (auto_release)
+    //     CHECK_RET(update_recently_used(index, buffer_frame, true),
+    //     INVALID_BUFFER_INDEX); if (auto_release)
     //     {
     //         std::cout << "release\n";
     //         --buffer_frame.pin;
@@ -287,7 +291,7 @@ bool BufferController::put(int file_id, pagenum_t pagenum, const page_t& frame)
     {
         index = load(file_id, pagenum);
     }
-    
+
     CHECK_WITH_LOG(index != INVALID_BUFFER_INDEX, INVALID_BUFFER_INDEX,
                    "Buffer load failure. file: %d / pagenum: %ld", file_id,
                    pagenum);
@@ -296,7 +300,8 @@ bool BufferController::put(int file_id, pagenum_t pagenum, const page_t& frame)
     buffer_frame.change_page(frame);
     buffer_frame.is_dirty = true;
 
-    CHECK_RET(update_recently_used(index, buffer_frame, true), INVALID_BUFFER_INDEX);
+    CHECK_RET(update_recently_used(index, buffer_frame, true),
+              INVALID_BUFFER_INDEX);
 
     return true;
 
@@ -306,9 +311,9 @@ bool BufferController::put(int file_id, pagenum_t pagenum, const page_t& frame)
     //     buffer_frame.mtx.lock();
     //     ++buffer_frame.pin;
     //     func(buffer_frame);
-    //     CHECK_RET(update_recently_used(index, buffer_frame, true), INVALID_BUFFER_INDEX);
-    //     buffer_frame.is_dirty = true;
-    //     if (auto_release)
+    //     CHECK_RET(update_recently_used(index, buffer_frame, true),
+    //     INVALID_BUFFER_INDEX); buffer_frame.is_dirty = true; if
+    //     (auto_release)
     //     {
     //         --buffer_frame.pin;
     //         buffer_frame.mtx.unlock();
@@ -362,7 +367,8 @@ std::size_t BufferController::capacity() const
     return buffer->size();
 }
 
-bool BufferController::update_recently_used(int buffer_index, frame_t& frame, bool unlink)
+bool BufferController::update_recently_used(int buffer_index, frame_t& frame,
+                                            bool unlink)
 {
     if (unlink)
     {
@@ -556,8 +562,8 @@ int BufferController::load(int file_id, pagenum_t pagenum)
     memorize_index(file_id, pagenum, index);
     ++num_buffer;
 
-    CHECK_WITH_LOG(update_recently_used(index, frame, false), INVALID_BUFFER_INDEX,
-                   "update recently used failure");
+    CHECK_WITH_LOG(update_recently_used(index, frame, false),
+                   INVALID_BUFFER_INDEX, "update recently used failure");
 
     return index;
 }

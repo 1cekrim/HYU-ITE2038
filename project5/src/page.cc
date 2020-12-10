@@ -1,5 +1,7 @@
 #include "page.hpp"
+
 #include <iostream>
+
 #include "file_manager.hpp"
 #include "logger.hpp"
 
@@ -43,63 +45,63 @@ void page_t::print_node() const
     }
 }
 
-template <>
+template<>
 const Records& page_t::getEntry() const
 {
     return entry.records;
 }
 
-template <>
+template<>
 const Internals& page_t::getEntry() const
 {
     return entry.internals;
 }
 
-template <>
+template<>
 const HeaderPageHeader& page_t::getHeader() const
 {
     return header.headerPageHeader;
 }
 
-template <>
+template<>
 const NodePageHeader& page_t::getHeader() const
 {
     return header.nodePageHeader;
 }
 
-template <>
+template<>
 const FreePageHeader& page_t::getHeader() const
 {
     return header.freePageHeader;
 }
 
-template <>
+template<>
 Records& page_t::getEntry()
 {
     return const_cast<Records&>(std::as_const(*this).getEntry<Records>());
 }
 
-template <>
+template<>
 Internals& page_t::getEntry()
 {
     return const_cast<Internals&>(std::as_const(*this).getEntry<Internals>());
 }
 
-template <>
+template<>
 HeaderPageHeader& page_t::getHeader()
 {
     return const_cast<HeaderPageHeader&>(
         std::as_const(*this).getHeader<HeaderPageHeader>());
 }
 
-template <>
+template<>
 NodePageHeader& page_t::getHeader()
 {
     return const_cast<NodePageHeader&>(
         std::as_const(*this).getHeader<NodePageHeader>());
 }
 
-template <>
+template<>
 FreePageHeader& page_t::getHeader()
 {
     return const_cast<FreePageHeader&>(
