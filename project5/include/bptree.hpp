@@ -51,6 +51,18 @@ class scoped_node_latch
         nodeId_t id;
 };
 
+class scoped_node_latch_shared
+{
+    public:
+        scoped_node_latch_shared(int manager_id, nodeId_t id);
+        ~scoped_node_latch_shared();
+        void lock_shared();
+        void unlock_shared();
+    private:
+        int manager_id;
+        nodeId_t id;
+};
+
 class BPTree
 {
  public:

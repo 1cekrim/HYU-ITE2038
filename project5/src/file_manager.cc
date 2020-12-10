@@ -52,10 +52,7 @@ bool FileManager::init_file_if_created()
 
 bool FileManager::get_file_header(header_frame& header) const
 {
-    int index =
-        bufferManager->load(FILE_HEADER_PAGENUM, [&](const page_t& page) {
-            header.page = page;
-        });
+    int index = bufferManager->load(FILE_HEADER_PAGENUM, header.page);
     CHECK_WITH_LOG(index != INVALID_BUFFER_INDEX, false,
                    "get file header failure");
     header.buffer_index = index;
@@ -64,9 +61,8 @@ bool FileManager::get_file_header(header_frame& header) const
 
 bool FileManager::set_file_header(const header_frame& header)
 {
-    CHECK(bufferManager->commit(FILE_HEADER_PAGENUM, [&](page_t& page) {
-        page = header.page;
-    }));
+    CHECK_WITH_LOG(bufferManager->commit(FILE_HEADER_PAGENUM, header.page),
+                   false, "set file header failure");
     return true;
 }
 

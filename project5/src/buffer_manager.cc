@@ -250,7 +250,7 @@ void BufferController::retain_frame_shared(int file_id, pagenum_t pagenum)
     ++frame.pin;
 }
 
-bool BufferController::get(int file_id, pagenum_t pagenum, page_t& frame)
+int BufferController::get(int file_id, pagenum_t pagenum, page_t& page)
 {
     std::unique_lock<std::recursive_mutex> lock(mtx);
     int index = find(file_id, pagenum);
@@ -263,7 +263,7 @@ bool BufferController::get(int file_id, pagenum_t pagenum, page_t& frame)
                    "Buffer load failure. file: %d / pagenum: %ld", file_id,
                    pagenum);
     auto& buffer_frame = (*buffer)[index];
-    frame = buffer_frame;
+    page = buffer_frame;
 
     CHECK_RET(update_recently_used(index, buffer_frame, true), INVALID_BUFFER_INDEX);
 
@@ -306,7 +306,7 @@ bool BufferController::put(int file_id, pagenum_t pagenum, const page_t& frame)
 
     CHECK_RET(update_recently_used(index, buffer_frame, true), INVALID_BUFFER_INDEX);
 
-    return index;
+    return true;
 
     // auto& buffer_frame = (*buffer)[index];
     //  {
