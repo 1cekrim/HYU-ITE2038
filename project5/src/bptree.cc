@@ -75,6 +75,9 @@ bool BPTree::update(keyType key, const valType& value, int transaction_id)
         return false;
     }
 
+    node_tuple leaf;
+    CHECK(find_leaf(key, leaf));
+
     if (transaction_id != TransactionManager::invliad_transaction_id)
     {
         if (!TransactionManager::instance().lock_acquire(
@@ -83,8 +86,6 @@ bool BPTree::update(keyType key, const valType& value, int transaction_id)
             return false;
         }
     }
-    node_tuple leaf;
-    CHECK(find_leaf(key, leaf));
 
     record_t before;
     int i;
@@ -553,6 +554,12 @@ bool BPTree::redistribute_nodes(node_tuple& target, node_tuple& neighbor,
 
 bool BPTree::find(keyType key, record_t& ret, int transaction_id)
 {
+    node_tuple leaf;
+    if (!find_leaf(key, leaf))
+    {
+        return false;
+    }
+    
     if (transaction_id != TransactionManager::invliad_transaction_id)
     {
         if (!TransactionManager::instance().lock_acquire(
@@ -560,12 +567,6 @@ bool BPTree::find(keyType key, record_t& ret, int transaction_id)
         {
             return false;
         }
-    }
-
-    node_tuple leaf;
-    if (!find_leaf(key, leaf))
-    {
-        return false;
     }
 
     int i = leaf.node.index_key<record_t>(key);
