@@ -7,7 +7,7 @@
 
 #include "buffer_manager.hpp"
 #include "frame.hpp"
-#include "log_manager.hpp"
+#include "log_manager_legacy.hpp"
 #include "page.hpp"
 #include "transaction_manager.hpp"
 

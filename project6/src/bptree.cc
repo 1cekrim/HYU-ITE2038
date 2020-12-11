@@ -216,7 +216,7 @@ bool BPTree::update(keyType key, const valType& value, int transaction_id)
     leaf.node.records()[i].value = value;
 
     // update log
-    LogManager::instance().log(transaction_id, LogType::UPDATE,
+    LogManagerLegacy::instance().log(transaction_id, LogTypeLegacy::UPDATE,
                                LockHash(get_table_id(), key), before,
                                leaf.node.records()[i]);
 

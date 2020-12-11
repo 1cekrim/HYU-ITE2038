@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <iostream>
 
-#include "log_manager.hpp"
+#include "log_manager_legacy.hpp"
 #include "logger.hpp"
 #include "table_manager.hpp"
 
@@ -18,7 +18,7 @@ int TransactionManager::begin()
     }
 
     transactions.emplace(id, Transaction(id));
-    LogManager::instance().log(id, LogType::BEGIN);
+    LogManagerLegacy::instance().log(id, LogTypeLegacy::BEGIN);
     return id;
 }
 
@@ -124,7 +124,7 @@ bool TransactionManager::abort(int transaction_id)
     CHECK(it->second.abort());
     transactions.erase(it);
 
-    LogManager::instance().log(transaction_id, LogType::ABORT);
+    LogManagerLegacy::instance().log(transaction_id, LogTypeLegacy::ABORT);
 
     return true;
 }
@@ -142,7 +142,7 @@ bool TransactionManager::commit(int id)
     CHECK(it->second.commit());
     transactions.erase(it);
 
-    LogManager::instance().log(id, LogType::COMMIT);
+    LogManagerLegacy::instance().log(id, LogTypeLegacy::COMMIT);
 
     return true;
 }
@@ -199,11 +199,11 @@ bool Transaction::lock_release(bool abort)
 bool Transaction::abort()
 {
     state = TransactionState::ABORTED;
-    auto logs = LogManager::instance().trace_log(transactionID);
+    auto logs = LogManagerLegacy::instance().trace_log(transactionID);
     // std::cout << "abort: " << transactionID << '\n';
     for (const auto& log : logs)
     {
-        if (log.type == LogType::UPDATE)
+        if (log.type == LogTypeLegacy::UPDATE)
         {
             TableManager::instance().update(log.hash.table_id, log.hash.key,
                                             log.before.value);

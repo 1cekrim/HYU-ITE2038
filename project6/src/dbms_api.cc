@@ -3,7 +3,7 @@
 #include <cstdio>
 
 #include "lock_manager.hpp"
-#include "log_manager.hpp"
+#include "log_manager_legacy.hpp"
 #include "table_manager.hpp"
 #include "transaction_manager.hpp"
 
@@ -11,7 +11,7 @@ int init_db(int buf_num)
 {
     LockManager::instance().reset();
     TransactionManager::instance().reset();
-    LogManager::instance().reset();
+    LogManagerLegacy::instance().reset();
     return TableManager::instance().init_db(buf_num) ? 0 : -1;
 }
 
