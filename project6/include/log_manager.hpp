@@ -85,12 +85,12 @@ class LogBuffer
     void flush();
     void reset();
 
+ private:
     std::atomic<int> flushed_lsn;
     std::mutex flush_latch;
     std::array<std::mutex, LOG_BUFFER_SIZE> buffer_latch;
     std::atomic<int> buffer_tail;
     std::array<LogRecord, LOG_BUFFER_SIZE> buffer;
- private:
     std::atomic<int> last_lsn;
     std::mutex value_latch;
     int fd;
