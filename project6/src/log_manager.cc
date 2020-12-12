@@ -10,25 +10,46 @@ void LogBuffer::open(const std::string& log_path)
     fd = ::open(log_path.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0666);
 }
 
+int64_t LogBuffer::append(const LogRecord& record)
+{
+    std::unique_lock<std::mutex> lsn_tail_latch_lock { lsn_tail_latch };
+    int my_lsn = last_lsn;
+    last_lsn += get_log_record_size(record);
+    int buffer_index = buffer_tail++;
+    // TODO: buffer_index 넘치면 flush
+    lsn_tail_latch_lock.unlock();
+
+    std::unique_lock<std::mutex> buffer_latch_lock { buffer_latch[buffer_index] };
+    buffer[buffer_index] = record;
+    std::visit([&](auto&& rec){
+        rec.lsn = my_lsn;
+    }, buffer[buffer_index]);
+}
+
 void LogBuffer::flush()
 {
     // flush는 한번에 한 스레드에서만 호출 가능하다.
     std::unique_lock<std::mutex> crit { flush_latch };
 
     // 버퍼에 존재하는 모든 로그의 latch를 잠근다.
-    // 로그를 작성하는 스레드늨 buffer_tail을 증가시킬 때 buffer_latch를 걸고, 로그 작성이 완료된 후에 buffer_latch를 푼다.
-    // 즉, flush에서 모든 buffer_latch의 lock을 얻을 때까지 대기한다는 건, 현재 작성중인 모든 로그의 작성이 완료될 때까지 대기한다는 의미이다.
+    // 로그를 작성하는 스레드늨 buffer_tail을 증가시킬 때 buffer_latch를 걸고,
+    // 로그 작성이 완료된 후에 buffer_latch를 푼다. 즉, flush에서 모든
+    // buffer_latch의 lock을 얻을 때까지 대기한다는 건, 현재 작성중인 모든
+    // 로그의 작성이 완료될 때까지 대기한다는 의미이다.
     for (int i = 0; i < buffer_tail; ++i)
     {
         buffer_latch[i].lock();
     }
 
-    // O_APPEND 옵션이 있어 로그가 파일 맨 뒤에 작성되므로 flushed_lsn을 신경쓰지 않아도 된다.
+    // O_APPEND 옵션이 있어 로그가 파일 맨 뒤에 작성되므로 flushed_lsn을
+    // 신경쓰지 않아도 된다.
     for (int i = 0; i < buffer_tail; ++i)
     {
-        std::visit([&](auto&& rec){
-            write(fd, &rec, sizeof(rec));
-        }, buffer[i]);
+        std::visit(
+            [&](auto&& rec) {
+                write(fd, &rec, sizeof(rec));
+            },
+            buffer[i]);
     }
 
     // log buffer를 초기화한다.
@@ -41,18 +62,19 @@ void LogBuffer::flush()
     }
 }
 
+void LogManager::open(const std::string& log_path,
+                      const std::string& logmsg_path)
+{
+    buffer.open(log_path);
+    this->log_path = log_path;
+    this->logmsg_path = logmsg_path;
+}
+
 LogManager::Message::Message(const std::string& logmsg_path)
     : fd(::open(logmsg_path.c_str(), O_RDWR | O_CREAT | O_TRUNC, 0666)),
       fp(fdopen(fd, "w+"))
 {
     // Do nothing
-}
-
-void LogManager::open(const std::string& log_path, const std::string& logmsg_path)
-{
-    buffer.open(log_path);
-    this->log_path = log_path;
-    this->logmsg_path = logmsg_path;
 }
 
 inline void LogManager::Message::analysis_start()

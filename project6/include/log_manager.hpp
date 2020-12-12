@@ -58,17 +58,33 @@ struct CompensateLogRecord : UpdateLogRecord
 using LogRecord =
     std::variant<CommonLogRecord, UpdateLogRecord, CompensateLogRecord>;
 
+constexpr std::size_t get_log_record_size(const LogRecord& rec)
+{
+    switch (rec.index())
+    {
+        case 0:
+            return sizeof(CommonLogRecord);
+        case 1:
+            return sizeof(UpdateLogRecord);
+        case 2:
+            return sizeof(CompensateLogRecord);
+    }
+}
+
 class LogBuffer
 {
  public:
     LogBuffer();
     void open(const std::string& log_path);
+    // buffer에 LogRecord를 추가한 뒤, 추가된 rec의 lsn을 반환
+    int64_t append(const LogRecord& rec);
     void flush();
     void reset();
 
  private:
     std::atomic<int> last_lsn;
     std::atomic<int> buffer_tail;
+    std::mutex lsn_tail_latch;
     std::array<LogRecord, LOG_BUFFER_SIZE> buffer;
     std::array<std::mutex, LOG_BUFFER_SIZE> buffer_latch;
     std::mutex flush_latch;
