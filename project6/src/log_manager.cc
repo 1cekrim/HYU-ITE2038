@@ -24,6 +24,8 @@ int64_t LogBuffer::append(const LogRecord& record)
     std::visit([&](auto&& rec){
         rec.lsn = my_lsn;
     }, buffer[buffer_index]);
+
+    return my_lsn;
 }
 
 void LogBuffer::flush()
