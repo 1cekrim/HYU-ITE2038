@@ -58,6 +58,8 @@ struct CompensateLogRecord : UpdateLogRecord
 using LogRecord =
     std::variant<CommonLogRecord, UpdateLogRecord, CompensateLogRecord>;
 
+constexpr auto INVALID_LSN = -1;
+
 constexpr std::size_t get_log_record_size(const LogRecord& rec)
 {
     switch (rec.index())
@@ -69,6 +71,8 @@ constexpr std::size_t get_log_record_size(const LogRecord& rec)
         case 2:
             return sizeof(CompensateLogRecord);
     }
+    exit(-1);
+    return 0;
 }
 
 class LogBuffer
@@ -81,13 +85,14 @@ class LogBuffer
     void flush();
     void reset();
 
+    std::atomic<int> flushed_lsn;
+    std::mutex flush_latch;
+    std::array<std::mutex, LOG_BUFFER_SIZE> buffer_latch;
+    std::atomic<int> buffer_tail;
+    std::array<LogRecord, LOG_BUFFER_SIZE> buffer;
  private:
     std::atomic<int> last_lsn;
-    std::atomic<int> buffer_tail;
-    std::mutex lsn_tail_latch;
-    std::array<LogRecord, LOG_BUFFER_SIZE> buffer;
-    std::array<std::mutex, LOG_BUFFER_SIZE> buffer_latch;
-    std::mutex flush_latch;
+    std::mutex value_latch;
     int fd;
 };
 
@@ -108,23 +113,24 @@ class LogManager
         return logManager;
     }
 
-    int begin_log(int transaction_id);
-    int commit_log(int transaction_id);
-    int update_log(int transaction_id, int table_id, pagenum_t page_number,
-                   int offset, int data_length, const valType& old_image,
-                   const valType& new_image);
+    // _log 함수들은 추가된 log의 lsn을 반환한다.
+    int64_t begin_log(int transaction_id);
+    int64_t commit_log(int transaction_id);
+    int64_t update_log(int transaction_id, int table_id, pagenum_t page_number,
+                       int offset, int data_length, const valType& old_image,
+                       const valType& new_image);
+
+    int64_t log_wrapper(int transaction_id, const LogRecord& rec);
 
     void open(const std::string& log_path, const std::string& logmsg_path);
 
     bool recovery(RecoveryMode mode, int log_num);
 
-    int rollback(int transaction_id);
+    bool rollback(int transaction_id);
 
     void make_dirty(pagenum_t pagenum);
 
     void reset();
-
-    static constexpr auto invalid_log_number = -1;
 
  private:
     std::string log_path;

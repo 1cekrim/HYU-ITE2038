@@ -2,7 +2,17 @@
 
 LogBuffer::LogBuffer()
 {
-    // Do nothing
+    reset();
+}
+
+void LogBuffer::reset()
+{
+    {
+        std::unique_lock<std::mutex> value_latch_lock { value_latch };
+        last_lsn = 0;
+        flushed_lsn = INVALID_LSN;
+        buffer_tail = 0;
+    }
 }
 
 void LogBuffer::open(const std::string& log_path)
@@ -12,18 +22,22 @@ void LogBuffer::open(const std::string& log_path)
 
 int64_t LogBuffer::append(const LogRecord& record)
 {
-    std::unique_lock<std::mutex> lsn_tail_latch_lock { lsn_tail_latch };
+    std::unique_lock<std::mutex> value_latch_lock { value_latch };
     int my_lsn = last_lsn;
     last_lsn += get_log_record_size(record);
     int buffer_index = buffer_tail++;
     // TODO: buffer_index 넘치면 flush
-    lsn_tail_latch_lock.unlock();
+    value_latch_lock.unlock();
 
-    std::unique_lock<std::mutex> buffer_latch_lock { buffer_latch[buffer_index] };
+    std::unique_lock<std::mutex> buffer_latch_lock {
+        buffer_latch[buffer_index]
+    };
     buffer[buffer_index] = record;
-    std::visit([&](auto&& rec){
-        rec.lsn = my_lsn;
-    }, buffer[buffer_index]);
+    std::visit(
+        [&](auto&& rec) {
+            rec.lsn = my_lsn;
+        },
+        buffer[buffer_index]);
 
     return my_lsn;
 }
@@ -70,6 +84,88 @@ void LogManager::open(const std::string& log_path,
     buffer.open(log_path);
     this->log_path = log_path;
     this->logmsg_path = logmsg_path;
+}
+
+int64_t LogManager::log_wrapper(int transaction_id, const LogRecord& rec)
+{
+    std::unique_lock<std::mutex> trx_table_latch_lock { trx_table_latch };
+    trx_table_latch_lock.unlock();
+    auto lsn = buffer.append(rec);
+    trx_table_latch_lock.lock();
+    trx_table[transaction_id] = lsn;
+    return lsn;
+}
+
+int64_t LogManager::begin_log(int transaction_id)
+{
+    CommonLogRecord record { INVALID_LSN, INVALID_LSN, transaction_id,
+                             LogType::BEGIN };
+    return log_wrapper(transaction_id, record);
+}
+
+int64_t LogManager::commit_log(int transaction_id)
+{
+    CommonLogRecord record { INVALID_LSN, trx_table[transaction_id], transaction_id,
+                             LogType::COMMIT };
+    return log_wrapper(transaction_id, record);
+}
+
+int64_t LogManager::update_log(int transaction_id, int table_id,
+                               pagenum_t page_number, int offset,
+                               int data_length, const valType& old_image,
+                               const valType& new_image)
+{
+    UpdateLogRecord record { INVALID_LSN,
+                             trx_table[transaction_id],
+                             transaction_id,
+                             LogType::UPDATE,
+                             table_id,
+                             page_number,
+                             offset,
+                             data_length,
+                             old_image,
+                             new_image };
+    return log_wrapper(transaction_id, record);
+}
+
+bool LogManager::rollback(int transaction_id)
+{
+    auto it = trx_table.find(transaction_id);
+    if (it == trx_table.end())
+    {
+        // 트랜잭션이 begin 할때 무조건 begin 로그가 작성되는데, trx_table에 trx id가 없다는 건 trx id가 invalid 하다는 의미
+        return false;
+    }
+
+    int now = it->second;
+
+    
+    while (now != INVALID_LSN)
+    {
+        // 만약 now가 buffer에 존재할 경우 (double check locking)
+        if (buffer.flushed_lsn <= now)
+        {
+            std::unique_lock<std::mutex> flush_latch_lock {buffer.flush_latch};
+            // buffer에서 읽어오는 도중 flush 되면 안되므로, flush latch를 건다.
+            // 하지만, flush latch를 대기하는 사이 flushed_lsn이 변했을 수도 있다.
+            // 따라서 한번 더 확인한다. 
+            if (buffer.flushed_lsn <= now)
+            {
+                int limit = buffer.buffer_tail;
+                for (int i = 0; i < limit; ++i)
+                {
+                    std::unique_lock<std::mutex> buffer_latch_lock {buffer.buffer_latch[i]};
+                    if (std::visit([&](auto&& arg){
+                        return arg.lsn == now;
+                    }, buffer.buffer[i]));
+                }
+            }
+            else
+            {
+                continue;
+            }
+        }
+    }
 }
 
 LogManager::Message::Message(const std::string& logmsg_path)
