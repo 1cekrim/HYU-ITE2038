@@ -146,28 +146,7 @@ bool LogManager::rollback(int transaction_id)
         // 만약 now가 buffer에 존재할 경우는 생각할 필요가 없다.
         // 왜냐하면 rollback을 한다는 것은 trx가 abort 됐다는 것이고,
         // 이 때 buffer를 flush 해야하기 때문...
-        // if (buffer.flushed_lsn <= now)
-        // {
-        //     std::unique_lock<std::mutex> flush_latch_lock {buffer.flush_latch};
-        //     // buffer에서 읽어오는 도중 flush 되면 안되므로, flush latch를 건다.
-        //     // 하지만, flush latch를 대기하는 사이 flushed_lsn이 변했을 수도 있다.
-        //     // 따라서 한번 더 확인한다. 
-        //     if (buffer.flushed_lsn <= now)
-        //     {
-        //         int limit = buffer.buffer_tail;
-        //         for (int i = 0; i < limit; ++i)
-        //         {
-        //             std::unique_lock<std::mutex> buffer_latch_lock {buffer.buffer_latch[i]};
-        //             if (std::visit([&](auto&& arg){
-        //                 return arg.lsn == now;
-        //             }, buffer.buffer[i]));
-        //         }
-        //     }
-        //     else
-        //     {
-        //         continue;
-        //     }
-        // }
+        
     }
 }
 
