@@ -90,7 +90,7 @@ class BufferController
 
  private:
     std::unique_ptr<std::vector<frame_t>> buffer;
-    std::vector<std::unique_ptr<FileManager>> fileManagers;
+    std::unordered_map<int, std::unique_ptr<FileManager>> fileManagers;
     std::unordered_map<int, std::unordered_map<pagenum_t, int>> index_table;
     std::map<std::string, int> nameFileManagerMap;
     std::atomic<std::size_t> num_buffer;
