@@ -219,7 +219,10 @@ bool BPTree::update(keyType key, const valType& value, int transaction_id)
     // LogManagerLegacy::instance().log(transaction_id, LogTypeLegacy::UPDATE,
     //                            LockHash(get_table_id(), key), before,
     //                            leaf.node.records()[i]);
-    LogManager::instance().update_log(transaction_id, manager.get_manager_id(), leaf.id, leaf.node.get_offset<record_t>(i), sizeof(valType), before, value);
+    auto lsn = LogManager::instance().update_log(transaction_id, manager.get_manager_id(), leaf.id, leaf.node.get_offset<record_t>(i), sizeof(valType), before, value);
+
+    // page lsn
+    leaf.node.nodePageHeader().pageLsn = lsn;
 
     CHECK(commit_node(leaf));
 
