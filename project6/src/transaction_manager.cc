@@ -51,12 +51,6 @@ LockAcquireResult TransactionManager::lock_acquire(int table_id, int64_t key,
                                    });
         count > 0)
     {
-        for (auto& ll : locks)
-        {
-            std::cout << std::get<1>(ll)->lockMode << std::get<1>(ll)->state
-                      << std::get<1>(ll)->ownerTransactionID << ' ';
-        }
-        std::cout << std::endl;
         auto aleady_lock_mode =
             count == 1 ? LockMode::SHARED : LockMode::EXCLUSIVE;
         // 왜 아래의 if문과 같은 로직이 가능한가?

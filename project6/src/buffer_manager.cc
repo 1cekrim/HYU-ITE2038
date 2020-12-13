@@ -206,7 +206,6 @@ int BufferController::openFileManager(const std::string& name)
     if (nameFileManagerMap.find(name) == nameFileManagerMap.end())
     {
         int id = fileManagers.size();
-        std::cout << "id: " << id << '\n';
         auto& fm = fileManagers[id] = std::make_unique<FileManager>();
         CHECK_RET(fm->open(name), -1);
         nameFileManagerMap.emplace(name, id);

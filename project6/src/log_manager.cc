@@ -13,7 +13,6 @@ void LogReader::print()
 
     do
     {
-        std::cout << now << '\n';
         int32_t record_size;
         readed = pread(fd, &record_size, sizeof(record_size), now);
 
@@ -49,7 +48,7 @@ void LogReader::print()
                 break;
             }
             default:
-                DB_CRASH(-1, "invalid log record size: %d", record_size);
+                DB_CRASH(-1, "invalid log record size: %d. lsn: %ld", record_size, now);
         }
     } while (readed);
 }
@@ -100,7 +99,6 @@ std::tuple<LogType, LogRecord> LogReader::get(int64_t lsn)
 {
     int32_t record_size;
     auto readed = pread(fd, &record_size, sizeof(record_size), lsn);
-    std::cout << lsn << '\n';
     DB_CRASH_COND(readed == sizeof(record_size), -1, "read record size failure. pread return: %ld", readed);
     
     switch (record_size)
@@ -127,7 +125,7 @@ std::tuple<LogType, LogRecord> LogReader::get(int64_t lsn)
             return {type, rec};
         }
         default:
-            DB_CRASH(-1, "invalid log record size: %d", record_size);
+            DB_CRASH(-1, "invalid log record size: %d. lsn: %ld", record_size, lsn);
     }
 }
 
@@ -158,16 +156,15 @@ int64_t LogBuffer::append(const LogRecord& record)
     last_lsn += get_log_record_size(record);
     int buffer_index = buffer_tail++;
 
-    std::cout << "buffer_index: " << buffer_index << '\n';
-
     // TODO: buffer_index 넘치면 flush
-    // if (buffer_index == LOG_BUFFER_SIZE)
-    // {
-    //     std::cout << "will do flush\n";
-    //     flush(true);
-    // }
+    if (buffer_index == LOG_BUFFER_SIZE)
+    {
+        --buffer_tail;
+        flush(true);
 
-    // buffer_index = buffer_tail++;
+        buffer_index = buffer_tail++;
+    }
+
 
     value_latch_lock.unlock();
     
@@ -190,16 +187,14 @@ void LogBuffer::flush(bool from_append)
     std::unique_lock<std::mutex> crit { flush_latch };
 
     // flush 중에는 log가 추가되는 것을 막는다
-    // std::unique_lock<std::mutex> value_latch_lock { value_latch, std::defer_lock};
-    std::unique_lock<std::mutex> value_latch_lock { value_latch};
+    // std::unique_lock<std::mutex> value_latch_lock { value_latch };
+    std::unique_lock<std::mutex> value_latch_lock { value_latch, std::defer_lock };
 
-    // if (!from_append)
-    // {
-    //     std::cout << "locked\n";
-    //     value_latch_lock.lock();
-    // }
-
-    std::cout << "flush!!!!!!!!!!!!!!!!!!!!!!!!\n"; 
+    // append 함수에서는 이미 value_latch를 잡고 있으므로, append 함수에서 호출했을 때는 lock을 걸지 않는다.
+    if (!from_append)
+    {
+        value_latch_lock.lock();
+    }
 
     // 버퍼에 존재하는 모든 로그의 latch를 잠근다.
     // 로그를 작성하는 스레드늨 buffer_tail을 증가시킬 때 buffer_latch를 걸고,
@@ -230,6 +225,9 @@ void LogBuffer::flush(bool from_append)
 
     // log buffer를 초기화한다.
     buffer_tail = 0;
+
+    // buffer 파일을 디스크에 기록한다.
+    fsync(fd);
 }
 
 void LogManager::open(const std::string& log_path,
@@ -306,8 +304,6 @@ bool LogManager::rollback(int transaction_id)
 
     int now = it->second;
 
-    std::cout << "rollback\n";
-
     // rollback 전에 buffer를 flush 하면, abort된 트랜잭션의 로그가 buffer에
     // 일부 남아있는 케이스를 무시하고 간단하게 구현할 수 있다.
     buffer.flush();
@@ -351,7 +347,6 @@ bool LogManager::rollback(int transaction_id)
 
                 // rollback 할때는 이미 buffer_latch, page latch, lock 등이 모두
                 // 걸린 상태이다!
-                std::cout << "record.table_id: " << record.table_id << '\n';
                 page_t page;
                 BufferController::instance().get(record.table_id,
                                                  record.page_number, page);
