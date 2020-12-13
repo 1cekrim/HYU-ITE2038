@@ -389,6 +389,90 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
         msg.analysis_end(winners, losers);
     }
 
+    // REDO
+    {
+        LogReader reader { log_path };
+        bool flag = true;
+        for (int i = 0; flag; ++i)
+        {
+            if (mode == RecoveryMode::REDO_CRASH && i == log_num)
+            {
+                // REDO CRASH
+                exit(0);
+            }
+
+            auto [type, rec] = reader.next();
+            switch (type)
+            {
+                case LogType::BEGIN: {
+                    CommonLogRecord& record = std::get<CommonLogRecord>(rec);
+                    msg.begin(record.lsn, record.transaction_id);
+                    break;
+                }
+                case LogType::COMMIT: {
+                    CommonLogRecord& record = std::get<CommonLogRecord>(rec);
+                    msg.commit(record.lsn, record.transaction_id);
+                    break;
+                }
+                case LogType::COMPENSATE: {
+                    CompensateLogRecord& record =
+                        std::get<CompensateLogRecord>(rec);
+
+                    // redo compensate
+                    page_t page;
+                    BufferController::instance().get(record.table_id,
+                                                     record.page_number, page);
+                    // consider redo?
+                    if (page.nodePageHeader().pageLsn < record.lsn)
+                    {
+                        std::memcpy((char*)(&page) + record.offset,
+                                    (char*)(&record.new_image),
+                                    record.data_length);
+                        BufferController::instance().put(
+                            record.table_id, record.page_number, page);
+                        msg.compensate(record.lsn, record.next_undo_lsn);
+                    }
+                    else
+                    {
+                        msg.consider_redo(record.lsn, record.transaction_id);
+                    }
+                    break;
+                }
+                case LogType::ROLLBACK: {
+                    CommonLogRecord& record = std::get<CommonLogRecord>(rec);
+                    msg.commit(record.lsn, record.transaction_id);
+                    break;
+                }
+                case LogType::UPDATE: {
+                    UpdateLogRecord& record = std::get<UpdateLogRecord>(rec);
+
+                    // redo update
+                    page_t page;
+                    BufferController::instance().get(record.table_id,
+                                                     record.page_number, page);
+                    // consider redo?
+                    if (page.nodePageHeader().pageLsn < record.lsn)
+                    {
+                        std::memcpy((char*)(&page) + record.offset,
+                                    (char*)(&record.new_image),
+                                    record.data_length);
+                        BufferController::instance().put(
+                            record.table_id, record.page_number, page);
+                        msg.update(record.lsn, record.transaction_id);
+                    }
+                    else
+                    {
+                        msg.consider_redo(record.lsn, record.transaction_id);
+                    }
+                    break;
+                }
+                case LogType::INVALID:
+                    flag = false;
+                    break;
+            }
+        }
+    }
+
     return true;
 }
 
