@@ -76,9 +76,9 @@ void TEST_LOG()
 {
     TEST("log record size")
     {
-        CHECK_VALUE(sizeof(CommonLogRecord), 24);
-        CHECK_VALUE(sizeof(UpdateLogRecord), 284);
-        CHECK_VALUE(sizeof(CompensateLogRecord), 292);
+        CHECK_VALUE(sizeof(CommonLogRecord), 28);
+        CHECK_VALUE(sizeof(UpdateLogRecord), 288);
+        CHECK_VALUE(sizeof(CompensateLogRecord), 296);
     }
     END()
     // TEST("begin commit")
