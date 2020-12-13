@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <iostream>
 
-#include "log_manager_legacy.hpp"
+#include "log_manager.hpp"
 #include "logger.hpp"
 #include "table_manager.hpp"
 
@@ -199,16 +199,17 @@ bool Transaction::lock_release(bool abort)
 bool Transaction::abort()
 {
     state = TransactionState::ABORTED;
-    auto logs = LogManagerLegacy::instance().trace_log(transactionID);
-    // std::cout << "abort: " << transactionID << '\n';
-    for (const auto& log : logs)
-    {
-        if (log.type == LogTypeLegacy::UPDATE)
-        {
-            TableManager::instance().update(log.hash.table_id, log.hash.key,
-                                            log.before.value);
-        }
-    }
+    CHECK(LogManager::instance().rollback(transactionID));
+    // auto logs = LogManagerLegacy::instance().trace_log(transactionID);
+    // // std::cout << "abort: " << transactionID << '\n';
+    // for (const auto& log : logs)
+    // {
+    //     if (log.type == LogTypeLegacy::UPDATE)
+    //     {
+    //         TableManager::instance().update(log.hash.table_id, log.hash.key,
+    //                                         log.before.value);
+    //     }
+    // }
     // log undo
     return lock_release(true);
 }
