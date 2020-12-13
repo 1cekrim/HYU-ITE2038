@@ -20,6 +20,18 @@
         exit(exit_code);                                          \
     } while (0)
 
+#define DB_CRASH_COND(statement, exit_code, fmt, args...)             \
+    do                                                                \
+    {                                                                 \
+        if (!(statement))                                             \
+        {                                                             \
+            fprintf(stderr, S_COLOR_YELLOW "\n[!] FATAL ERROR IN %s", \
+                    __PRETTY_FUNCTION__);                             \
+            fprintf(stderr, fmt "\n", ##args);                        \
+            exit(exit_code);                                          \
+        }                                                             \
+    } while (0)
+
 #define CHECK_WITH_LOG(statement, ret_val, fmt, args...)                  \
     do                                                                    \
     {                                                                     \

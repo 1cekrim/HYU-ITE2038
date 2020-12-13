@@ -1,5 +1,44 @@
 #include "log_manager.hpp"
 
+LogReader::LogReader(const std::string& log_path) : fd(open(log_path.c_str(), O_RDONLY))
+{
+    // Do nothing
+}
+
+std::tuple<LogType, LogRecord> LogReader::get(int64_t lsn)
+{
+    int32_t record_size;
+    auto readed = pread(fd, &record_size, sizeof(record_size), lsn);
+    DB_CRASH_COND(readed != sizeof(record_size), -1, "read record size failure. pread return: %ld", readed);
+    
+    switch (record_size)
+    {
+        case sizeof(CommonLogRecord): {
+            CommonLogRecord rec;
+            auto readed =pread(fd, &rec, sizeof(rec), lsn);
+            DB_CRASH_COND(readed != sizeof(record_size), -1, "read CommonLogRecord failure. pread return: %ld", readed);
+            LogType type = rec.type;
+            return {type, rec};
+        }
+        case sizeof(UpdateLogRecord):{
+            UpdateLogRecord rec;
+            auto readed =pread(fd, &rec, sizeof(rec), lsn);
+            DB_CRASH_COND(readed != sizeof(record_size), -1, "read UpdateLogRecord failure. pread return: %ld", readed);
+            LogType type = rec.type;
+            return {type, rec};
+        }
+        case sizeof(CompensateLogRecord): {
+            CompensateLogRecord rec;
+            auto readed =pread(fd, &rec, sizeof(rec), lsn);
+            DB_CRASH_COND(readed != sizeof(record_size), -1, "read CompensateLogRecord failure. pread return: %ld", readed);
+            LogType type = rec.type;
+            return {type, rec};
+        }
+        default:
+            DB_CRASH(-1, "invalid log record size: %d", record_size);
+    }
+}
+
 LogBuffer::LogBuffer()
 {
     reset();
@@ -98,14 +137,15 @@ int64_t LogManager::log_wrapper(int transaction_id, const LogRecord& rec)
 
 int64_t LogManager::begin_log(int transaction_id)
 {
-    CommonLogRecord record { INVALID_LSN, INVALID_LSN, transaction_id,
-                             LogType::BEGIN };
+    CommonLogRecord record { sizeof(CommonLogRecord), INVALID_LSN, INVALID_LSN,
+                             transaction_id, LogType::BEGIN };
     return log_wrapper(transaction_id, record);
 }
 
 int64_t LogManager::commit_log(int transaction_id)
 {
-    CommonLogRecord record { INVALID_LSN, trx_table[transaction_id], transaction_id,
+    CommonLogRecord record { sizeof(CommonLogRecord), INVALID_LSN,
+                             trx_table[transaction_id], transaction_id,
                              LogType::COMMIT };
     return log_wrapper(transaction_id, record);
 }
@@ -115,7 +155,8 @@ int64_t LogManager::update_log(int transaction_id, int table_id,
                                int data_length, const valType& old_image,
                                const valType& new_image)
 {
-    UpdateLogRecord record { INVALID_LSN,
+    UpdateLogRecord record { sizeof(UpdateLogRecord),
+                             INVALID_LSN,
                              trx_table[transaction_id],
                              transaction_id,
                              LogType::UPDATE,
@@ -133,17 +174,19 @@ bool LogManager::rollback(int transaction_id)
     auto it = trx_table.find(transaction_id);
     if (it == trx_table.end())
     {
-        // 트랜잭션이 begin 할때 무조건 begin 로그가 작성되는데, trx_table에 trx id가 없다는 건 trx id가 invalid 하다는 의미
+        // 트랜잭션이 begin 할때 무조건 begin 로그가 작성되는데, trx_table에 trx
+        // id가 없다는 건 trx id가 invalid 하다는 의미
         return false;
     }
 
     int now = it->second;
 
-    // rollback 전에 buffer를 flush 하면, abort된 트랜잭션의 로그가 buffer에 일부 남아있는 케이스를 무시하고 간단하게 구현할 수 있다.
+    // rollback 전에 buffer를 flush 하면, abort된 트랜잭션의 로그가 buffer에
+    // 일부 남아있는 케이스를 무시하고 간단하게 구현할 수 있다.
     buffer.flush();
 
-    LogReader reader {log_path};
-    
+    LogReader reader { log_path };
+
     while (now != INVALID_LSN)
     {
         auto [type, rec] = reader.get(now);
@@ -155,51 +198,70 @@ bool LogManager::rollback(int transaction_id)
                 CHECK(now == INVALID_LSN);
                 break;
 
-            case LogType::UPDATE:
-            {
+            case LogType::UPDATE: {
                 auto& record = std::get<UpdateLogRecord>(rec);
                 // TODO: table_id와 file_id가 같은가?
-                //compensate 로그를 먼저 쓴다.
-                CompensateLogRecord clr {INVALID_LSN, trx_table[transaction_id], transaction_id, LogType::COMPENSATE, record.table_id, record.page_number, record.offset, record.data_length, record.new_image, record.old_image, record.prev_lsn};
+                // compensate 로그를 먼저 쓴다.
+                CompensateLogRecord clr { sizeof(CompensateLogRecord),
+                                          INVALID_LSN,
+                                          trx_table[transaction_id],
+                                          transaction_id,
+                                          LogType::COMPENSATE,
+                                          record.table_id,
+                                          record.page_number,
+                                          record.offset,
+                                          record.data_length,
+                                          record.new_image,
+                                          record.old_image,
+                                          record.prev_lsn };
                 {
-                    std::unique_lock<std::mutex> trx_table_latch_lock {trx_table_latch};
+                    std::unique_lock<std::mutex> trx_table_latch_lock {
+                        trx_table_latch
+                    };
                     trx_table[transaction_id] = buffer.append(clr);
                 }
 
-                // rollback 할때는 이미 buffer_latch, page latch, lock 등이 모두 걸린 상태이다!
+                // rollback 할때는 이미 buffer_latch, page latch, lock 등이 모두
+                // 걸린 상태이다!
                 page_t page;
-                BufferController::instance().get(record.table_id, record.page_number, page);
-                std::memcpy((char*)(&page) + record.offset, (char*)(&record.old_image), record.data_length);
-                BufferController::instance().put(record.table_id, record.page_number, page);
+                BufferController::instance().get(record.table_id,
+                                                 record.page_number, page);
+                std::memcpy((char*)(&page) + record.offset,
+                            (char*)(&record.old_image), record.data_length);
+                BufferController::instance().put(record.table_id,
+                                                 record.page_number, page);
                 now = record.prev_lsn;
                 break;
             }
 
             case LogType::COMPENSATE:
-            // 트랜잭션이 abort 될 때, compensate 로그가 있으면 안된다.
-            std::cerr << "compensate log cannot be rolled back";
-            exit(-1);
-            break;
+                // 트랜잭션이 abort 될 때, compensate 로그가 있으면 안된다.
+                std::cerr << "compensate log cannot be rolled back";
+                exit(-1);
+                break;
 
             case LogType::ROLLBACK:
-            // rollback에 성공한 trx를 또 rollback 하는건 논리적 오류이다!
-            std::cerr << "rolled back transaction cannot be rolled back again";
-            exit(-1);
-            break;
+                // rollback에 성공한 trx를 또 rollback 하는건 논리적 오류이다!
+                std::cerr
+                    << "rolled back transaction cannot be rolled back again";
+                exit(-1);
+                break;
 
             case LogType::COMMIT:
-            // commit에 성공한 trx를 rollback 하는건 논리적 오류이다!
-            std::cerr << "commited transaction cannot be rolled back";
-            exit(-1);
-            break;
+                // commit에 성공한 trx를 rollback 하는건 논리적 오류이다!
+                std::cerr << "commited transaction cannot be rolled back";
+                exit(-1);
+                break;
         }
     }
 
-    CommonLogRecord record {INVALID_LSN, trx_table[transaction_id], transaction_id, LogType::ROLLBACK};
+    CommonLogRecord record { sizeof(CommonLogRecord), INVALID_LSN,
+                             trx_table[transaction_id], transaction_id,
+                             LogType::ROLLBACK };
     buffer.append(record);
 
     {
-        std::unique_lock<std::mutex> trx_table_latch_lock {trx_table_latch};
+        std::unique_lock<std::mutex> trx_table_latch_lock { trx_table_latch };
         trx_table.erase(transaction_id);
     }
 
@@ -218,6 +280,7 @@ LogManager::Message::Message(const std::string& logmsg_path)
 inline void LogManager::Message::analysis_start()
 {
     fprintf(fp, "[ANALYSIS] Analysis pass start\n");
+    flush_with_sync();
 }
 
 inline void LogManager::Message::analysis_end(const std::vector<int>& winners,
@@ -234,47 +297,56 @@ inline void LogManager::Message::analysis_end(const std::vector<int>& winners,
         fprintf(fp, " %d", i);
     }
     fprintf(fp, "\n");
+    flush_with_sync();
 }
 
 inline void LogManager::Message::redo_pass_start()
 {
     fprintf(fp, "[REDO(UNDO)] Redo(Undo) pass start\n");
+    flush_with_sync();
 }
 
 inline void LogManager::Message::begin(int64_t lsn, int trx_id)
 {
     fprintf(fp, "LSN %lu[BEGIN] Transaction id %d\n", lsn, trx_id);
+    flush_with_sync();
 }
 
 inline void LogManager::Message::update(int64_t lsn, int trx_id)
 {
     fprintf(fp, "LSN %lu[UPDATE] Transaction id %d redo(undo) apply\n", lsn,
             trx_id);
+    flush_with_sync();
 }
 
 inline void LogManager::Message::commit(int64_t lsn, int trx_id)
 {
     fprintf(fp, "LSN %lu[COMMIT] Transaction id %d\n", lsn, trx_id);
+    flush_with_sync();
 }
 
 inline void LogManager::Message::rollback(int64_t lsn, int trx_id)
 {
     fprintf(fp, "LSN %lu[ROLLBACK] Transaction id %d\n", lsn, trx_id);
+    flush_with_sync();
 }
 
 inline void LogManager::Message::compensate(int64_t lsn, int64_t next_undo_lsn)
 {
     fprintf(fp, "LSN %lu[CLR] next undo lsn %lu\n", lsn, next_undo_lsn);
+    flush_with_sync();
 }
 
 inline void LogManager::Message::consider_redo(int64_t lsn, int trx_id)
 {
     fprintf(fp, "LSN %lu[CONSIDER - REDO] Transaction id %d\n", lsn, trx_id);
+    flush_with_sync();
 }
 
 inline void LogManager::Message::redo_pass_end()
 {
     fprintf(fp, "[REDO(UNDO)] Redo(Undo) pass end\n");
+    flush_with_sync();
 }
 
 inline void LogManager::Message::flush_with_sync()
