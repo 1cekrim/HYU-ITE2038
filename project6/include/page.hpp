@@ -26,7 +26,10 @@ struct NodePageHeader
     pagenum_t parentPageNumber;
     uint32_t isLeaf;
     uint32_t numberOfKeys;
-    std::array<uint8_t, 104> reserved;
+    std::array<uint8_t, 8> reserved;
+    // TODO: 이거 그냥 0으로 초기화해도 되나?
+    int64_t pageLsn;
+    std::array<uint8_t, 88> reserved2;
     pagenum_t onePageNumber;
 
     friend std::ostream& operator<<(std::ostream& os,
