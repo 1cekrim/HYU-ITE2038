@@ -23,7 +23,8 @@ enum class LogType : int32_t
     UPDATE = 1,
     COMMIT = 2,
     ROLLBACK = 3,
-    COMPENSATE = 4
+    COMPENSATE = 4,
+    INVALID
 };
 
 std::ostream& operator<<(std::ostream& os, const LogType& dt);
@@ -110,10 +111,12 @@ class LogReader
 {
  public:
     LogReader(const std::string& log_path);
-    std::tuple<LogType, LogRecord> get(int64_t lsn);
-    void print();
+    std::tuple<LogType, LogRecord> get(int64_t lsn) const;
+    void print() const;
+    std::tuple<LogType, LogRecord> next() const;
  private:
     int fd;
+    mutable int now_lsn;
 };
 
 class LogManager

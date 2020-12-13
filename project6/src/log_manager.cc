@@ -1,12 +1,13 @@
 #include "log_manager.hpp"
+#include <algorithm>
 
 LogReader::LogReader(const std::string& log_path)
-    : fd(open(log_path.c_str(), O_RDONLY))
+    : fd(open(log_path.c_str(), O_RDONLY)), now_lsn(0)
 {
     // Do nothing
 }
 
-void LogReader::print()
+void LogReader::print() const
 {
     int64_t now = 0;
 
@@ -81,6 +82,9 @@ std::ostream& operator<<(std::ostream& os, const LogType& dt)
         case LogType::COMPENSATE:
             os << "COMPENSATE";
             break;
+        case LogType::INVALID:
+            os << "INVALID";
+            break;
     }
     return os;
 }
@@ -107,12 +111,14 @@ std::ostream& operator<<(std::ostream& os, const CompensateLogRecord& dt)
     return os;
 }
 
-std::tuple<LogType, LogRecord> LogReader::get(int64_t lsn)
+std::tuple<LogType, LogRecord> LogReader::get(int64_t lsn) const
 {
     int32_t record_size;
     auto readed = pread(fd, &record_size, sizeof(record_size), lsn);
-    DB_CRASH_COND(readed == sizeof(record_size), -1,
-                  "read record size failure. pread return: %ld", readed);
+    if (readed != sizeof(record_size))
+    {
+        return {LogType::INVALID, LogRecord()};
+    }
 
     switch (record_size)
     {
@@ -148,6 +154,13 @@ std::tuple<LogType, LogRecord> LogReader::get(int64_t lsn)
             DB_CRASH(-1, "invalid log record size: %d. lsn: %ld", record_size,
                      lsn);
     }
+}
+
+std::tuple<LogType, LogRecord> LogReader::next() const
+{
+    auto t = get(now_lsn);
+    now_lsn += get_log_record_size(std::get<1>(t));
+    return t;
 }
 
 LogBuffer::LogBuffer()
@@ -297,7 +310,7 @@ bool LogBuffer::flush_prev_lsn(int64_t page_lsn)
     }
 
     // buffer의 앞부분만 flush 했다.
-    // 그러므로, buffer_head를 border 위치로 옮겨 앞부분을 사용하지 않게 만든다.
+    // 그러므로, buffer_head를 border 위치로 옮겨 앞부분F을 사용하지 않게 만든다.
 
     buffer_head = border;
 
@@ -332,6 +345,43 @@ void LogManager::reset()
     buffer.reset();
     trx_table.clear();
     dirty_table.clear();
+}
+
+bool LogManager::recovery(RecoveryMode mode, int log_num)
+{
+    Message msg {logmsg_path};
+    LogReader reader {log_path};
+    std::vector<int> winners;
+    std::vector<int> losers;
+    // analysis
+    msg.analysis_start();
+    
+    while (true)
+    {
+        auto [type, rec] = reader.next();
+        if (type == LogType::INVALID)
+        {
+            break;
+        }
+        
+        if (type == LogType::BEGIN)
+        {
+            auto target = std::get<CommonLogRecord>(rec).transaction_id;
+            losers.emplace_back(target);
+        }
+
+        if (type == LogType::COMMIT || type == LogType::ROLLBACK)
+        {
+            auto target = std::get<CommonLogRecord>(rec).transaction_id;
+            auto it = std::find_if(losers.begin(), losers.end(), [target](int v) { return v == target;});
+            losers.erase(it);
+            winners.emplace_back(target);
+        }
+    }
+
+    msg.analysis_end(winners, losers);
+
+    return true;
 }
 
 int64_t LogManager::begin_log(int transaction_id)
@@ -456,6 +506,12 @@ bool LogManager::rollback(int transaction_id)
             case LogType::COMMIT:
                 // commit에 성공한 trx를 rollback 하는건 논리적 오류이다!
                 std::cerr << "commited transaction cannot be rolled back";
+                exit(-1);
+                break;
+
+            case LogType::INVALID:
+                // invalid가 등장하면 안된다
+                std::cerr << "invalid log type";
                 exit(-1);
                 break;
         }

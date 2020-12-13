@@ -10,6 +10,7 @@ bool TableManager::init_db(int buf_num, int flag, int log_num, char* log_path, c
                    "init buffer failure");
     valid_table_manager = true;
     LogManager::instance().open(log_path, logmsg);
+    LogManager::instance().recovery(RecoveryMode(flag), log_num);
     return true;
 }
 
