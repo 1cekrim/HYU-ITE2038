@@ -91,6 +91,7 @@ class LogBuffer
     // buffer에 LogRecord를 추가한 뒤, 추가된 rec의 lsn을 반환
     int64_t append(const LogRecord& rec);
     void flush(bool from_append = false);
+    bool flush_prev_lsn(int64_t page_lsn);
     void reset();
 
  private:
@@ -135,6 +136,8 @@ class LogManager
     void open(const std::string& log_path, const std::string& logmsg_path);
 
     bool recovery(RecoveryMode mode, int log_num);
+
+    bool flush_prev_lsn(int64_t page_lsn);
 
     bool rollback(int transaction_id);
 
