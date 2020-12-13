@@ -15,7 +15,7 @@
 #include "buffer_manager.hpp"
 #include "page.hpp"
 
-constexpr auto LOG_BUFFER_SIZE = 1000000;
+constexpr auto LOG_BUFFER_SIZE = 10000;
 
 enum class LogType : int32_t
 {
