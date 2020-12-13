@@ -1,6 +1,7 @@
 #include "log_manager.hpp"
 
-LogReader::LogReader(const std::string& log_path) : fd(open(log_path.c_str(), O_RDONLY))
+LogReader::LogReader(const std::string& log_path)
+    : fd(open(log_path.c_str(), O_RDONLY))
 {
     // Do nothing
 }
@@ -27,15 +28,19 @@ void LogReader::print()
                 CommonLogRecord rec;
                 auto readed = pread(fd, &rec, sizeof(rec), now);
                 now += readed;
-                DB_CRASH_COND(readed == sizeof(rec), -1, "read CommonLogRecord failure. pread return: %ld", readed);
+                DB_CRASH_COND(readed == sizeof(rec), -1,
+                              "read CommonLogRecord failure. pread return: %ld",
+                              readed);
                 std::cout << rec << "\n\n";
                 break;
             }
-            case sizeof(UpdateLogRecord):{
+            case sizeof(UpdateLogRecord): {
                 UpdateLogRecord rec;
                 auto readed = pread(fd, &rec, sizeof(rec), now);
                 now += readed;
-                DB_CRASH_COND(readed == sizeof(rec), -1, "read UpdateLogRecord failure. pread return: %ld", readed);
+                DB_CRASH_COND(readed == sizeof(rec), -1,
+                              "read UpdateLogRecord failure. pread return: %ld",
+                              readed);
                 std::cout << rec << "\n\n";
                 break;
             }
@@ -43,12 +48,16 @@ void LogReader::print()
                 CompensateLogRecord rec;
                 auto readed = pread(fd, &rec, sizeof(rec), now);
                 now += readed;
-                DB_CRASH_COND(readed == sizeof(rec), -1, "read CompensateLogRecord failure. pread return: %ld", readed);
+                DB_CRASH_COND(
+                    readed == sizeof(rec), -1,
+                    "read CompensateLogRecord failure. pread return: %ld",
+                    readed);
                 std::cout << rec << "\n\n";
                 break;
             }
             default:
-                DB_CRASH(-1, "invalid log record size: %d. lsn: %ld", record_size, now);
+                DB_CRASH(-1, "invalid log record size: %d. lsn: %ld",
+                         record_size, now);
         }
     } while (readed);
 }
@@ -57,34 +66,38 @@ std::ostream& operator<<(std::ostream& os, const LogType& dt)
 {
     switch (dt)
     {
-    case LogType::BEGIN:
-        os << "BEGIN";
-        break;
-    case LogType::UPDATE:
-        os << "UPDATE";
-        break;
-    case LogType::COMMIT:
-        os << "COMMIT";
-        break;
-    case LogType::ROLLBACK:
-        os << "ROLLBACK";
-        break;
-    case LogType::COMPENSATE:
-        os << "COMPENSATE";
-        break;
+        case LogType::BEGIN:
+            os << "BEGIN";
+            break;
+        case LogType::UPDATE:
+            os << "UPDATE";
+            break;
+        case LogType::COMMIT:
+            os << "COMMIT";
+            break;
+        case LogType::ROLLBACK:
+            os << "ROLLBACK";
+            break;
+        case LogType::COMPENSATE:
+            os << "COMPENSATE";
+            break;
     }
     return os;
 }
 
 std::ostream& operator<<(std::ostream& os, const CommonLogRecord& dt)
 {
-    os << dt.type << ": [" << dt.log_size << ", " << dt.lsn << ", " << dt.prev_lsn << ", " << dt.transaction_id << "]";
+    os << dt.type << ": [" << dt.log_size << ", " << dt.lsn << ", "
+       << dt.prev_lsn << ", " << dt.transaction_id << "]";
     return os;
 }
 
 std::ostream& operator<<(std::ostream& os, const UpdateLogRecord& dt)
 {
-    os << dt.type << ": [" << dt.log_size << ", " << dt.lsn << ", " << dt.prev_lsn << ", " << dt.transaction_id << ", " << dt.table_id << ", " << dt.page_number << ", " << dt.offset << ", " << dt.data_length << "]\n";
+    os << dt.type << ": [" << dt.log_size << ", " << dt.lsn << ", "
+       << dt.prev_lsn << ", " << dt.transaction_id << ", " << dt.table_id
+       << ", " << dt.page_number << ", " << dt.offset << ", " << dt.data_length
+       << "]\n";
     os << "old_image: " << dt.old_image << "\nnew_image: " << dt.new_image;
     return os;
 }
@@ -94,38 +107,46 @@ std::ostream& operator<<(std::ostream& os, const CompensateLogRecord& dt)
     return os;
 }
 
-
 std::tuple<LogType, LogRecord> LogReader::get(int64_t lsn)
 {
     int32_t record_size;
     auto readed = pread(fd, &record_size, sizeof(record_size), lsn);
-    DB_CRASH_COND(readed == sizeof(record_size), -1, "read record size failure. pread return: %ld", readed);
-    
+    DB_CRASH_COND(readed == sizeof(record_size), -1,
+                  "read record size failure. pread return: %ld", readed);
+
     switch (record_size)
     {
         case sizeof(CommonLogRecord): {
             CommonLogRecord rec;
             auto readed = pread(fd, &rec, sizeof(rec), lsn);
-            DB_CRASH_COND(readed == sizeof(rec), -1, "read CommonLogRecord failure. pread return: %ld", readed);
+            DB_CRASH_COND(readed == sizeof(rec), -1,
+                          "read CommonLogRecord failure. pread return: %ld",
+                          readed);
             LogType type = rec.type;
-            return {type, rec};
+            return { type, rec };
         }
-        case sizeof(UpdateLogRecord):{
+        case sizeof(UpdateLogRecord): {
             UpdateLogRecord rec;
             auto readed = pread(fd, &rec, sizeof(rec), lsn);
-            DB_CRASH_COND(readed == sizeof(rec), -1, "read UpdateLogRecord failure. pread return: %ld, record size: ", readed);
+            DB_CRASH_COND(readed == sizeof(rec), -1,
+                          "read UpdateLogRecord failure. pread return: %ld, "
+                          "record size: ",
+                          readed);
             LogType type = rec.type;
-            return {type, rec};
+            return { type, rec };
         }
         case sizeof(CompensateLogRecord): {
             CompensateLogRecord rec;
             auto readed = pread(fd, &rec, sizeof(rec), lsn);
-            DB_CRASH_COND(readed == sizeof(rec), -1, "read CompensateLogRecord failure. pread return: %ld", readed);
+            DB_CRASH_COND(readed == sizeof(rec), -1,
+                          "read CompensateLogRecord failure. pread return: %ld",
+                          readed);
             LogType type = rec.type;
-            return {type, rec};
+            return { type, rec };
         }
         default:
-            DB_CRASH(-1, "invalid log record size: %d. lsn: %ld", record_size, lsn);
+            DB_CRASH(-1, "invalid log record size: %d. lsn: %ld", record_size,
+                     lsn);
     }
 }
 
@@ -166,9 +187,8 @@ int64_t LogBuffer::append(const LogRecord& record)
         buffer_index = buffer_tail++;
     }
 
-
     value_latch_lock.unlock();
-    
+
     std::unique_lock<std::mutex> buffer_latch_lock {
         buffer_latch[buffer_index]
     };
@@ -189,9 +209,11 @@ void LogBuffer::flush(bool from_append)
 
     // flush 중에는 log가 추가되는 것을 막는다
     // std::unique_lock<std::mutex> value_latch_lock { value_latch };
-    std::unique_lock<std::mutex> value_latch_lock { value_latch, std::defer_lock };
+    std::unique_lock<std::mutex> value_latch_lock { value_latch,
+                                                    std::defer_lock };
 
-    // append 함수에서는 이미 value_latch를 잡고 있으므로, append 함수에서 호출했을 때는 lock을 걸지 않는다.
+    // append 함수에서는 이미 value_latch를 잡고 있으므로, append 함수에서
+    // 호출했을 때는 lock을 걸지 않는다.
     if (!from_append)
     {
         value_latch_lock.lock();
@@ -205,7 +227,7 @@ void LogBuffer::flush(bool from_append)
     for (int i = buffer_head; i < buffer_tail; ++i)
     {
         buffer_latch[i].lock();
-    } 
+    }
 
     // O_APPEND 옵션이 있어 로그가 파일 맨 뒤에 작성되므로 flushed_lsn을
     // 신경쓰지 않아도 된다.
@@ -240,14 +262,17 @@ bool LogBuffer::flush_prev_lsn(int64_t page_lsn)
     // flush 중에는 log가 추가되는 것을 막는다
     std::unique_lock<std::mutex> value_latch_lock { value_latch };
 
-    // buffer_latch를 잠그면서, page_lsn보다 큰 로그가 처음으로 등장하는 위치를 찾는다.
+    // buffer_latch를 잠그면서, page_lsn보다 큰 로그가 처음으로 등장하는 위치를
+    // 찾는다.
     int border = buffer_head;
     for (border = buffer_head; border < buffer_tail; ++border)
     {
         buffer_latch[border].lock();
-        if (std::visit([&](auto&& arg){
-            return arg.lsn > page_lsn;
-        }, buffer[border]))
+        if (std::visit(
+                [&](auto&& arg) {
+                    return arg.lsn > page_lsn;
+                },
+                buffer[border]))
         {
             buffer_latch[border].unlock();
             break;
