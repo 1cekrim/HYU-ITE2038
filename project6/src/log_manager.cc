@@ -141,6 +141,7 @@ void LogBuffer::reset()
         last_lsn = 0;
         flushed_lsn = INVALID_LSN;
         buffer_tail = 0;
+        buffer_head = 0;
     }
 }
 
@@ -201,14 +202,14 @@ void LogBuffer::flush(bool from_append)
     // 로그 작성이 완료된 후에 buffer_latch를 푼다. 즉, flush에서 모든
     // buffer_latch의 lock을 얻을 때까지 대기한다는 건, 현재 작성중인 모든
     // 로그의 작성이 완료될 때까지 대기한다는 의미이다.
-    for (int i = 0; i < buffer_tail; ++i)
+    for (int i = buffer_head; i < buffer_tail; ++i)
     {
         buffer_latch[i].lock();
     } 
 
     // O_APPEND 옵션이 있어 로그가 파일 맨 뒤에 작성되므로 flushed_lsn을
     // 신경쓰지 않아도 된다.
-    for (int i = 0; i < buffer_tail; ++i)
+    for (int i = buffer_head; i < buffer_tail; ++i)
     {
         std::visit(
             [&](auto&& rec) {
@@ -218,16 +219,67 @@ void LogBuffer::flush(bool from_append)
     }
 
     // latch를 푼다.
-    for (int i = 0; i < buffer_tail; ++i)
+    for (int i = buffer_head; i < buffer_tail; ++i)
     {
         buffer_latch[i].unlock();
     }
 
     // log buffer를 초기화한다.
     buffer_tail = 0;
+    buffer_head = 0;
 
     // buffer 파일을 디스크에 기록한다.
     fsync(fd);
+}
+
+bool LogBuffer::flush_prev_lsn(int64_t page_lsn)
+{
+    // flush 함수는 한번에 한 스레드에서만 호출 가능하다.
+    std::unique_lock<std::mutex> crit { flush_latch };
+
+    // flush 중에는 log가 추가되는 것을 막는다
+    std::unique_lock<std::mutex> value_latch_lock { value_latch };
+
+    // buffer_latch를 잠그면서, page_lsn보다 큰 로그가 처음으로 등장하는 위치를 찾는다.
+    int border = buffer_head;
+    for (border = buffer_head; border < buffer_tail; ++border)
+    {
+        buffer_latch[border].lock();
+        if (std::visit([&](auto&& arg){
+            return arg.lsn > page_lsn;
+        }, buffer[border]))
+        {
+            buffer_latch[border].unlock();
+            break;
+        }
+    }
+
+    // O_APPEND 옵션이 있어 로그가 파일 맨 뒤에 작성되므로 flushed_lsn을
+    // 신경쓰지 않아도 된다.
+    for (int i = buffer_head; i < border; ++i)
+    {
+        std::visit(
+            [&](auto&& rec) {
+                write(fd, &rec, sizeof(rec));
+            },
+            buffer[i]);
+    }
+
+    // latch를 푼다.
+    for (int i = buffer_head; i < border; ++i)
+    {
+        buffer_latch[i].unlock();
+    }
+
+    // buffer의 앞부분만 flush 했다.
+    // 그러므로, buffer_head를 border 위치로 옮겨 앞부분을 사용하지 않게 만든다.
+
+    buffer_head = border;
+
+    // buffer 파일을 디스크에 기록한다.
+    fsync(fd);
+
+    return true;
 }
 
 void LogManager::open(const std::string& log_path,
@@ -289,6 +341,11 @@ int64_t LogManager::update_log(int transaction_id, int table_id,
                              old_image,
                              new_image };
     return log_wrapper(transaction_id, record);
+}
+
+bool LogManager::flush_prev_lsn(int64_t page_lsn)
+{
+    return buffer.flush_prev_lsn(page_lsn);
 }
 
 bool LogManager::rollback(int transaction_id)

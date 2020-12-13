@@ -98,6 +98,7 @@ class LogBuffer
     std::atomic<int> flushed_lsn;
     std::mutex flush_latch;
     std::array<std::mutex, LOG_BUFFER_SIZE> buffer_latch;
+    std::atomic<int> buffer_head;
     std::atomic<int> buffer_tail;
     std::array<LogRecord, LOG_BUFFER_SIZE> buffer;
     std::atomic<int> last_lsn;
