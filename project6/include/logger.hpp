@@ -11,6 +11,15 @@
 #define S_COLOR_CYAN "\x1b[36m"
 #define S_COLOR_RESET "\x1b[0m"
 
+#define DB_CRASH(exit_code, fmt, args...)                         \
+    do                                                            \
+    {                                                             \
+        fprintf(stderr, S_COLOR_YELLOW "\n[!] FATAL ERROR IN %s", \
+                __PRETTY_FUNCTION__);                             \
+        fprintf(stderr, fmt "\n", ##args);                        \
+        exit(exit_code);                                          \
+    } while (0)
+
 #define CHECK_WITH_LOG(statement, ret_val, fmt, args...)                  \
     do                                                                    \
     {                                                                     \
