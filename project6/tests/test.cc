@@ -1,6 +1,8 @@
 #include "test.hpp"
 
+#include <chrono>
 #include <cstdio>
+#include <future>
 #include <iostream>
 #include <list>
 #include <random>
@@ -9,16 +11,14 @@
 #include <thread>
 #include <type_traits>
 #include <vector>
-#include <future>
-#include <chrono>
 
 #include "bptree.hpp"
 #include "file_api.hpp"
 #include "file_manager.hpp"
-#include "logger.hpp"
-#include "table_manager.hpp"
 #include "lock_manager.hpp"
 #include "log_manager.hpp"
+#include "logger.hpp"
+#include "table_manager.hpp"
 #include "transaction_manager.hpp"
 
 int success, cnt, allSuccess, allCnt;
@@ -48,13 +48,9 @@ int main()
     //     "test_file",           "TESTS"
     // };
 
-    void (*tests[])() = {
-        TEST_LOG
-    };
+    void (*tests[])() = { TEST_LOG };
 
-    std::string testNames[] = {
-        "test log"
-    };
+    std::string testNames[] = { "test log" };
 
     for (int i = 0;
          i < static_cast<int>((sizeof(tests) / sizeof(void (*)(void)))); ++i)
@@ -110,10 +106,11 @@ void TEST_LOG()
         LockManager::instance().reset();
         TransactionManager::instance().reset();
 
-        TableManager::instance().init_db(100, 0, 0, (char*)"rollback.log", (char*)"rollback.txt");
+        TableManager::instance().init_db(100, 0, 0, (char*)"rollback.log",
+                                         (char*)"rollback.txt");
         auto id = TableManager::instance().open_table("rollback.db");
 
-        constexpr auto num_records = 10;
+        constexpr auto num_records = 10000;
 
         for (int i = 0; i < num_records; ++i)
         {
@@ -133,14 +130,12 @@ void TEST_LOG()
             CHECK_TRUE(TableManager::instance().find(id, i, record, trx));
             CHECK_VALUE(record.key, i);
             std::string result(std::begin(record.value),
-                                std::end(record.value));
-            result = std::string(
-                std::begin(result),
-                std::begin(result) + std::strlen(result.c_str()));
+                               std::end(record.value));
+            result =
+                std::string(std::begin(result),
+                            std::begin(result) + std::strlen(result.c_str()));
             CHECK_VALUE(ss.str(), result);
         }
-
-        std::cout << "test success\n";
 
         for (int i = 0; i < num_records; ++i)
         {
@@ -150,7 +145,6 @@ void TEST_LOG()
             TableManager::char_to_valType(v, ss.str().c_str());
             CHECK_TRUE(TableManager::instance().update(id, i, v, trx));
         }
-        std::cout << "test success\n";
 
         for (int i = 0; i < num_records; ++i)
         {
@@ -160,14 +154,13 @@ void TEST_LOG()
             CHECK_TRUE(TableManager::instance().find(id, i, record, trx));
             CHECK_VALUE(record.key, i);
             std::string result(std::begin(record.value),
-                                std::end(record.value));
-            result = std::string(
-                std::begin(result),
-                std::begin(result) + std::strlen(result.c_str()));
+                               std::end(record.value));
+            result =
+                std::string(std::begin(result),
+                            std::begin(result) + std::strlen(result.c_str()));
             CHECK_VALUE(ss.str(), result);
         }
 
-        std::cout << "test success\n";
         for (int i = 0; i < num_records; ++i)
         {
             valType v;
@@ -177,7 +170,6 @@ void TEST_LOG()
             CHECK_TRUE(TableManager::instance().update(id, i, v, trx));
         }
 
-        std::cout << "test success\n";
         for (int i = 0; i < num_records; ++i)
         {
             std::stringstream ss;
@@ -186,15 +178,12 @@ void TEST_LOG()
             CHECK_TRUE(TableManager::instance().find(id, i, record, trx));
             CHECK_VALUE(record.key, i);
             std::string result(std::begin(record.value),
-                                std::end(record.value));
-            result = std::string(
-                std::begin(result),
-                std::begin(result) + std::strlen(result.c_str()));
+                               std::end(record.value));
+            result =
+                std::string(std::begin(result),
+                            std::begin(result) + std::strlen(result.c_str()));
             CHECK_VALUE(ss.str(), result);
         }
-        std::cout << "test success\n";
-
-        exit(0);
 
         CHECK_TRUE(TransactionManager::instance().abort(trx));
 
@@ -206,10 +195,10 @@ void TEST_LOG()
             CHECK_TRUE(TableManager::instance().find(id, i, record, trx));
             CHECK_VALUE(record.key, i);
             std::string result(std::begin(record.value),
-                                std::end(record.value));
-            result = std::string(
-                std::begin(result),
-                std::begin(result) + std::strlen(result.c_str()));
+                               std::end(record.value));
+            result =
+                std::string(std::begin(result),
+                            std::begin(result) + std::strlen(result.c_str()));
             CHECK_VALUE(ss.str(), result);
         }
     }
@@ -224,14 +213,16 @@ void TEST_TRANSACTION()
     //     TransactionManager::instance().reset();
 
     //     int trans_id1 = TransactionManager::instance().begin();
-    //     CHECK_TRUE(TransactionManager::instance().lock_acquire(1, 2, trans_id1, LockMode::SHARED));
+    //     CHECK_TRUE(TransactionManager::instance().lock_acquire(1, 2,
+    //     trans_id1, LockMode::SHARED));
 
     //     auto& table = LockManager::instance().get_table();
     //     const auto& target = table.at(LockHash(1, 2));
 
     //     CHECK_VALUE(target.acquire_count, 1);
 
-    //     CHECK_TRUE(TransactionManager::instance().lock_acquire(1, 2, trans_id1, LockMode::EXCLUSIVE));
+    //     CHECK_TRUE(TransactionManager::instance().lock_acquire(1, 2,
+    //     trans_id1, LockMode::EXCLUSIVE));
 
     //     CHECK_VALUE(target.acquire_count, 2);
 
@@ -249,14 +240,16 @@ void TEST_TRANSACTION()
     //     int trans_id1 = TransactionManager::instance().begin();
     //     int trans_id2 = TransactionManager::instance().begin();
 
-    //     TransactionManager::instance().lock_acquire(1, 2, trans_id1, LockMode::SHARED);
-    //     TransactionManager::instance().lock_acquire(1, 2, trans_id2, LockMode::SHARED);
+    //     TransactionManager::instance().lock_acquire(1, 2, trans_id1,
+    //     LockMode::SHARED); TransactionManager::instance().lock_acquire(1, 2,
+    //     trans_id2, LockMode::SHARED);
 
     //     auto& table = LockManager::instance().get_table();
     //     const auto& target = table.at(LockHash(1, 2));
 
     //     auto p3 = std::thread([&](){
-    //         TransactionManager::instance().lock_acquire(1, 2, trans_id1, LockMode::EXCLUSIVE);
+    //         TransactionManager::instance().lock_acquire(1, 2, trans_id1,
+    //         LockMode::EXCLUSIVE);
     //     });
     //     p3.detach();
 
@@ -283,9 +276,12 @@ void TEST_TRANSACTION()
     //     int trans_id2 = TransactionManager::instance().begin();
     //     int trans_id3 = TransactionManager::instance().begin();
 
-    //     CHECK_TRUE(TransactionManager::instance().lock_acquire(1, 2, trans_id1, LockMode::SHARED));
-    //     CHECK_TRUE(TransactionManager::instance().lock_acquire(1, 2, trans_id1, LockMode::SHARED));
-    //     CHECK_TRUE(TransactionManager::instance().lock_acquire(1, 2, trans_id1, LockMode::SHARED));
+    //     CHECK_TRUE(TransactionManager::instance().lock_acquire(1, 2,
+    //     trans_id1, LockMode::SHARED));
+    //     CHECK_TRUE(TransactionManager::instance().lock_acquire(1, 2,
+    //     trans_id1, LockMode::SHARED));
+    //     CHECK_TRUE(TransactionManager::instance().lock_acquire(1, 2,
+    //     trans_id1, LockMode::SHARED));
 
     //     std::promise<bool> ret1, ret2;
     //     auto lock2_future = ret1.get_future();
@@ -293,18 +289,22 @@ void TEST_TRANSACTION()
 
     //     auto p1 = std::thread([&](){
     //         bool result = true;
-    //         result &= TransactionManager::instance().lock_acquire(1, 2, trans_id2, LockMode::SHARED);
-    //         result &= TransactionManager::instance().lock_acquire(1, 2, trans_id2, LockMode::SHARED);
-    //         result &= TransactionManager::instance().lock_acquire(1, 2, trans_id2, LockMode::SHARED);
-    //         ret1.set_value(result);
+    //         result &= TransactionManager::instance().lock_acquire(1, 2,
+    //         trans_id2, LockMode::SHARED); result &=
+    //         TransactionManager::instance().lock_acquire(1, 2, trans_id2,
+    //         LockMode::SHARED); result &=
+    //         TransactionManager::instance().lock_acquire(1, 2, trans_id2,
+    //         LockMode::SHARED); ret1.set_value(result);
     //     });
 
     //     auto p2 = std::thread([&](){
     //         bool result = true;
-    //         result &= TransactionManager::instance().lock_acquire(1, 2, trans_id3, LockMode::SHARED);
-    //         result &= TransactionManager::instance().lock_acquire(1, 2, trans_id3, LockMode::SHARED);
-    //         result &= TransactionManager::instance().lock_acquire(1, 2, trans_id3, LockMode::SHARED);
-    //         ret2.set_value(result);
+    //         result &= TransactionManager::instance().lock_acquire(1, 2,
+    //         trans_id3, LockMode::SHARED); result &=
+    //         TransactionManager::instance().lock_acquire(1, 2, trans_id3,
+    //         LockMode::SHARED); result &=
+    //         TransactionManager::instance().lock_acquire(1, 2, trans_id3,
+    //         LockMode::SHARED); ret2.set_value(result);
     //     });
 
     //     auto& table = LockManager::instance().get_table();
@@ -340,7 +340,8 @@ void TEST_TRANSACTION()
 //         TransactionManager::instance().reset();
 //         int trans_id = TransactionManager::instance().begin();
 //         Transaction& trans = TransactionManager::instance().get(trans_id);
-//         auto lock = LockManager::instance().lock_acquire(1, 2, trans_id, LockMode::SHARED);
+//         auto lock = LockManager::instance().lock_acquire(1, 2, trans_id,
+//         LockMode::SHARED);
 
 //         CHECK_TRUE(trans.state == TransactionState::RUNNING);
 //         CHECK_TRUE(trans.locks.empty());
@@ -363,7 +364,8 @@ void TEST_TRANSACTION()
 //         TransactionManager::instance().reset();
 //         int trans_id = TransactionManager::instance().begin();
 //         Transaction& trans = TransactionManager::instance().get(trans_id);
-//         auto lock = LockManager::instance().lock_acquire(1, 2, trans_id, LockMode::EXCLUSIVE);
+//         auto lock = LockManager::instance().lock_acquire(1, 2, trans_id,
+//         LockMode::EXCLUSIVE);
 
 //         CHECK_TRUE(trans.state == TransactionState::RUNNING);
 //         CHECK_TRUE(trans.locks.empty());
@@ -389,8 +391,10 @@ void TEST_TRANSACTION()
 //         Transaction& trans1 = TransactionManager::instance().get(trans_id1);
 //         Transaction& trans2 = TransactionManager::instance().get(trans_id2);
 
-//         auto lock1 = LockManager::instance().lock_acquire(1, 2, trans_id1, LockMode::SHARED);
-//         auto lock2 = LockManager::instance().lock_acquire(1, 2, trans_id2, LockMode::SHARED);
+//         auto lock1 = LockManager::instance().lock_acquire(1, 2, trans_id1,
+//         LockMode::SHARED); auto lock2 =
+//         LockManager::instance().lock_acquire(1, 2, trans_id2,
+//         LockMode::SHARED);
 
 //         CHECK_TRUE(trans1.state == TransactionState::RUNNING);
 //         CHECK_TRUE(trans1.locks.empty());
@@ -419,8 +423,10 @@ void TEST_TRANSACTION()
 //         int trans_id1 = TransactionManager::instance().begin();
 //         int trans_id2 = TransactionManager::instance().begin();
 
-//         auto lock1 = LockManager::instance().lock_acquire(1, 2, trans_id1, LockMode::SHARED);
-//         auto lock2 = LockManager::instance().lock_acquire(1, 2, trans_id2, LockMode::SHARED);
+//         auto lock1 = LockManager::instance().lock_acquire(1, 2, trans_id1,
+//         LockMode::SHARED); auto lock2 =
+//         LockManager::instance().lock_acquire(1, 2, trans_id2,
+//         LockMode::SHARED);
 
 //         auto& table = LockManager::instance().get_table();
 //         const auto& target = table.at(LockHash(1, 2));
@@ -442,10 +448,11 @@ void TEST_TRANSACTION()
 //         LockManager::instance().reset();
 //         TransactionManager::instance().reset();
 //         int trans_id = TransactionManager::instance().begin();
-//         auto lock = LockManager::instance().lock_acquire(1, 2, trans_id, LockMode::EXCLUSIVE);
+//         auto lock = LockManager::instance().lock_acquire(1, 2, trans_id,
+//         LockMode::EXCLUSIVE);
 
 //         auto& table = LockManager::instance().get_table();
-        
+
 //         CHECK_TRUE(LockManager::instance().lock_release(lock));
 
 //         CHECK_TRUE(table.find(LockHash(1, 2)) == table.end());
@@ -461,7 +468,8 @@ void TEST_TRANSACTION()
 //         int trans_id2 = TransactionManager::instance().begin();
 //         int trans_id3 = TransactionManager::instance().begin();
 
-//         auto lock1 = LockManager::instance().lock_acquire(1, 2, trans_id1, LockMode::SHARED);
+//         auto lock1 = LockManager::instance().lock_acquire(1, 2, trans_id1,
+//         LockMode::SHARED);
 
 //         std::promise<decltype(lock1)> ret1, ret2;
 //         auto lock2_future = ret1.get_future();
@@ -474,7 +482,8 @@ void TEST_TRANSACTION()
 //         CHECK_TRUE(target.locks.front() == lock1);
 
 //         auto p1 = std::thread([&](){
-//             ret1.set_value(LockManager::instance().lock_acquire(1, 2, trans_id2, LockMode::EXCLUSIVE));
+//             ret1.set_value(LockManager::instance().lock_acquire(1, 2,
+//             trans_id2, LockMode::EXCLUSIVE));
 //         });
 //         p1.detach();
 
@@ -487,7 +496,8 @@ void TEST_TRANSACTION()
 //         CHECK_TRUE(target.locks.front() == lock1);
 
 //         auto p2 = std::thread([&](){
-//             ret2.set_value(LockManager::instance().lock_acquire(1, 2, trans_id3, LockMode::SHARED));
+//             ret2.set_value(LockManager::instance().lock_acquire(1, 2,
+//             trans_id3, LockMode::SHARED));
 //         });
 
 //         p2.detach();
@@ -503,7 +513,7 @@ void TEST_TRANSACTION()
 //         CHECK_TRUE(LockManager::instance().lock_release(lock1));
 
 //         auto lock2 = lock2_future.get();
-        
+
 //         CHECK_TRUE(target.mode == LockMode::EXCLUSIVE);
 //         CHECK_TRUE(target.locks.front() == lock2);
 //         CHECK_VALUE(target.acquire_count, 1);
@@ -512,7 +522,7 @@ void TEST_TRANSACTION()
 //         CHECK_TRUE(LockManager::instance().lock_release(lock2));
 
 //         auto lock3 = lock3_future.get();
-        
+
 //         CHECK_TRUE(target.mode == LockMode::SHARED);
 //         CHECK_TRUE(target.locks.front() == lock3);
 //         CHECK_VALUE(target.acquire_count, 1);
@@ -528,13 +538,15 @@ void TEST_TRANSACTION()
 //         int trans_id1 = TransactionManager::instance().begin();
 //         int trans_id2 = TransactionManager::instance().begin();
 
-//         auto lock1 = LockManager::instance().lock_acquire(1, 2, trans_id1, LockMode::SHARED);
+//         auto lock1 = LockManager::instance().lock_acquire(1, 2, trans_id1,
+//         LockMode::SHARED);
 
 //         std::promise<decltype(lock1)> ret1;
 //         auto lock2_future = ret1.get_future();
 
 //         auto p1 = std::thread([&](){
-//             ret1.set_value(LockManager::instance().lock_acquire(1, 2, trans_id2, LockMode::EXCLUSIVE));
+//             ret1.set_value(LockManager::instance().lock_acquire(1, 2,
+//             trans_id2, LockMode::EXCLUSIVE));
 //         });
 
 //         auto& table = LockManager::instance().get_table();
@@ -545,11 +557,14 @@ void TEST_TRANSACTION()
 //         while (target.wait_count != 1)
 //         {}
 
-//         CHECK_TRUE(TransactionManager::instance().get_transactions().size() == 2);
+//         CHECK_TRUE(TransactionManager::instance().get_transactions().size()
+//         == 2);
 
-//         auto invalid = LockManager::instance().lock_upgrade(1, 2, trans_id1, LockMode::EXCLUSIVE);
+//         auto invalid = LockManager::instance().lock_upgrade(1, 2, trans_id1,
+//         LockMode::EXCLUSIVE);
 
-//         CHECK_TRUE(TransactionManager::instance().get_transactions().size() == 1);
+//         CHECK_TRUE(TransactionManager::instance().get_transactions().size()
+//         == 1);
 
 //         CHECK_TRUE(invalid == nullptr);
 //     }
@@ -633,7 +648,8 @@ void TEST_TRANSACTION()
 //                 {
 //                     record_t record;
 //                     CHECK_TRUE(TableManager::instance().delete_key(id, i));
-//                     CHECK_FALSE(TableManager::instance().find(id, i, record));
+//                     CHECK_FALSE(TableManager::instance().find(id, i,
+//                     record));
 //                 }
 //             }
 //             END()
@@ -664,8 +680,9 @@ void TEST_TRANSACTION()
 //                 std::stringstream ss;
 //                 ss << "multi_" << test_index << "_" << i << ".db";
 //                 int id;
-//                 ids.push_back(id = TableManager::instance().open_table(ss.str()));
-//                 CHECK_TRUE(id != INVALID_TABLE_ID);
+//                 ids.push_back(id =
+//                 TableManager::instance().open_table(ss.str())); CHECK_TRUE(id
+//                 != INVALID_TABLE_ID);
 //             }
 //         }
 //         END()
@@ -673,7 +690,8 @@ void TEST_TRANSACTION()
 //         std::vector<std::thread> threads;
 //         for (int i = 0; i < thread_num; ++i)
 //         {
-//             threads.emplace_back([&process, &ids, repeat, num_records, i, test_index]() {
+//             threads.emplace_back([&process, &ids, repeat, num_records, i,
+//             test_index]() {
 //                 process(repeat, num_records, ids[i], test_index);
 //             });
 //         }
@@ -773,7 +791,8 @@ void TEST_TABLE()
     //                                        std::end(record.value));
     //                     result = std::string(
     //                         std::begin(result),
-    //                         std::begin(result) + std::strlen(result.c_str()));
+    //                         std::begin(result) +
+    //                         std::strlen(result.c_str()));
     //                     CHECK_VALUE(ss.str(), result);
     //                     ++mul;
     //                 }
@@ -817,7 +836,8 @@ void TEST_TABLE()
     //                                        std::end(record.value));
     //                     result = std::string(
     //                         std::begin(result),
-    //                         std::begin(result) + std::strlen(result.c_str()));
+    //                         std::begin(result) +
+    //                         std::strlen(result.c_str()));
     //                     CHECK_VALUE(ss.str(), result);
     //                     ++mul;
     //                 }
@@ -847,7 +867,8 @@ void TEST_TABLE()
     //         {
     //             TEST("open 11th table failure before close tables")
     //             {
-    //                 int id = TableManager::instance().open_table("invalid.db");
+    //                 int id =
+    //                 TableManager::instance().open_table("invalid.db");
     //                 CHECK_VALUE(id, INVALID_TABLE_ID);
     //             }
     //             END()
@@ -866,7 +887,8 @@ void TEST_TABLE()
     //         {
     //             TEST("open 11th table failure after close tables")
     //             {
-    //                 int id = TableManager::instance().open_table("invalid.db");
+    //                 int id =
+    //                 TableManager::instance().open_table("invalid.db");
     //                 CHECK_VALUE(id, INVALID_TABLE_ID);
     //             }
     //             END()
