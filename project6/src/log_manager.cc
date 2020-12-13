@@ -161,13 +161,13 @@ int64_t LogBuffer::append(const LogRecord& record)
     std::cout << "buffer_index: " << buffer_index << '\n';
 
     // TODO: buffer_index 넘치면 flush
-    if (buffer_index == LOG_BUFFER_SIZE)
-    {
-        std::cout << "will do flush\n";
-        flush(true);
-    }
+    // if (buffer_index == LOG_BUFFER_SIZE)
+    // {
+    //     std::cout << "will do flush\n";
+    //     flush(true);
+    // }
 
-    buffer_index = buffer_tail++;
+    // buffer_index = buffer_tail++;
 
     value_latch_lock.unlock();
     
@@ -190,14 +190,14 @@ void LogBuffer::flush(bool from_append)
     std::unique_lock<std::mutex> crit { flush_latch };
 
     // flush 중에는 log가 추가되는 것을 막는다
-    std::unique_lock<std::mutex> value_latch_lock { value_latch, std::defer_lock};
-    // std::unique_lock<std::mutex> value_latch_lock { value_latch};
+    // std::unique_lock<std::mutex> value_latch_lock { value_latch, std::defer_lock};
+    std::unique_lock<std::mutex> value_latch_lock { value_latch};
 
-    if (!from_append)
-    {
-        std::cout << "locked\n";
-        value_latch_lock.lock();
-    }
+    // if (!from_append)
+    // {
+    //     std::cout << "locked\n";
+    //     value_latch_lock.lock();
+    // }
 
     std::cout << "flush!!!!!!!!!!!!!!!!!!!!!!!!\n"; 
 
