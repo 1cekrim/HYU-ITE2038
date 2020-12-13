@@ -395,7 +395,7 @@ struct page_t
     {
         static_assert(std::is_same<Record, T>::value ||
                       std::is_same<Internal, T>::value);
-        int offset = sizeof(NodePageHeader) + sizeof(T) * idx;
+        int offset = sizeof(NodePageHeader) + sizeof(T) * idx + sizeof(keyType);
         return offset;
     }
 
