@@ -1,8 +1,10 @@
 #include "log_manager.hpp"
+
 #include <algorithm>
 
 LogReader::LogReader(const std::string& log_path)
-    : fd(open(log_path.c_str(), O_RDONLY)), now_lsn(0)
+    : fd(open(log_path.c_str(), O_RDONLY)),
+      now_lsn(0)
 {
     // Do nothing
 }
@@ -117,7 +119,7 @@ std::tuple<LogType, LogRecord> LogReader::get(int64_t lsn) const
     auto readed = pread(fd, &record_size, sizeof(record_size), lsn);
     if (readed != sizeof(record_size))
     {
-        return {LogType::INVALID, LogRecord()};
+        return { LogType::INVALID, LogRecord() };
     }
 
     switch (record_size)
@@ -310,7 +312,8 @@ bool LogBuffer::flush_prev_lsn(int64_t page_lsn)
     }
 
     // buffer의 앞부분만 flush 했다.
-    // 그러므로, buffer_head를 border 위치로 옮겨 앞부분F을 사용하지 않게 만든다.
+    // 그러므로, buffer_head를 border 위치로 옮겨 앞부분F을 사용하지 않게
+    // 만든다.
 
     buffer_head = border;
 
@@ -349,37 +352,42 @@ void LogManager::reset()
 
 bool LogManager::recovery(RecoveryMode mode, int log_num)
 {
-    Message msg {logmsg_path};
-    LogReader reader {log_path};
+    Message msg { logmsg_path };
     std::vector<int> winners;
     std::vector<int> losers;
     // analysis
-    msg.analysis_start();
-    
-    while (true)
     {
-        auto [type, rec] = reader.next();
-        if (type == LogType::INVALID)
+        LogReader reader { log_path };
+        msg.analysis_start();
+
+        while (true)
         {
-            break;
-        }
-        
-        if (type == LogType::BEGIN)
-        {
-            auto target = std::get<CommonLogRecord>(rec).transaction_id;
-            losers.emplace_back(target);
+            auto [type, rec] = reader.next();
+            if (type == LogType::INVALID)
+            {
+                break;
+            }
+
+            if (type == LogType::BEGIN)
+            {
+                auto target = std::get<CommonLogRecord>(rec).transaction_id;
+                losers.emplace_back(target);
+            }
+
+            if (type == LogType::COMMIT || type == LogType::ROLLBACK)
+            {
+                auto target = std::get<CommonLogRecord>(rec).transaction_id;
+                auto it =
+                    std::find_if(losers.begin(), losers.end(), [target](int v) {
+                        return v == target;
+                    });
+                losers.erase(it);
+                winners.emplace_back(target);
+            }
         }
 
-        if (type == LogType::COMMIT || type == LogType::ROLLBACK)
-        {
-            auto target = std::get<CommonLogRecord>(rec).transaction_id;
-            auto it = std::find_if(losers.begin(), losers.end(), [target](int v) { return v == target;});
-            losers.erase(it);
-            winners.emplace_back(target);
-        }
+        msg.analysis_end(winners, losers);
     }
-
-    msg.analysis_end(winners, losers);
 
     return true;
 }
