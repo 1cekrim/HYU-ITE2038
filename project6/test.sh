@@ -1,6 +1,7 @@
 # make clean
 make test
 rm /mnt/tmpfs/*.db
+rm /mnt/tmpfs/*.log
 rm /mnt/tmpfs/test
 cd builds
 cp test /mnt/tmpfs/test

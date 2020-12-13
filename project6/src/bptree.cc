@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "logger.hpp"
+#include "log_manager.hpp"
 
 scoped_node_latch::scoped_node_latch(int manager_id, nodeId_t id)
     : manager_id(manager_id),
@@ -184,7 +185,6 @@ bool BPTree::update(keyType key, const valType& value, int transaction_id)
         };
         auto& trx = TransactionManager::instance().get(transaction_id);
         // std::unique_lock<std::mutex> trx_latch { trx.mtx };
-
         auto [lock, state] = TransactionManager::instance().lock_acquire(
             get_table_id(), key, transaction_id, LockMode::EXCLUSIVE);
         switch (state)
@@ -209,16 +209,17 @@ bool BPTree::update(keyType key, const valType& value, int transaction_id)
     }
 
     CHECK(load_node(leaf));
-    record_t before;
+    valType before;
 
     int i = leaf.node.index_key<record_t>(key);
-    before = leaf.node.records()[i];
+    before = leaf.node.records()[i].value;
     leaf.node.records()[i].value = value;
 
     // update log
-    LogManagerLegacy::instance().log(transaction_id, LogTypeLegacy::UPDATE,
-                               LockHash(get_table_id(), key), before,
-                               leaf.node.records()[i]);
+    // LogManagerLegacy::instance().log(transaction_id, LogTypeLegacy::UPDATE,
+    //                            LockHash(get_table_id(), key), before,
+    //                            leaf.node.records()[i]);
+    LogManager::instance().update_log(transaction_id, manager.get_manager_id(), leaf.id, leaf.node.get_offset<record_t>(i), sizeof(valType), before, value);
 
     CHECK(commit_node(leaf));
 

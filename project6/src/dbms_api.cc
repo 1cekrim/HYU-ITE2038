@@ -3,22 +3,22 @@
 #include <cstdio>
 
 #include "lock_manager.hpp"
-#include "log_manager_legacy.hpp"
 #include "table_manager.hpp"
 #include "transaction_manager.hpp"
+#include "log_manager.hpp"
 
 int init_db(int buf_num)
 {
-    LockManager::instance().reset();
-    TransactionManager::instance().reset();
-    LogManagerLegacy::instance().reset();
-    return TableManager::instance().init_db(buf_num) ? 0 : -1;
+    return init_db(buf_num, 0, 0, (char*)"default.log", (char*)"msg.txt");
 }
 
 int init_db(int buf_num, int flag, int log_num, char* log_path, char* logmsg)
 {
     // TODO: 구현
-    return 0;
+    LockManager::instance().reset();
+    TransactionManager::instance().reset();
+    LogManager::instance().reset();
+    return TableManager::instance().init_db(buf_num, flag, log_num, log_path, logmsg) ? 0 : -1;
 }
 
 int open_table(char* pathname)

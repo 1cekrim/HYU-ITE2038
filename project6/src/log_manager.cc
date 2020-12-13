@@ -5,32 +5,124 @@ LogReader::LogReader(const std::string& log_path) : fd(open(log_path.c_str(), O_
     // Do nothing
 }
 
+void LogReader::print()
+{
+    int64_t now = 0;
+
+    int readed;
+
+    do
+    {
+        std::cout << now << '\n';
+        int32_t record_size;
+        readed = pread(fd, &record_size, sizeof(record_size), now);
+
+        if (!readed)
+        {
+            break;
+        }
+
+        switch (record_size)
+        {
+            case sizeof(CommonLogRecord): {
+                CommonLogRecord rec;
+                auto readed = pread(fd, &rec, sizeof(rec), now);
+                now += readed;
+                DB_CRASH_COND(readed == sizeof(rec), -1, "read CommonLogRecord failure. pread return: %ld", readed);
+                std::cout << rec << "\n\n";
+                break;
+            }
+            case sizeof(UpdateLogRecord):{
+                UpdateLogRecord rec;
+                auto readed = pread(fd, &rec, sizeof(rec), now);
+                now += readed;
+                DB_CRASH_COND(readed == sizeof(rec), -1, "read UpdateLogRecord failure. pread return: %ld", readed);
+                std::cout << rec << "\n\n";
+                break;
+            }
+            case sizeof(CompensateLogRecord): {
+                CompensateLogRecord rec;
+                auto readed = pread(fd, &rec, sizeof(rec), now);
+                now += readed;
+                DB_CRASH_COND(readed == sizeof(rec), -1, "read CompensateLogRecord failure. pread return: %ld", readed);
+                std::cout << rec << "\n\n";
+                break;
+            }
+            default:
+                DB_CRASH(-1, "invalid log record size: %d", record_size);
+        }
+    } while (readed);
+}
+
+std::ostream& operator<<(std::ostream& os, const LogType& dt)
+{
+    switch (dt)
+    {
+    case LogType::BEGIN:
+        os << "BEGIN";
+        break;
+    case LogType::UPDATE:
+        os << "UPDATE";
+        break;
+    case LogType::COMMIT:
+        os << "COMMIT";
+        break;
+    case LogType::ROLLBACK:
+        os << "ROLLBACK";
+        break;
+    case LogType::COMPENSATE:
+        os << "COMPENSATE";
+        break;
+    }
+    return os;
+}
+
+std::ostream& operator<<(std::ostream& os, const CommonLogRecord& dt)
+{
+    os << dt.type << ": [" << dt.log_size << ", " << dt.lsn << ", " << dt.prev_lsn << ", " << dt.transaction_id << "]";
+    return os;
+}
+
+std::ostream& operator<<(std::ostream& os, const UpdateLogRecord& dt)
+{
+    os << dt.type << ": [" << dt.log_size << ", " << dt.lsn << ", " << dt.prev_lsn << ", " << dt.transaction_id << ", " << dt.table_id << ", " << dt.page_number << ", " << dt.offset << ", " << dt.data_length << "]\n";
+    os << "old_image: " << dt.old_image << "\nnew_image: " << dt.new_image;
+    return os;
+}
+
+std::ostream& operator<<(std::ostream& os, const CompensateLogRecord& dt)
+{
+    return os;
+}
+
+
 std::tuple<LogType, LogRecord> LogReader::get(int64_t lsn)
 {
     int32_t record_size;
     auto readed = pread(fd, &record_size, sizeof(record_size), lsn);
-    DB_CRASH_COND(readed != sizeof(record_size), -1, "read record size failure. pread return: %ld", readed);
+    std::cout << lsn << '\n';
+    DB_CRASH_COND(readed == sizeof(record_size), -1, "read record size failure. pread return: %ld", readed);
     
     switch (record_size)
     {
         case sizeof(CommonLogRecord): {
             CommonLogRecord rec;
-            auto readed =pread(fd, &rec, sizeof(rec), lsn);
-            DB_CRASH_COND(readed != sizeof(record_size), -1, "read CommonLogRecord failure. pread return: %ld", readed);
+            auto readed = pread(fd, &rec, sizeof(rec), lsn);
+            DB_CRASH_COND(readed == sizeof(rec), -1, "read CommonLogRecord failure. pread return: %ld", readed);
             LogType type = rec.type;
             return {type, rec};
         }
         case sizeof(UpdateLogRecord):{
             UpdateLogRecord rec;
-            auto readed =pread(fd, &rec, sizeof(rec), lsn);
-            DB_CRASH_COND(readed != sizeof(record_size), -1, "read UpdateLogRecord failure. pread return: %ld", readed);
+            auto readed = pread(fd, &rec, sizeof(rec), lsn);
+            DB_CRASH_COND(readed == sizeof(rec), -1, "read UpdateLogRecord failure. pread return: %ld, record size: ", readed);
             LogType type = rec.type;
             return {type, rec};
         }
         case sizeof(CompensateLogRecord): {
             CompensateLogRecord rec;
-            auto readed =pread(fd, &rec, sizeof(rec), lsn);
-            DB_CRASH_COND(readed != sizeof(record_size), -1, "read CompensateLogRecord failure. pread return: %ld", readed);
+            auto readed = pread(fd, &rec, sizeof(rec), lsn);
+            DB_CRASH_COND(readed == sizeof(rec), -1, "read CompensateLogRecord failure. pread return: %ld", readed);
             LogType type = rec.type;
             return {type, rec};
         }
@@ -65,9 +157,20 @@ int64_t LogBuffer::append(const LogRecord& record)
     int my_lsn = last_lsn;
     last_lsn += get_log_record_size(record);
     int buffer_index = buffer_tail++;
-    // TODO: buffer_index 넘치면 flush
-    value_latch_lock.unlock();
 
+    std::cout << "buffer_index: " << buffer_index << '\n';
+
+    // TODO: buffer_index 넘치면 flush
+    if (buffer_index == LOG_BUFFER_SIZE)
+    {
+        std::cout << "will do flush\n";
+        flush(true);
+    }
+
+    buffer_index = buffer_tail++;
+
+    value_latch_lock.unlock();
+    
     std::unique_lock<std::mutex> buffer_latch_lock {
         buffer_latch[buffer_index]
     };
@@ -81,10 +184,22 @@ int64_t LogBuffer::append(const LogRecord& record)
     return my_lsn;
 }
 
-void LogBuffer::flush()
+void LogBuffer::flush(bool from_append)
 {
     // flush는 한번에 한 스레드에서만 호출 가능하다.
     std::unique_lock<std::mutex> crit { flush_latch };
+
+    // flush 중에는 log가 추가되는 것을 막는다
+    std::unique_lock<std::mutex> value_latch_lock { value_latch, std::defer_lock};
+    // std::unique_lock<std::mutex> value_latch_lock { value_latch};
+
+    if (!from_append)
+    {
+        std::cout << "locked\n";
+        value_latch_lock.lock();
+    }
+
+    std::cout << "flush!!!!!!!!!!!!!!!!!!!!!!!!\n"; 
 
     // 버퍼에 존재하는 모든 로그의 latch를 잠근다.
     // 로그를 작성하는 스레드늨 buffer_tail을 증가시킬 때 buffer_latch를 걸고,
@@ -94,7 +209,7 @@ void LogBuffer::flush()
     for (int i = 0; i < buffer_tail; ++i)
     {
         buffer_latch[i].lock();
-    }
+    } 
 
     // O_APPEND 옵션이 있어 로그가 파일 맨 뒤에 작성되므로 flushed_lsn을
     // 신경쓰지 않아도 된다.
@@ -107,14 +222,14 @@ void LogBuffer::flush()
             buffer[i]);
     }
 
-    // log buffer를 초기화한다.
-    buffer_tail = 0;
-
     // latch를 푼다.
     for (int i = 0; i < buffer_tail; ++i)
     {
         buffer_latch[i].unlock();
     }
+
+    // log buffer를 초기화한다.
+    buffer_tail = 0;
 }
 
 void LogManager::open(const std::string& log_path,
@@ -133,6 +248,15 @@ int64_t LogManager::log_wrapper(int transaction_id, const LogRecord& rec)
     trx_table_latch_lock.lock();
     trx_table[transaction_id] = lsn;
     return lsn;
+}
+
+void LogManager::reset()
+{
+    log_path.clear();
+    logmsg_path.clear();
+    buffer.reset();
+    trx_table.clear();
+    dirty_table.clear();
 }
 
 int64_t LogManager::begin_log(int transaction_id)
@@ -176,16 +300,20 @@ bool LogManager::rollback(int transaction_id)
     {
         // 트랜잭션이 begin 할때 무조건 begin 로그가 작성되는데, trx_table에 trx
         // id가 없다는 건 trx id가 invalid 하다는 의미
+        std::cout << "???\n";
         return false;
     }
 
     int now = it->second;
+
+    std::cout << "rollback\n";
 
     // rollback 전에 buffer를 flush 하면, abort된 트랜잭션의 로그가 buffer에
     // 일부 남아있는 케이스를 무시하고 간단하게 구현할 수 있다.
     buffer.flush();
 
     LogReader reader { log_path };
+    // reader.print();
 
     while (now != INVALID_LSN)
     {
@@ -223,6 +351,7 @@ bool LogManager::rollback(int transaction_id)
 
                 // rollback 할때는 이미 buffer_latch, page latch, lock 등이 모두
                 // 걸린 상태이다!
+                std::cout << "record.table_id: " << record.table_id << '\n';
                 page_t page;
                 BufferController::instance().get(record.table_id,
                                                  record.page_number, page);

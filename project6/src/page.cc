@@ -5,6 +5,19 @@
 #include "file_manager.hpp"
 #include "logger.hpp"
 
+std::ostream& operator<<(std::ostream& os, const valType& dt)
+{
+    for (int i = 0; i < value_size; ++i)
+    {
+        if (!dt[i])
+        {
+            break;
+        }
+        os << dt[i];
+    }
+    return os;
+}
+
 std::ostream& operator<<(std::ostream& os, const NodePageHeader& nph)
 {
     os << "\nparentPageNumber: " << nph.parentPageNumber

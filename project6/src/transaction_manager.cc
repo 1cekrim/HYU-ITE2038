@@ -18,7 +18,7 @@ int TransactionManager::begin()
     }
 
     transactions.emplace(id, Transaction(id));
-    LogManagerLegacy::instance().log(id, LogTypeLegacy::BEGIN);
+    LogManager::instance().begin_log(id);
     return id;
 }
 
@@ -124,7 +124,7 @@ bool TransactionManager::abort(int transaction_id)
     CHECK(it->second.abort());
     transactions.erase(it);
 
-    LogManagerLegacy::instance().log(transaction_id, LogTypeLegacy::ABORT);
+    // LogManager::instance().log(transaction_id, LogTypeLegacy::ABORT);
 
     return true;
 }
@@ -142,7 +142,7 @@ bool TransactionManager::commit(int id)
     CHECK(it->second.commit());
     transactions.erase(it);
 
-    LogManagerLegacy::instance().log(id, LogTypeLegacy::COMMIT);
+    LogManager::instance().commit_log(id);
 
     return true;
 }

@@ -81,6 +81,12 @@ void TEST_LOG()
         CHECK_VALUE(sizeof(CompensateLogRecord), 296);
     }
     END()
+
+    // TEST("log buffer")
+    // {
+    //     LogBuffer buffer;
+    // }
+    // END()
     // TEST("begin commit")
     // {
     //     LogManagerLegacy::instance().reset();

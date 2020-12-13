@@ -21,7 +21,7 @@ class TableManager
         return tm;
     }
 
-    bool init_db(int num_buf);
+    bool init_db(int buf_num, int flag, int log_num, char* log_path, char* logmsg);
     bool shutdown_db();
     int open_table(const std::string& name);
     bool close_table(int table_id);

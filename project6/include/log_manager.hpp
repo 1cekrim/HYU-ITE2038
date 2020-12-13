@@ -26,6 +26,8 @@ enum class LogType : int32_t
     COMPENSATE = 4
 };
 
+std::ostream& operator<<(std::ostream& os, const LogType& dt);
+
 enum class RecoveryMode
 {
     NORMAL = 0,
@@ -57,6 +59,10 @@ struct CompensateLogRecord : UpdateLogRecord
     int64_t next_undo_lsn;
 } __attribute__((packed));
 
+std::ostream& operator<<(std::ostream& os, const CommonLogRecord& dt);
+std::ostream& operator<<(std::ostream& os, const UpdateLogRecord& dt);
+std::ostream& operator<<(std::ostream& os, const CompensateLogRecord& dt);
+
 using LogRecord =
     std::variant<CommonLogRecord, UpdateLogRecord, CompensateLogRecord>;
 
@@ -84,7 +90,7 @@ class LogBuffer
     void open(const std::string& log_path);
     // buffer에 LogRecord를 추가한 뒤, 추가된 rec의 lsn을 반환
     int64_t append(const LogRecord& rec);
-    void flush();
+    void flush(bool from_append = false);
     void reset();
 
  private:
@@ -103,6 +109,7 @@ class LogReader
  public:
     LogReader(const std::string& log_path);
     std::tuple<LogType, LogRecord> get(int64_t lsn);
+    void print();
  private:
     int fd;
 };

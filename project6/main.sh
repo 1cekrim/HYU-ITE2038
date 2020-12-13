@@ -1,6 +1,7 @@
 # make clean
 make
 rm /mnt/tmpfs/*.db
+rm /mnt/tmpfs/*.log
 rm /mnt/tmpfs/main
 cd builds
 cp main /mnt/tmpfs/main

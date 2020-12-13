@@ -1,13 +1,15 @@
 #include "table_manager.hpp"
 
 #include "logger.hpp"
+#include "log_manager.hpp"
 
-bool TableManager::init_db(int num_buf)
+bool TableManager::init_db(int buf_num, int flag, int log_num, char* log_path, char* logmsg)
 {
     CHECK_WITH_LOG(!valid_table_manager, false, "shutdown first");
-    CHECK_WITH_LOG(BufferController::instance().init_buffer(num_buf), false,
+    CHECK_WITH_LOG(BufferController::instance().init_buffer(buf_num), false,
                    "init buffer failure");
     valid_table_manager = true;
+    LogManager::instance().open(log_path, logmsg);
     return true;
 }
 

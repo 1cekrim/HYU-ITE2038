@@ -17,6 +17,8 @@ using valType = std::array<uint8_t, 120>;
 using keyType = int64_t;
 using pagenum_t = uint64_t;
 
+std::ostream& operator<<(std::ostream& os, const valType& dt);
+
 constexpr auto EMPTY_PAGE_NUMBER = 0;
 
 struct NodePageHeader
@@ -386,6 +388,15 @@ struct page_t
         using S = typename std::conditional<std::is_same<Record, T>::value,
                                             Records, Internals>::type;
         return getEntry<S>()[idx];
+    }
+
+    template<typename T>
+    int get_offset(std::size_t idx)
+    {
+        static_assert(std::is_same<Record, T>::value ||
+                      std::is_same<Internal, T>::value);
+        int offset = sizeof(NodePageHeader) + sizeof(T) * idx;
+        return offset;
     }
 
     template<typename T>
