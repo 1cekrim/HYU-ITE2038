@@ -35,6 +35,7 @@ enum class RecoveryMode
 
 struct CommonLogRecord
 {
+    int32_t log_size;
     int64_t lsn;
     int64_t prev_lsn;
     int32_t transaction_id;
@@ -100,9 +101,10 @@ class LogBuffer
 class LogReader
 {
  public:
-    LogReader(std::string& log_path);
+    LogReader(const std::string& log_path);
     std::tuple<LogType, LogRecord> get(int64_t lsn);
  private:
+    int fd;
 };
 
 class LogManager
