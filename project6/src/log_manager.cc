@@ -120,7 +120,7 @@ int64_t LogManager::update_log(int transaction_id, int table_id,
                              transaction_id,
                              LogType::UPDATE,
                              table_id,
-                             page_number,
+                             (int64_t)page_number,
                              offset,
                              data_length,
                              old_image,
@@ -139,15 +139,73 @@ bool LogManager::rollback(int transaction_id)
 
     int now = it->second;
 
+    // rollback 전에 buffer를 flush 하면, abort된 트랜잭션의 로그가 buffer에 일부 남아있는 케이스를 무시하고 간단하게 구현할 수 있다.
     buffer.flush();
+
+    LogReader reader {log_path};
     
     while (now != INVALID_LSN)
     {
-        // 만약 now가 buffer에 존재할 경우는 생각할 필요가 없다.
-        // 왜냐하면 rollback을 한다는 것은 trx가 abort 됐다는 것이고,
-        // 이 때 buffer를 flush 해야하기 때문...
-        
+        auto [type, rec] = reader.get(now);
+        switch (type)
+        {
+            case LogType::BEGIN:
+                // now가 INVALID_LSN이여만 한다.
+                now = std::get<CommonLogRecord>(rec).prev_lsn;
+                CHECK(now == INVALID_LSN);
+                break;
+
+            case LogType::UPDATE:
+            {
+                auto& record = std::get<UpdateLogRecord>(rec);
+                // TODO: table_id와 file_id가 같은가?
+                //compensate 로그를 먼저 쓴다.
+                CompensateLogRecord clr {INVALID_LSN, trx_table[transaction_id], transaction_id, LogType::COMPENSATE, record.table_id, record.page_number, record.offset, record.data_length, record.new_image, record.old_image, record.prev_lsn};
+                {
+                    std::unique_lock<std::mutex> trx_table_latch_lock {trx_table_latch};
+                    trx_table[transaction_id] = buffer.append(clr);
+                }
+
+                // rollback 할때는 이미 buffer_latch, page latch, lock 등이 모두 걸린 상태이다!
+                page_t page;
+                BufferController::instance().get(record.table_id, record.page_number, page);
+                std::memcpy((char*)(&page) + record.offset, (char*)(&record.old_image), record.data_length);
+                BufferController::instance().put(record.table_id, record.page_number, page);
+                now = record.prev_lsn;
+                break;
+            }
+
+            case LogType::COMPENSATE:
+            // 트랜잭션이 abort 될 때, compensate 로그가 있으면 안된다.
+            std::cerr << "compensate log cannot be rolled back";
+            exit(-1);
+            break;
+
+            case LogType::ROLLBACK:
+            // rollback에 성공한 trx를 또 rollback 하는건 논리적 오류이다!
+            std::cerr << "rolled back transaction cannot be rolled back again";
+            exit(-1);
+            break;
+
+            case LogType::COMMIT:
+            // commit에 성공한 trx를 rollback 하는건 논리적 오류이다!
+            std::cerr << "commited transaction cannot be rolled back";
+            exit(-1);
+            break;
+        }
     }
+
+    CommonLogRecord record {INVALID_LSN, trx_table[transaction_id], transaction_id, LogType::ROLLBACK};
+    buffer.append(record);
+
+    {
+        std::unique_lock<std::mutex> trx_table_latch_lock {trx_table_latch};
+        trx_table.erase(transaction_id);
+    }
+
+    buffer.flush();
+
+    return true;
 }
 
 LogManager::Message::Message(const std::string& logmsg_path)

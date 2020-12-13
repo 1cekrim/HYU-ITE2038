@@ -9,6 +9,7 @@
 #include <fstream>
 #include <mutex>
 #include <string>
+#include <tuple>
 #include <variant>
 
 #include "buffer_manager.hpp"
@@ -100,7 +101,7 @@ class LogReader
 {
  public:
     LogReader(std::string& log_path);
-
+    std::tuple<LogType, LogRecord> get(int64_t lsn);
  private:
 };
 
