@@ -60,6 +60,7 @@ class BufferController
     }
     int openFileManager(const std::string& name);
     FileManager& getFileManager(int file_id);
+    bool fileManagerExist(int file_id);
 
     // bool get(int file_id, pagenum_t pagenum, std::function<void(const
     // page_t&)> func, bool auto_release = true); bool put(int file_id,

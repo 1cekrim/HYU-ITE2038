@@ -27,21 +27,47 @@ bool TableManager::shutdown_db()
 
 int TableManager::get_table_id(const std::string& name)
 {
-    if (!valid_table_manager)
-    {
-        return INVALID_TABLE_ID;
-    }
-    auto counter = name_id_table.size();
+    // if (!valid_table_manager)
+    // {
+    //     return INVALID_TABLE_ID;
+    // }
+    // auto counter = name_id_table.size();
+    // if (name_id_table.find(name) != name_id_table.end())
+    // {
+    //     return name_id_table[name];
+    // }
+    // if (counter == MAX_TABLE_NUM)
+    // {
+    //     return INVALID_TABLE_ID;
+    // }
+    // name_id_table[name] = ++counter;
     if (name_id_table.find(name) != name_id_table.end())
     {
         return name_id_table[name];
     }
-    if (counter == MAX_TABLE_NUM)
+
+    if (name.substr(0, 4) != "DATA")
     {
-        return INVALID_TABLE_ID;
+        std::cerr << "name format: DATA[file_id]";
+        return -1;
     }
-    name_id_table[name] = ++counter;
-    return counter;
+
+    std::string number = name.substr(4, name.size() - 4);
+    std::cout << number << '\n';
+    int id;
+    try
+    {
+        id = std::stoi(number);
+    }
+    catch (std::invalid_argument&)
+    {
+        std::cerr << "name format: DATA[file_id]";
+        return -1;
+    }
+
+    name_id_table[name] = id;
+
+    return id;
 }
 
 int TableManager::open_table(const std::string& name)

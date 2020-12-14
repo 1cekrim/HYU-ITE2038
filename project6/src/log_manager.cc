@@ -402,10 +402,34 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
                 losers.erase(it);
                 winners.emplace_back(target);
             }
+
+            if (type == LogType::UPDATE)
+            {
+                auto target = std::get<UpdateLogRecord>(rec);
+                if (!BufferController::instance().fileManagerExist(target.table_id))
+                {
+                    std::string s = "DATA" + std::to_string(target.table_id);
+                    BufferController::instance().openFileManager(s);
+                }
+            }
+
+            if (type == LogType::COMPENSATE)
+            {
+                auto target = std::get<CompensateLogRecord>(rec);
+                if (!BufferController::instance().fileManagerExist(target.table_id))
+                {
+                    std::string s = "DATA" + std::to_string(target.table_id);
+                    BufferController::instance().openFileManager(s);
+                }
+            }
         }
 
         msg.analysis_end(winners, losers);
     }
+
+    buffer.last_lsn = last_lsn;
+
+    msg.redo_pass_start();
 
     // REDO
     {
@@ -605,6 +629,8 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
             }
         }
     }
+
+    msg.redo_pass_end();
 
     return true;
 }

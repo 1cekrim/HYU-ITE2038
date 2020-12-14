@@ -384,7 +384,7 @@ XLT_func(void* args)
 			break;
 
 		for (int i = 0; i < XLT_UPDATE_NUMBER; i++) {
-			table_ids[i] = table_id_array[rand() % XLT_TABLE_NUMBER];
+			table_ids[i] = table_id_array[rand() % XLT_TABLE_NUMBER + 1];
 			keys[i] = rand() % XLT_TABLE_SIZE;
 		}
 		/* sorting for avoiding deadlock */
@@ -429,10 +429,10 @@ xlock_test()
 	init_db(DATABASE_BUFFER_SIZE);
 
 	/* open table */
-	for (int i = 0; i < XLT_TABLE_NUMBER; i++) {
+	for (int i = 1; i <= XLT_TABLE_NUMBER; i++) {
 		char* str = (char*) malloc(sizeof(char) * 100);
 		TableId table_id;
-		sprintf(str, "DATA%02d.db", i);
+		sprintf(str, "DATA%01d", i);
 		table_id = open_table(str);
 		table_id_array[i] = table_id;
 
@@ -477,7 +477,7 @@ xlock_test()
 	}
 
 	/* close table */
-	for (int i = 0; i < XLT_TABLE_NUMBER; i++) {
+	for (int i = 1; i <= XLT_TABLE_NUMBER; i++) {
 		TableId table_id;
 		table_id = table_id_array[i];
 		close_table(table_id);

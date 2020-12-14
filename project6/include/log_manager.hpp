@@ -124,6 +124,7 @@ class LogBuffer
     void flush(bool from_append = false);
     bool flush_prev_lsn(int64_t page_lsn);
     void reset();
+    std::atomic<int> last_lsn;
 
  private:
     std::atomic<int> flushed_lsn;
@@ -132,7 +133,6 @@ class LogBuffer
     std::atomic<int> buffer_head;
     std::atomic<int> buffer_tail;
     std::array<LogRecord, LOG_BUFFER_SIZE> buffer;
-    std::atomic<int> last_lsn;
     std::mutex value_latch;
     int fd;
 };

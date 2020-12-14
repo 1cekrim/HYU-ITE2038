@@ -179,7 +179,7 @@ int BufferController::openFileManager(const std::string& name)
     // project6 명세대로, DATA[file_id]
     if (name.substr(0, 4) != "DATA")
     {
-        std::cerr << "name format: DATA[file_id]";
+        std::cerr << "name format: DATA[file_id], " << name << '\n';
         return -1;
     }
 
@@ -192,7 +192,7 @@ int BufferController::openFileManager(const std::string& name)
     }
     catch (std::invalid_argument&)
     {
-        std::cerr << "name format: DATA[file_id]";
+        std::cerr << "name format: DATA[file_id], " << name << '\n';
         return -1;
     }
 
@@ -203,8 +203,6 @@ int BufferController::openFileManager(const std::string& name)
 
     auto& fm = fileManagers[id] = std::make_unique<FileManager>();
     CHECK_RET(fm->open(name), -1);
-
-    std::cout << "id: " << id << '\n';
 
     return id;
     // if (nameFileManagerMap.find(name) == nameFileManagerMap.end())
@@ -224,6 +222,12 @@ FileManager& BufferController::getFileManager(int file_id)
 {
     return *fileManagers.at(file_id);
 }
+
+bool BufferController::fileManagerExist(int file_id)
+{
+    return fileManagers.find(file_id) != fileManagers.end();
+}
+
 
 void BufferController::release_frame(int file_id, pagenum_t pagenum)
 {
