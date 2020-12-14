@@ -9,16 +9,57 @@ LogReader::LogReader(const std::string& log_path, int64_t start_lsn)
     // Do nothing
 }
 
+LogReader::LogReader(const std::string& log_path)
+    : fd(open(log_path.c_str(), O_RDONLY))
+{
+    LogHeader header;
+    header.header = 0;
+    auto result = pread(fd, &header, sizeof(LogHeader), 0);
+    std::cout << result << "header: " << header.header << ",  " << header.start_lsn << '\n';
+    if (header.header == 0xffeeaaff)
+    {
+        now_lsn = header.start_lsn;
+    }
+    else
+    {
+        now_lsn = 0;
+    }
+    std::cout << "now_lsn: " << now_lsn << '\n';;
+}
+
+
 void LogReader::print() const
 {
     int64_t now = 0;
-
-    int readed;
+    int readed = 1;
 
     do
     {
+        LogType type;
         int32_t record_size;
-        readed = pread(fd, &record_size, sizeof(record_size), now);
+        auto readed = pread(fd, &type, sizeof(type), now + 20);
+
+         switch (type)
+    {
+        case LogType::BEGIN:
+            record_size = sizeof(CommonLogRecord);
+            break;
+        case LogType::COMMIT:
+            record_size = sizeof(CommonLogRecord);
+            break;
+        case LogType::COMPENSATE:
+            record_size = sizeof(CompensateLogRecord);
+            break;
+        case LogType::ROLLBACK:
+            record_size = sizeof(CommonLogRecord);
+            break;
+        case LogType::UPDATE:
+            record_size = sizeof(UpdateLogRecord);
+            break;
+        case LogType::INVALID:
+            record_size = 0;
+            break;
+    }
 
         if (!readed)
         {
@@ -63,6 +104,8 @@ void LogReader::print() const
                          record_size, now);
         }
     } while (readed);
+    
+    std::cout << std::endl;
 }
 
 std::ostream& operator<<(std::ostream& os, const LogType& dt)
@@ -239,12 +282,18 @@ void LogBuffer::reset()
 
 void LogBuffer::truncate()
 {
-    ftruncate(fd, 0);
+    LogHeader header;
+    header.start_lsn = last_lsn;
+    pwrite(fd, &header, sizeof(header), 0);
+    std::cout << "header seted: " << last_lsn << '\n';
+    
+    fsync(fd);
+    // ftruncate(fd, 0);
 }
 
 void LogBuffer::open(const std::string& log_path)
 {
-    fd = ::open(log_path.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0666);
+    fd = ::open(log_path.c_str(), O_WRONLY | O_CREAT, 0666);
 }
 
 int64_t LogBuffer::append(const LogRecord& record)
@@ -259,13 +308,13 @@ int64_t LogBuffer::append(const LogRecord& record)
     {
         case 0:
             std::cout << std::get<CommonLogRecord>(record).type;
-        break;
+            break;
         case 1:
             std::cout << std::get<UpdateLogRecord>(record).type;
-        break;
+            break;
         case 2:
             std::cout << std::get<CompensateLogRecord>(record).type;
-        break;
+            break;
     }
     std::cout << '\n';
 
@@ -326,7 +375,7 @@ void LogBuffer::flush(bool from_append)
     {
         std::visit(
             [&](auto&& rec) {
-                write(fd, &rec, sizeof(rec));
+                pwrite(fd, &rec, sizeof(rec), rec.lsn);
             },
             buffer[i]);
     }
@@ -402,6 +451,7 @@ bool LogBuffer::flush_prev_lsn(int64_t page_lsn)
 void LogManager::open(const std::string& log_path,
                       const std::string& logmsg_path)
 {
+    std::cout << "log_path: " << log_path << '\n' << "logmsg_path: " << logmsg_path << '\n';
     buffer.open(log_path);
     this->log_path = log_path;
     this->logmsg_path = logmsg_path;
@@ -437,6 +487,7 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
     // analysis
     {
         LogReader reader { log_path };
+        reader.print();
         msg.analysis_start();
 
         while (true)
@@ -453,6 +504,15 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
             if (type == LogType::BEGIN)
             {
                 auto target = std::get<CommonLogRecord>(rec).transaction_id;
+                auto it = std::find_if(winners.begin(), winners.end(),
+                                       [target](int v) {
+                                           return v == target;
+                                       });
+                if (it != winners.end())
+                {
+                    // 지워줌
+                    winners.erase(it);
+                }
                 losers.emplace_back(target);
             }
 
@@ -491,6 +551,11 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
         }
 
         msg.analysis_end(winners, losers);
+    }
+
+    if (winners.empty() && losers.empty())
+    {
+        return true;
     }
 
     buffer.last_lsn = last_lsn;
@@ -619,8 +684,14 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
             switch (type)
             {
                 case LogType::BEGIN: {
-                    // CommonLogRecord& record = std::get<CommonLogRecord>(rec);
+                    CommonLogRecord& record = std::get<CommonLogRecord>(rec);
                     // msg.begin(record.lsn, record.transaction_id);
+                    CommonLogRecord rec { INVALID_LSN,
+                                          trx_table[record.transaction_id],
+                                          record.transaction_id,
+                                          LogType::ROLLBACK,
+                                          sizeof(CommonLogRecord) };
+                    trx_table[record.transaction_id] = buffer.append(rec);
                     break;
                 }
                 case LogType::COMMIT: {
@@ -675,6 +746,7 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
                         record.new_image,      record.old_image,
                         record.prev_lsn,       sizeof(CompensateLogRecord)
                     };
+                    std::cout << "clr: " << clr.next_undo_lsn << '\n';
                     trx_table[record.transaction_id] = buffer.append(clr);
                     // if (page.nodePageHeader().pageLsn < record.lsn)
                     // {

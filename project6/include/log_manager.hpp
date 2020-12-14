@@ -36,6 +36,12 @@ enum class RecoveryMode
     UNDO_CRASH = 2
 };
 
+struct LogHeader
+{
+    uint32_t header = 0xffeeaaff;
+    int64_t start_lsn;
+};
+
 struct CommonLogRecord
 {
     int64_t lsn;
@@ -157,7 +163,8 @@ class LogBuffer
 class LogReader
 {
  public:
-    LogReader(const std::string& log_path, int64_t start_lsn = 0);
+    LogReader(const std::string& log_path, int64_t start_lsn);
+    LogReader(const std::string& log_path);
     std::tuple<LogType, LogRecord> get(int64_t lsn) const;
     void print() const;
     std::tuple<LogType, LogRecord> next() const;
