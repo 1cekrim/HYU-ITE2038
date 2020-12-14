@@ -125,14 +125,15 @@ class LogBuffer
 class LogReader
 {
  public:
-    LogReader(const std::string& log_path);
+    LogReader(const std::string& log_path, int64_t start_lsn = 0);
     std::tuple<LogType, LogRecord> get(int64_t lsn) const;
     void print() const;
     std::tuple<LogType, LogRecord> next() const;
     std::tuple<LogType, LogRecord> prev() const;
+
  private:
     int fd;
-    mutable int now_lsn;
+    mutable int64_t now_lsn;
 };
 
 class LogManager
