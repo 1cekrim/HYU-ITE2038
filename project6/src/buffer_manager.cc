@@ -177,44 +177,47 @@ bool BufferController::clear_buffer()
 int BufferController::openFileManager(const std::string& name)
 {
     // project6 명세대로, DATA[file_id]
-    // if (name.substr(0, 4) != "DATA")
-    // {
-    //     std::cerr << "name format: DATA[file_id]";
-    //     return -1;
-    // }
-
-    // std::string number = name.substr(4, name.size() - 4);
-    // int id;
-    // try
-    // {
-    //     id = std::stoi(number);
-    // }
-    // catch (std::invalid_argument&)
-    // {
-    //     std::cerr << "name format: DATA[file_id]";
-    //     return -1;
-    // }
-
-    // if (auto it = fileManagers.find(id); it != fileManagers.end())
-    // {
-    //     return id;
-    // }
-
-    // auto& fm = fileManagers[id] = std::make_unique<FileManager>();
-    // CHECK_RET(fm->open(name), -1);
-
-    // return id;
-    if (nameFileManagerMap.find(name) == nameFileManagerMap.end())
+    if (name.substr(0, 4) != "DATA")
     {
-        int id = fileManagers.size();
-        auto& fm = fileManagers[id] = std::make_unique<FileManager>();
-        CHECK_RET(fm->open(name), -1);
-        nameFileManagerMap.emplace(name, id);
+        std::cerr << "name format: DATA[file_id]";
+        return -1;
+    }
 
+    std::string number = name.substr(4, name.size() - 4);
+    std::cout << number << '\n';
+    int id;
+    try
+    {
+        id = std::stoi(number);
+    }
+    catch (std::invalid_argument&)
+    {
+        std::cerr << "name format: DATA[file_id]";
+        return -1;
+    }
+
+    if (auto it = fileManagers.find(id); it != fileManagers.end())
+    {
         return id;
     }
 
-    return nameFileManagerMap[name];
+    auto& fm = fileManagers[id] = std::make_unique<FileManager>();
+    CHECK_RET(fm->open(name), -1);
+
+    std::cout << "id: " << id << '\n';
+
+    return id;
+    // if (nameFileManagerMap.find(name) == nameFileManagerMap.end())
+    // {
+    //     int id = fileManagers.size();
+    //     auto& fm = fileManagers[id] = std::make_unique<FileManager>();
+    //     CHECK_RET(fm->open(name), -1);
+    //     nameFileManagerMap.emplace(name, id);
+
+    //     return id;
+    // }
+
+    // return nameFileManagerMap[name];
 }
 
 FileManager& BufferController::getFileManager(int file_id)

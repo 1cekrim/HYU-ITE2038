@@ -742,7 +742,7 @@ deadlock_test()
 	init_db(DATABASE_BUFFER_SIZE);
 
 	/* open table */
-	for (int i = 0; i < DLT_TABLE_NUMBER; i++) {
+	for (int i = 1; i <= DLT_TABLE_NUMBER; i++) {
 		char* str = (char*) malloc(sizeof(char) * 100);
 		TableId table_id;
 		sprintf(str, "DATA%02d.db", i);
