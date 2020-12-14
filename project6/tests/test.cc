@@ -20,6 +20,7 @@
 #include "logger.hpp"
 #include "table_manager.hpp"
 #include "transaction_manager.hpp"
+#include "dbms_api.hpp"
 
 int success, cnt, allSuccess, allCnt;
 bool testFlag;
@@ -31,6 +32,7 @@ void TEST_BPT();
 void TEST_FILE();
 void TESTS();
 void TEST_TABLE();
+void TEST_RECOVERY();
 // void TEST_MULTITHREADING();
 // void TEST_LOCK();
 void TEST_TRANSACTION();
@@ -48,9 +50,9 @@ int main()
     //     "test_file",           "TESTS"
     // };
 
-    void (*tests[])() = { TEST_LOG };
+    void (*tests[])() = { TEST_RECOVERY };
 
-    std::string testNames[] = { "test log" };
+    std::string testNames[] = { "test recovery" };
 
     for (int i = 0;
          i < static_cast<int>((sizeof(tests) / sizeof(void (*)(void)))); ++i)
@@ -66,6 +68,62 @@ int main()
     std::cout << "\n[Tests are over] success: " << allSuccess << " / " << allCnt
               << "\n";
     return 0;
+}
+
+void TEST_RECOVERY()
+{
+    TEST("recovery")
+    {
+        init_db(10000, 0, 0, (char*)"log.log", (char*)"result.txt");
+        for (int i = 1; i <= 10; ++i)
+        {
+            open_table((char*)(std::string("DATA") + std::to_string(i)).c_str());
+        }
+
+        for (int i = 0; i < 10; ++i)
+        {
+            for (int j = 1; j <= 10; ++j)
+            {
+                valType v;
+                std::stringstream ss;
+                ss << "test insert " << i;
+                TableManager::char_to_valType(v, ss.str().c_str());
+                db_insert(j, j + 100 * i, (char*)&v);
+            }
+        }
+
+        for (int i = 0; i < 10; ++i)
+        {
+            for (int j = 1; j <= 10; ++j)
+            {
+                valType v;
+                std::stringstream ss;
+                ss << "test update " << i;
+                TableManager::char_to_valType(v, ss.str().c_str());
+                int trx = trx_begin();
+                db_update(j, j + 100 * i, (char*)&v, trx);
+            }
+        }
+
+        shutdown_db();
+
+        init_db(10000, 0, 0, (char*)"log.log", (char*)"result.txt");
+
+        for (int i = 0; i < 10; ++i)
+        {
+            for (int j = 1; j <= 10; ++j)
+            {
+                valType v;
+                std::stringstream ss;
+                ss << "test insert " << i;
+                TableManager::char_to_valType(v, ss.str().c_str());
+                valType result;
+                db_find(j, j + 100 * i, (char*)&result, 0);
+                CHECK_TRUE(v == result);
+            }
+        }
+    }
+    END()
 }
 
 void TEST_LOG()

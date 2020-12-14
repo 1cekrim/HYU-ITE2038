@@ -161,14 +161,22 @@ std::tuple<LogType, LogRecord> LogReader::get(int64_t lsn) const
 std::tuple<LogType, LogRecord> LogReader::next() const
 {
     auto t = get(now_lsn);
-    now_lsn += get_log_record_size(std::get<1>(t));
+    if (std::get<0>(t) != LogType::INVALID)
+    {
+        std::cout << "now_lsn: " << now_lsn << ". plus " << get_log_record_size(std::get<1>(t)) << '\n';
+        now_lsn += get_log_record_size(std::get<1>(t));
+    }
     return t;
 }
 
 std::tuple<LogType, LogRecord> LogReader::prev() const
 {
     auto t = get(now_lsn);
-    now_lsn -= get_log_record_size(std::get<1>(t));
+    if (std::get<0>(t) != LogType::INVALID)
+    {
+        std::cout << "now_lsn: " << now_lsn << ". minus " << get_log_record_size(std::get<1>(t)) << '\n';
+        now_lsn -= get_log_record_size(std::get<1>(t));
+    }
     return t;
 }
 
@@ -477,7 +485,7 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
                     }
                     else
                     {
-                        msg.consider_redo(record.lsn, record.transaction_id);
+                        msg.consider_redo_update(record.lsn, record.transaction_id);
                     }
                     break;
                 }
@@ -506,7 +514,7 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
                     }
                     else
                     {
-                        msg.consider_redo(record.lsn, record.transaction_id);
+                        msg.consider_redo_update(record.lsn, record.transaction_id);
                     }
                     break;
                 }
@@ -821,40 +829,47 @@ inline void LogManager::Message::redo_pass_start()
 
 inline void LogManager::Message::begin(int64_t lsn, int trx_id)
 {
-    fprintf(fp, "LSN %lu[BEGIN] Transaction id %d\n", lsn, trx_id);
+    fprintf(fp, "LSN %lu[BEGIN] Transaction id %d\n", lsn + sizeof(CommonLogRecord), trx_id);
     flush_with_sync();
 }
 
 inline void LogManager::Message::update(int64_t lsn, int trx_id)
 {
-    fprintf(fp, "LSN %lu[UPDATE] Transaction id %d redo(undo) apply\n", lsn,
+    fprintf(fp, "LSN %lu[UPDATE] Transaction id %d redo(undo) apply\n", lsn + sizeof(UpdateLogRecord),
             trx_id);
     flush_with_sync();
 }
 
 inline void LogManager::Message::commit(int64_t lsn, int trx_id)
 {
-    fprintf(fp, "LSN %lu[COMMIT] Transaction id %d\n", lsn, trx_id);
+    fprintf(fp, "LSN %lu[COMMIT] Transaction id %d\n", lsn + sizeof(CommonLogRecord), trx_id);
     flush_with_sync();
 }
 
 inline void LogManager::Message::rollback(int64_t lsn, int trx_id)
 {
-    fprintf(fp, "LSN %lu[ROLLBACK] Transaction id %d\n", lsn, trx_id);
+    fprintf(fp, "LSN %lu[ROLLBACK] Transaction id %d\n", lsn + sizeof(CommonLogRecord), trx_id);
     flush_with_sync();
 }
 
 inline void LogManager::Message::compensate(int64_t lsn, int64_t next_undo_lsn)
 {
-    fprintf(fp, "LSN %lu[CLR] next undo lsn %lu\n", lsn, next_undo_lsn);
+    fprintf(fp, "LSN %lu[CLR] next undo lsn %lu\n", lsn + sizeof(CompensateLogRecord), next_undo_lsn);
     flush_with_sync();
 }
 
-inline void LogManager::Message::consider_redo(int64_t lsn, int trx_id)
+inline void LogManager::Message::consider_redo_update(int64_t lsn, int trx_id)
 {
-    fprintf(fp, "LSN %lu[CONSIDER - REDO] Transaction id %d\n", lsn, trx_id);
+    fprintf(fp, "LSN %lu[CONSIDER - REDO] Transaction id %d\n", lsn + sizeof(UpdateLogRecord), trx_id);
     flush_with_sync();
 }
+
+inline void LogManager::Message::consider_redo_compensate(int64_t lsn, int trx_id)
+{
+    fprintf(fp, "LSN %lu[CONSIDER - REDO] Transaction id %d\n", lsn + sizeof(CompensateLogRecord), trx_id);
+    flush_with_sync();
+}
+
 
 inline void LogManager::Message::redo_pass_end()
 {

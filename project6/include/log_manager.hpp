@@ -209,7 +209,8 @@ class LogManager
         inline void commit(int64_t lsn, int trx_id);
         inline void rollback(int64_t lsn, int trx_id);
         inline void compensate(int64_t lsn, int64_t next_undo_lsn);
-        inline void consider_redo(int64_t lsn, int trx_id);
+        inline void consider_redo_update(int64_t lsn, int trx_id);
+        inline void consider_redo_compensate(int64_t lsn, int trx_id);
         inline void redo_pass_end();
         inline void flush_with_sync();
 
