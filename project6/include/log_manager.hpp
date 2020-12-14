@@ -114,6 +114,7 @@ class LogReader
     std::tuple<LogType, LogRecord> get(int64_t lsn) const;
     void print() const;
     std::tuple<LogType, LogRecord> next() const;
+    std::tuple<LogType, LogRecord> prev() const;
  private:
     int fd;
     mutable int now_lsn;

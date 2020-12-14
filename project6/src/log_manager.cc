@@ -165,6 +165,13 @@ std::tuple<LogType, LogRecord> LogReader::next() const
     return t;
 }
 
+std::tuple<LogType, LogRecord> LogReader::prev() const
+{
+    auto t = get(now_lsn);
+    now_lsn -= get_log_record_size(std::get<1>(t));
+    return t;
+}
+
 LogBuffer::LogBuffer()
 {
     reset();
@@ -472,6 +479,8 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
             }
         }
     }
+
+
 
     return true;
 }
