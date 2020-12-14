@@ -102,7 +102,7 @@ void TEST_RECOVERY()
                 TableManager::char_to_valType(v, ss.str().c_str());
                 int trx = trx_begin();
                 db_update(j, j + 100 * i, (char*)&v, trx);
-                trx_commit(trx);
+                // trx_commit(trx);
             }
         }
 
@@ -117,11 +117,39 @@ void TEST_RECOVERY()
 
         for (int i = 0; i < 10; ++i)
         {
-            for (int j = 1; j <= 5; ++j)
+            for (int j = 1; j <= 10; ++j)
             {
                 valType v;
                 std::stringstream ss;
                 ss << "test insert " << i;
+                TableManager::char_to_valType(v, ss.str().c_str());
+                char result[120];
+                db_find(j, j + 100 * i, result, 0);
+                CHECK_TRUE(ss.str() == result);
+            }
+        }
+
+        for (int i = 0; i < 10; ++i)
+        {
+            for (int j = 1; j <= 10; ++j)
+            {
+                valType v;
+                std::stringstream ss;
+                ss << "test update " << i;
+                TableManager::char_to_valType(v, ss.str().c_str());
+                int trx = trx_begin();
+                db_update(j, j + 100 * i, (char*)&v, trx);
+                trx_commit(trx);
+            }
+        }
+
+        for (int i = 0; i < 10; ++i)
+        {
+            for (int j = 1; j <= 10; ++j)
+            {
+                valType v;
+                std::stringstream ss;
+                ss << "test update " << i;
                 TableManager::char_to_valType(v, ss.str().c_str());
                 char result[120];
                 db_find(j, j + 100 * i, result, 0);

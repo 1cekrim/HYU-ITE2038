@@ -140,6 +140,7 @@ class LogBuffer
     void flush(bool from_append = false);
     bool flush_prev_lsn(int64_t page_lsn);
     void reset();
+    void truncate();
     std::atomic<int> last_lsn;
 
  private:
