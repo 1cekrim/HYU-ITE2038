@@ -38,26 +38,42 @@ enum class RecoveryMode
 
 struct CommonLogRecord
 {
-    int32_t log_size;
     int64_t lsn;
     int64_t prev_lsn;
     int32_t transaction_id;
     LogType type;
+    int32_t log_size;
 } __attribute__((packed));
 
-struct UpdateLogRecord : CommonLogRecord
+struct UpdateLogRecord
 {
+    int64_t lsn;
+    int64_t prev_lsn;
+    int32_t transaction_id;
+    LogType type;
     int32_t table_id;
     int64_t page_number;
     int32_t offset;
     int32_t data_length;
     valType old_image;
     valType new_image;
+    int32_t log_size;
 } __attribute__((packed));
 
-struct CompensateLogRecord : UpdateLogRecord
+struct CompensateLogRecord
 {
+    int64_t lsn;
+    int64_t prev_lsn;
+    int32_t transaction_id;
+    LogType type;
+    int32_t table_id;
+    int64_t page_number;
+    int32_t offset;
+    int32_t data_length;
+    valType old_image;
+    valType new_image;
     int64_t next_undo_lsn;
+    int32_t log_size;
 } __attribute__((packed));
 
 std::ostream& operator<<(std::ostream& os, const CommonLogRecord& dt);
