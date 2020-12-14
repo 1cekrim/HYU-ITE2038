@@ -375,6 +375,7 @@ void LogBuffer::flush(bool from_append)
     {
         std::visit(
             [&](auto&& rec) {
+                std::cout << "flushed: " << rec << '\n';
                 pwrite(fd, &rec, sizeof(rec), rec.lsn);
             },
             buffer[i]);
