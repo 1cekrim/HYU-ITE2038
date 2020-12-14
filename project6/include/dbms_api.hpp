@@ -23,6 +23,8 @@ int shutdown_db();
 
 int trx_begin();
 
+int trx_abort(int trx_id_);
+
 int trx_commit(int trx_id);
 
 #endif /* __DBMS_API_HPP__*/

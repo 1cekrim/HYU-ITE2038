@@ -69,6 +69,17 @@ int db_update(int table_id, int64_t key, char* values, int trx_id)
                : 1;
 }
 
+int trx_abort(int trx_id)
+{
+    std::unique_lock<std::mutex> buffer_latch {
+        BufferController::instance().mtx
+    };
+    std::unique_lock<std::mutex> trxmanager_latch {
+        TransactionManager::instance().mtx
+    };
+    return TransactionManager::instance().abort(trx_id);
+}
+
 int db_delete(int table_id, int64_t key)
 {
     return TableManager::instance().delete_key(table_id, key) ? 0 : -1;
