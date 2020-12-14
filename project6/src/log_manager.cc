@@ -120,6 +120,7 @@ std::tuple<LogType, LogRecord> LogReader::get(int64_t lsn) const
     auto readed = pread(fd, &type, sizeof(type), lsn + 20);
     if (readed != sizeof(type))
     {
+        std::cout << lsn << ": invalid\n";
         return { LogType::INVALID, LogRecord() };
     }
 
@@ -722,6 +723,12 @@ int64_t LogManager::update_log(int transaction_id, int table_id,
 bool LogManager::flush_prev_lsn(int64_t page_lsn)
 {
     return buffer.flush_prev_lsn(page_lsn);
+}
+
+bool LogManager::flush()
+{
+    buffer.flush();
+    return true;
 }
 
 bool LogManager::rollback(int transaction_id)

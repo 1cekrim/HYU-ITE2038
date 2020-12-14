@@ -102,6 +102,7 @@ void TEST_RECOVERY()
                 TableManager::char_to_valType(v, ss.str().c_str());
                 int trx = trx_begin();
                 db_update(j, j + 100 * i, (char*)&v, trx);
+                trx_commit(trx);
             }
         }
 

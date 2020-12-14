@@ -191,6 +191,8 @@ class LogManager
 
     bool flush_prev_lsn(int64_t page_lsn);
 
+    bool flush();
+
     bool rollback(int transaction_id);
 
     void make_dirty(pagenum_t pagenum);

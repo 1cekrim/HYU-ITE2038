@@ -18,6 +18,7 @@ bool TableManager::shutdown_db()
 {
     CHECK_WITH_LOG(valid_table_manager, false, "init first");
     valid_table_manager = false;
+    LogManager::instance().flush();
     CHECK_WITH_LOG(BufferController::instance().clear_buffer(), false,
                    "clear buffer failure");
     tables.clear();

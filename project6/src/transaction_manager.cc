@@ -133,10 +133,10 @@ bool TransactionManager::commit(int id)
         return true;
     }
 
+    LogManager::instance().commit_log(id);
+
     CHECK(it->second.commit());
     transactions.erase(it);
-
-    LogManager::instance().commit_log(id);
 
     return true;
 }
@@ -176,6 +176,7 @@ Transaction::Transaction(const Transaction& rhs)
 bool Transaction::commit()
 {
     // TODO: log commit
+    CHECK(LogManager::instance().flush());
     return lock_release();
 }
 
