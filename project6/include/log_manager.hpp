@@ -99,6 +99,21 @@ constexpr std::size_t get_log_record_lsn(const LogRecord& rec)
     return 0;
 }
 
+constexpr std::size_t get_log_record_trx(const LogRecord& rec)
+{
+    switch (rec.index())
+    {
+        case 0:
+            return std::get<CommonLogRecord>(rec).transaction_id;
+        case 1:
+            return std::get<UpdateLogRecord>(rec).transaction_id;
+        case 2:
+            return std::get<CompensateLogRecord>(rec).transaction_id;
+    }
+    exit(-1);
+    return 0;
+}
+
 class LogBuffer
 {
  public:
@@ -130,7 +145,7 @@ class LogReader
     void print() const;
     std::tuple<LogType, LogRecord> next() const;
     std::tuple<LogType, LogRecord> prev() const;
-
+    void set_lsn(int64_t lsn);
  private:
     int fd;
     mutable int64_t now_lsn;
