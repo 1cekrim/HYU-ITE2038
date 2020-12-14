@@ -84,6 +84,21 @@ constexpr std::size_t get_log_record_size(const LogRecord& rec)
     return 0;
 }
 
+constexpr std::size_t get_log_record_lsn(const LogRecord& rec)
+{
+    switch (rec.index())
+    {
+        case 0:
+            return std::get<CommonLogRecord>(rec).lsn;
+        case 1:
+            return std::get<UpdateLogRecord>(rec).lsn;
+        case 2:
+            return std::get<CompensateLogRecord>(rec).lsn;
+    }
+    exit(-1);
+    return 0;
+}
+
 class LogBuffer
 {
  public:
