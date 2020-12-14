@@ -254,7 +254,20 @@ int64_t LogBuffer::append(const LogRecord& record)
     last_lsn += get_log_record_size(record);
     int buffer_index = buffer_tail++;
 
-    std::cout << "lsn: " << my_lsn << '\n';
+    std::cout << "lsn: " << my_lsn << ", ";
+    switch (record.index())
+    {
+        case 0:
+            std::cout << std::get<CommonLogRecord>(record).type;
+        break;
+        case 1:
+            std::cout << std::get<UpdateLogRecord>(record).type;
+        break;
+        case 2:
+            std::cout << std::get<CompensateLogRecord>(record).type;
+        break;
+    }
+    std::cout << '\n';
 
     // TODO: buffer_index 넘치면 flush
     if (buffer_index == LOG_BUFFER_SIZE)
@@ -855,22 +868,28 @@ LogManager::Message::Message(const std::string& logmsg_path)
 inline void LogManager::Message::analysis_start()
 {
     fprintf(fp, "[ANALYSIS] Analysis pass start\n");
+    fprintf(stdout, "[ANALYSIS] Analysis pass start\n");
 }
 
 inline void LogManager::Message::analysis_end(const std::vector<int>& winners,
                                               const std::vector<int>& losers)
 {
     fprintf(fp, "[ANALYSIS] Analysis success. Winner:");
+    fprintf(stdout, "[ANALYSIS] Analysis success. Winner:");
     for (auto& i : winners)
     {
         fprintf(fp, " %d", i);
+        fprintf(stdout, " %d", i);
     }
     fprintf(fp, ", Loser:");
+    fprintf(stdout, ", Loser:");
     for (auto& i : losers)
     {
         fprintf(fp, " %d", i);
+        fprintf(stdout, " %d", i);
     }
     fprintf(fp, "\n");
+    fprintf(stdout, "\n");
 }
 
 inline void LogManager::Message::redo_pass_start()
