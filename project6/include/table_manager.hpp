@@ -38,6 +38,12 @@ class TableManager
                     std::begin(dst));
     }
 
+    static void valType_to_char(char* dst, const valType& src)
+    {
+        std::memset(dst, 0, 120);
+        std::memcpy(dst, (char*)&src, std::min(static_cast<int>(strlen((char*)&src)), 119));
+    }
+
  private:
     std::unordered_map<int, std::unique_ptr<table_t>> tables;
     std::unordered_map<std::string, int> name_id_table;

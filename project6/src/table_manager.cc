@@ -53,7 +53,7 @@ int TableManager::get_table_id(const std::string& name)
     }
 
     std::string number = name.substr(4, name.size() - 4);
-    std::cout << number << '\n';
+    // std::cout << number << '\n';
     int id;
     try
     {

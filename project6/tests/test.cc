@@ -109,17 +109,22 @@ void TEST_RECOVERY()
 
         init_db(10000, 0, 0, (char*)"log.log", (char*)"result.txt");
 
+        for (int i = 1; i <= 10; ++i)
+        {
+            open_table((char*)(std::string("DATA") + std::to_string(i)).c_str());
+        }
+
         for (int i = 0; i < 10; ++i)
         {
-            for (int j = 1; j <= 10; ++j)
+            for (int j = 1; j <= 5; ++j)
             {
                 valType v;
                 std::stringstream ss;
                 ss << "test insert " << i;
                 TableManager::char_to_valType(v, ss.str().c_str());
-                valType result;
-                db_find(j, j + 100 * i, (char*)&result, 0);
-                CHECK_TRUE(v == result);
+                char result[120];
+                db_find(j, j + 100 * i, result, 0);
+                CHECK_TRUE(ss.str() == result);
             }
         }
     }

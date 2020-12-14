@@ -220,14 +220,17 @@ class LogManager
                                  const std::vector<int>& losers);
 
         inline void redo_pass_start();
+        inline void undo_pass_start();
         inline void begin(int64_t lsn, int trx_id);
-        inline void update(int64_t lsn, int trx_id);
+        inline void update_redo(int64_t lsn, int trx_id);
+        inline void update_undo(int64_t lsn, int trx_id);
         inline void commit(int64_t lsn, int trx_id);
         inline void rollback(int64_t lsn, int trx_id);
         inline void compensate(int64_t lsn, int64_t next_undo_lsn);
         inline void consider_redo_update(int64_t lsn, int trx_id);
         inline void consider_redo_compensate(int64_t lsn, int trx_id);
         inline void redo_pass_end();
+        inline void undo_pass_end();
         inline void flush_with_sync();
 
      private:

@@ -186,8 +186,8 @@ std::tuple<LogType, LogRecord> LogReader::next() const
     auto t = get(now_lsn);
     if (std::get<0>(t) != LogType::INVALID)
     {
-        std::cout << "now_lsn: " << now_lsn << ". plus "
-                  << get_log_record_size(std::get<1>(t)) << '\n';
+        // std::cout << "now_lsn: " << now_lsn << ". plus "
+        //           << get_log_record_size(std::get<1>(t)) << '\n';
         now_lsn += get_log_record_size(std::get<1>(t));
     }
     return t;
@@ -208,8 +208,8 @@ std::tuple<LogType, LogRecord> LogReader::prev() const
         {
             now_lsn = -1;
         }
-        std::cout << "now_lsn: " << now_lsn << ". minus " << record_size
-                  << '\n';
+        // std::cout << "now_lsn: " << now_lsn << ". minus " << record_size
+        //           << '\n';
         now_lsn -= record_size;
     }
     return t;
@@ -548,7 +548,7 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
                         page.nodePageHeader().pageLsn = record.lsn;
                         BufferController::instance().put(
                             record.table_id, record.page_number, page);
-                        msg.update(record.lsn, record.transaction_id);
+                        msg.update_redo(record.lsn, record.transaction_id);
                     }
                     else
                     {
@@ -563,6 +563,9 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
             }
         }
     }
+
+    msg.redo_pass_end();
+    msg.undo_pass_start();
 
     // UNDO
     {
@@ -595,13 +598,13 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
             switch (type)
             {
                 case LogType::BEGIN: {
-                    CommonLogRecord& record = std::get<CommonLogRecord>(rec);
-                    msg.begin(record.lsn, record.transaction_id);
+                    // CommonLogRecord& record = std::get<CommonLogRecord>(rec);
+                    // msg.begin(record.lsn, record.transaction_id);
                     break;
                 }
                 case LogType::COMMIT: {
-                    CommonLogRecord& record = std::get<CommonLogRecord>(rec);
-                    msg.commit(record.lsn, record.transaction_id);
+                    // CommonLogRecord& record = std::get<CommonLogRecord>(rec);
+                    // msg.commit(record.lsn, record.transaction_id);
                     break;
                 }
                 case LogType::COMPENSATE: {
@@ -631,8 +634,8 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
                     break;
                 }
                 case LogType::ROLLBACK: {
-                    CommonLogRecord& record = std::get<CommonLogRecord>(rec);
-                    msg.commit(record.lsn, record.transaction_id);
+                    // CommonLogRecord& record = std::get<CommonLogRecord>(rec);
+                    // msg.commit(record.lsn, record.transaction_id);
                     break;
                 }
                 case LogType::UPDATE: {
@@ -658,7 +661,7 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
                                 (char*)(&record.old_image), record.data_length);
                     BufferController::instance().put(record.table_id,
                                                      record.page_number, page);
-                    msg.update(record.lsn, record.transaction_id);
+                    msg.update_undo(record.lsn, record.transaction_id);
                     // }
                     // else
                     // {
@@ -673,7 +676,11 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
         }
     }
 
-    msg.redo_pass_end();
+    msg.undo_pass_end();
+
+    msg.flush_with_sync();
+    buffer.flush();
+    BufferController::instance().sync();
 
     return true;
 }
@@ -832,7 +839,6 @@ LogManager::Message::Message(const std::string& logmsg_path)
 inline void LogManager::Message::analysis_start()
 {
     fprintf(fp, "[ANALYSIS] Analysis pass start\n");
-    flush_with_sync();
 }
 
 inline void LogManager::Message::analysis_end(const std::vector<int>& winners,
@@ -849,55 +855,58 @@ inline void LogManager::Message::analysis_end(const std::vector<int>& winners,
         fprintf(fp, " %d", i);
     }
     fprintf(fp, "\n");
-    flush_with_sync();
 }
 
 inline void LogManager::Message::redo_pass_start()
 {
-    fprintf(fp, "[REDO(UNDO)] Redo(Undo) pass start\n");
-    flush_with_sync();
+    fprintf(fp, "[REDO] Redo pass start\n");
+}
+
+inline void LogManager::Message::undo_pass_start()
+{
+    fprintf(fp, "[UNDO] Undo pass start\n");
 }
 
 inline void LogManager::Message::begin(int64_t lsn, int trx_id)
 {
     fprintf(fp, "LSN %lu[BEGIN] Transaction id %d\n",
             lsn + sizeof(CommonLogRecord), trx_id);
-    flush_with_sync();
 }
 
-inline void LogManager::Message::update(int64_t lsn, int trx_id)
+inline void LogManager::Message::update_redo(int64_t lsn, int trx_id)
 {
-    fprintf(fp, "LSN %lu[UPDATE] Transaction id %d redo(undo) apply\n",
+    fprintf(fp, "LSN %lu[UPDATE] Transaction id %d redo apply\n",
             lsn + sizeof(UpdateLogRecord), trx_id);
-    flush_with_sync();
+}
+
+inline void LogManager::Message::update_undo(int64_t lsn, int trx_id)
+{
+    fprintf(fp, "LSN %lu[UPDATE] Transaction id %d undo apply\n",
+            lsn + sizeof(UpdateLogRecord), trx_id);
 }
 
 inline void LogManager::Message::commit(int64_t lsn, int trx_id)
 {
     fprintf(fp, "LSN %lu[COMMIT] Transaction id %d\n",
             lsn + sizeof(CommonLogRecord), trx_id);
-    flush_with_sync();
 }
 
 inline void LogManager::Message::rollback(int64_t lsn, int trx_id)
 {
     fprintf(fp, "LSN %lu[ROLLBACK] Transaction id %d\n",
             lsn + sizeof(CommonLogRecord), trx_id);
-    flush_with_sync();
 }
 
 inline void LogManager::Message::compensate(int64_t lsn, int64_t next_undo_lsn)
 {
     fprintf(fp, "LSN %lu[CLR] next undo lsn %lu\n",
             lsn + sizeof(CompensateLogRecord), next_undo_lsn);
-    flush_with_sync();
 }
 
 inline void LogManager::Message::consider_redo_update(int64_t lsn, int trx_id)
 {
     fprintf(fp, "LSN %lu[CONSIDER - REDO] Transaction id %d\n",
             lsn + sizeof(UpdateLogRecord), trx_id);
-    flush_with_sync();
 }
 
 inline void LogManager::Message::consider_redo_compensate(int64_t lsn,
@@ -905,13 +914,16 @@ inline void LogManager::Message::consider_redo_compensate(int64_t lsn,
 {
     fprintf(fp, "LSN %lu[CONSIDER - REDO] Transaction id %d\n",
             lsn + sizeof(CompensateLogRecord), trx_id);
-    flush_with_sync();
 }
 
 inline void LogManager::Message::redo_pass_end()
 {
-    fprintf(fp, "[REDO(UNDO)] Redo(Undo) pass end\n");
-    flush_with_sync();
+    fprintf(fp, "[REDO] Redo pass end\n");
+}
+
+inline void LogManager::Message::undo_pass_end()
+{
+    fprintf(fp, "[UNDO] Undo pass end\n");
 }
 
 inline void LogManager::Message::flush_with_sync()
