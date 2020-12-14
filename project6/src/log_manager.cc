@@ -2,9 +2,9 @@
 
 #include <algorithm>
 
-LogReader::LogReader(const std::string& log_path)
+LogReader::LogReader(const std::string& log_path, int64_t start_lsn)
     : fd(open(log_path.c_str(), O_RDONLY)),
-      now_lsn(0)
+      now_lsn(start_lsn)
 {
     // Do nothing
 }
@@ -170,6 +170,11 @@ std::tuple<LogType, LogRecord> LogReader::prev() const
     auto t = get(now_lsn);
     now_lsn -= get_log_record_size(std::get<1>(t));
     return t;
+}
+
+void LogReader::set_lsn(int64_t lsn)
+{
+    now_lsn = lsn;
 }
 
 LogBuffer::LogBuffer()
@@ -362,6 +367,9 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
     Message msg { logmsg_path };
     std::vector<int> winners;
     std::vector<int> losers;
+
+    int64_t last_lsn = 0;
+
     // analysis
     {
         LogReader reader { log_path };
@@ -374,6 +382,9 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
             {
                 break;
             }
+
+            last_lsn = get_log_record_lsn(rec);
+            trx_table[get_log_record_trx(rec)] = last_lsn;
 
             if (type == LogType::BEGIN)
             {
@@ -435,6 +446,7 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
                         std::memcpy((char*)(&page) + record.offset,
                                     (char*)(&record.new_image),
                                     record.data_length);
+                        page.nodePageHeader().pageLsn = record.lsn;
                         BufferController::instance().put(
                             record.table_id, record.page_number, page);
                         msg.compensate(record.lsn, record.next_undo_lsn);
@@ -463,6 +475,7 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
                         std::memcpy((char*)(&page) + record.offset,
                                     (char*)(&record.new_image),
                                     record.data_length);
+                        page.nodePageHeader().pageLsn = record.lsn;
                         BufferController::instance().put(
                             record.table_id, record.page_number, page);
                         msg.update(record.lsn, record.transaction_id);
@@ -480,7 +493,118 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
         }
     }
 
+    // UNDO
+    {
+        LogReader reader { log_path, last_lsn };
 
+        bool flag = true;
+        for (int i = 0; flag; ++i)
+        {
+            if (mode == RecoveryMode::UNDO_CRASH && i == log_num)
+            {
+                // REDO CRASH
+                exit(0);
+            }
+
+            auto [type, rec] = reader.prev();
+            if (type == LogType::INVALID)
+            {
+                break;
+            }
+
+            auto trx_id = get_log_record_trx(rec);
+            auto it =
+                std::find_if(losers.begin(), losers.end(), [trx_id](int v) {
+                    return v == trx_id;
+                });
+            if (it == losers.end())
+            {
+                continue;
+            }
+            switch (type)
+            {
+                case LogType::BEGIN: {
+                    CommonLogRecord& record = std::get<CommonLogRecord>(rec);
+                    msg.begin(record.lsn, record.transaction_id);
+                    break;
+                }
+                case LogType::COMMIT: {
+                    CommonLogRecord& record = std::get<CommonLogRecord>(rec);
+                    msg.commit(record.lsn, record.transaction_id);
+                    break;
+                }
+                case LogType::COMPENSATE: {
+                    CompensateLogRecord& record =
+                        std::get<CompensateLogRecord>(rec);
+
+                    // undo compensate
+                    // page_t page;
+                    // BufferController::instance().get(record.table_id,
+                    //                                  record.page_number,
+                    //                                  page);
+                    // if (page.nodePageHeader().pageLsn < record.lsn)
+                    {
+                        // undo pass
+                        // std::memcpy((char*)(&page) + record.offset,
+                        //             (char*)(&record.old_image),
+                        //             record.data_length);
+                        // BufferController::instance().put(
+                        //     record.table_id, record.page_number, page);
+                        msg.compensate(record.lsn, record.next_undo_lsn);
+                        reader.set_lsn(record.next_undo_lsn);
+                    }
+                    // else
+                    // {
+                    //     msg.consider_redo(record.lsn, record.transaction_id);
+                    // }
+                    break;
+                }
+                case LogType::ROLLBACK: {
+                    CommonLogRecord& record = std::get<CommonLogRecord>(rec);
+                    msg.commit(record.lsn, record.transaction_id);
+                    break;
+                }
+                case LogType::UPDATE: {
+                    UpdateLogRecord& record = std::get<UpdateLogRecord>(rec);
+
+                    // redo update
+                    page_t page;
+                    BufferController::instance().get(record.table_id,
+                                                     record.page_number, page);
+
+                    CompensateLogRecord clr { sizeof(CompensateLogRecord),
+                                              INVALID_LSN,
+                                              trx_table[record.transaction_id],
+                                              record.transaction_id,
+                                              LogType::COMPENSATE,
+                                              record.table_id,
+                                              record.page_number,
+                                              record.offset,
+                                              record.data_length,
+                                              record.new_image,
+                                              record.old_image,
+                                              record.prev_lsn };
+                    trx_table[record.transaction_id] = buffer.append(clr);
+                    // if (page.nodePageHeader().pageLsn < record.lsn)
+                    // {
+                    std::memcpy((char*)(&page) + record.offset,
+                                (char*)(&record.old_image), record.data_length);
+                    BufferController::instance().put(record.table_id,
+                                                     record.page_number, page);
+                    msg.update(record.lsn, record.transaction_id);
+                    // }
+                    // else
+                    // {
+                    //     msg.consider_redo(record.lsn, record.transaction_id);
+                    // }
+                    break;
+                }
+                case LogType::INVALID:
+                    flag = false;
+                    break;
+            }
+        }
+    }
 
     return true;
 }

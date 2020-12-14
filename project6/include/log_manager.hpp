@@ -84,7 +84,7 @@ constexpr std::size_t get_log_record_size(const LogRecord& rec)
     return 0;
 }
 
-constexpr std::size_t get_log_record_lsn(const LogRecord& rec)
+constexpr int64_t get_log_record_lsn(const LogRecord& rec)
 {
     switch (rec.index())
     {
@@ -99,7 +99,7 @@ constexpr std::size_t get_log_record_lsn(const LogRecord& rec)
     return 0;
 }
 
-constexpr std::size_t get_log_record_trx(const LogRecord& rec)
+constexpr int32_t get_log_record_trx(const LogRecord& rec)
 {
     switch (rec.index())
     {
