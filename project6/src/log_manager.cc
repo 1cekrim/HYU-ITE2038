@@ -21,6 +21,7 @@ LogReader::LogReader(const std::string& log_path)
     if (header.header == 0xffeeaaff)
     {
         now_lsn = header.start_lsn;
+        std::cout << "header detected. now_lsn: " << now_lsn << '\n';
     }
     else
     {
