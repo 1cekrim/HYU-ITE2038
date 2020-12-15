@@ -875,7 +875,7 @@ bool LogManager::rollback(int transaction_id)
 
                 auto lsn = buffer.append(clr);
 
-                scoped_node_latch latch { record.table_id, record.page_number };
+                scoped_node_latch latch { record.table_id, (pagenum_t)record.page_number };
 
                 {
                     std::unique_lock<std::mutex> trx_table_latch_lock {
