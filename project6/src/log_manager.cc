@@ -889,7 +889,7 @@ bool LogManager::rollback(int transaction_id)
 
                 std::cout << "after_table_latch";
 
-                scoped_node_latch latch { record.table_id, (pagenum_t)record.page_number };
+                // scoped_node_latch latch { record.table_id, (pagenum_t)record.page_number };
 
                 page_t page;
                 BufferController::instance().get(record.table_id,
