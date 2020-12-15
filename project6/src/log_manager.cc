@@ -16,8 +16,8 @@ LogReader::LogReader(const std::string& log_path)
 {
     LogHeader header;
     header.header = 0;
-    auto result = pread(fd, &header, sizeof(LogHeader), 0);
-    std::cout << result << "header: " << header.header << ",  " << header.start_lsn << '\n';
+    pread(fd, &header, sizeof(LogHeader), 0);
+    // std::cout << result << "header: " << header.header << ",  " << header.start_lsn << '\n';
     if (header.header == 0xffeeaaff)
     {
         now_lsn = header.start_lsn;
@@ -26,7 +26,7 @@ LogReader::LogReader(const std::string& log_path)
     {
         now_lsn = 0;
     }
-    std::cout << "now_lsn: " << now_lsn << '\n';;
+    // std::cout << "now_lsn: " << now_lsn << '\n';;
 }
 
 
@@ -165,7 +165,7 @@ std::tuple<LogType, LogRecord> LogReader::get(int64_t lsn) const
     auto readed = pread(fd, &type, sizeof(type), lsn + 20);
     if (readed != sizeof(type))
     {
-        std::cout << lsn << ": invalid\n";
+        // std::cout << lsn << ": invalid\n";
         return { LogType::INVALID, LogRecord() };
     }
 
@@ -287,7 +287,7 @@ void LogBuffer::truncate()
     LogHeader header;
     header.start_lsn = last_lsn;
     pwrite(fd, &header, sizeof(header), 0);
-    std::cout << "header seted: " << last_lsn << '\n';
+    // std::cout << "header seted: " << last_lsn << '\n';
     
     fsync(fd);
     // ftruncate(fd, 0);
@@ -377,7 +377,7 @@ void LogBuffer::flush(bool from_append)
     {
         std::visit(
             [&](auto&& rec) {
-                std::cout << "flushed: " << rec << '\n';
+                // std::cout << "flushed: " << rec << '\n';
                 pwrite(fd, &rec, sizeof(rec), rec.lsn);
             },
             buffer[i]);
@@ -749,7 +749,7 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
                         record.new_image,      record.old_image,
                         record.prev_lsn,       sizeof(CompensateLogRecord)
                     };
-                    std::cout << "clr: " << clr.next_undo_lsn << '\n';
+                    // std::cout << "clr: " << clr.next_undo_lsn << '\n';
                     trx_table[record.transaction_id] = buffer.append(clr);
                     // if (page.nodePageHeader().pageLsn < record.lsn)
                     // {
@@ -857,11 +857,14 @@ bool LogManager::rollback(int transaction_id)
             case LogType::BEGIN:
                 // now가 INVALID_LSN이여만 한다.
                 now = std::get<CommonLogRecord>(rec).prev_lsn;
+                std::cout << "rollback: " << std::get<CommonLogRecord>(rec) << std::endl;
                 CHECK(now == INVALID_LSN);
                 break;
 
             case LogType::UPDATE: {
                 auto& record = std::get<UpdateLogRecord>(rec);
+
+                 std::cout << "rollback: " << record << std::endl;
                 // TODO: table_id와 file_id가 같은가?
                 // compensate 로그를 먼저 쓴다.
                 CompensateLogRecord clr {
