@@ -880,7 +880,7 @@ bool LogManager::rollback(int transaction_id)
 
                 auto lsn = buffer.append(clr);
 
-                std::Cout << "before_table_altch" << std::endl;
+                std::cout << "before_table_altch" << std::endl;
 
                 {
                     std::unique_lock<std::mutex> trx_table_latch_lock {
