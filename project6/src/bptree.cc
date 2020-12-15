@@ -5,8 +5,8 @@
 #include <iostream>
 #include <vector>
 
-#include "logger.hpp"
 #include "log_manager.hpp"
+#include "logger.hpp"
 #include "scoped_page_latch.hpp"
 
 scoped_node_latch::scoped_node_latch(int manager_id, nodeId_t id)
@@ -134,19 +134,18 @@ bool BPTree::update(keyType key, const valType& value, int transaction_id)
     node_tuple leaf;
     CHECK(find_leaf(key, leaf));
 
-    std::unique_lock<std::mutex> trxmanager_latch {
-        TransactionManager::instance().mtx
-    };
-
     scoped_node_latch latch { manager.get_manager_id(), leaf.id };
 
     if (transaction_id != TransactionManager::invliad_transaction_id)
     {
+        std::unique_lock<std::mutex> trxmanager_latch {
+            TransactionManager::instance().mtx
+        };
         auto& trx = TransactionManager::instance().get(transaction_id);
         // std::unique_lock<std::mutex> trx_latch { trx.mtx };
         auto [lock, state] = TransactionManager::instance().lock_acquire(
             get_table_id(), key, transaction_id, LockMode::EXCLUSIVE);
-        std::cout << state << std::endl;
+        std::cout << state << ". trx: " << transaction_id << std::endl;
         switch (state)
         {
             case LockState::INVALID:
@@ -181,7 +180,9 @@ bool BPTree::update(keyType key, const valType& value, int transaction_id)
     // LogManagerLegacy::instance().log(transaction_id, LogTypeLegacy::UPDATE,
     //                            LockHash(get_table_id(), key), before,
     //                            leaf.node.records()[i]);
-    auto lsn = LogManager::instance().update_log(transaction_id, manager.get_manager_id(), leaf.id, leaf.node.get_offset<record_t>(i), sizeof(valType), before, value);
+    auto lsn = LogManager::instance().update_log(
+        transaction_id, manager.get_manager_id(), leaf.id,
+        leaf.node.get_offset<record_t>(i), sizeof(valType), before, value);
 
     // page lsn
     leaf.node.nodePageHeader().pageLsn = lsn;
@@ -651,14 +652,13 @@ bool BPTree::find(keyType key, record_t& ret, int transaction_id)
         return false;
     }
 
-    std::unique_lock<std::mutex> trx_latch {
-            TransactionManager::instance().mtx
-    };
-
     scoped_node_latch_shared latch_shared { manager.get_manager_id(), leaf.id };
 
     if (transaction_id != TransactionManager::invliad_transaction_id)
     {
+        std::unique_lock<std::mutex> trx_latch {
+            TransactionManager::instance().mtx
+        };
         auto& trx = TransactionManager::instance().get(transaction_id);
 
         auto [lock, state] = TransactionManager::instance().lock_acquire(
