@@ -137,7 +137,7 @@ bool BPTree::update(keyType key, const valType& value, int transaction_id)
     std::unique_lock<std::mutex> trxmanager_latch {
         TransactionManager::instance().mtx
     };
-    
+
     scoped_node_latch latch { manager.get_manager_id(), leaf.id };
 
     if (transaction_id != TransactionManager::invliad_transaction_id)
@@ -154,6 +154,8 @@ bool BPTree::update(keyType key, const valType& value, int transaction_id)
             case LockState::ACQUIRED:
                 break;
             case LockState::ABORTED:
+                // abort 시에는 page latch를 잡고 있어야 할 이유가 없다.
+                latch.unlock();
                 TransactionManager::instance().abort(transaction_id);
                 return false;
             case LockState::WAITING:
@@ -671,6 +673,8 @@ bool BPTree::find(keyType key, record_t& ret, int transaction_id)
             case LockState::ACQUIRED:
                 break;
             case LockState::ABORTED:
+                // abort 시에는 page latch를 잡고 있어야 할 이유가 없다.
+                latch_shared.unlock_shared();
                 TransactionManager::instance().abort(transaction_id);
                 return false;
             case LockState::WAITING:

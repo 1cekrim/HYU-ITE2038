@@ -844,7 +844,9 @@ bool LogManager::rollback(int transaction_id)
 
     // rollback 전에 buffer를 flush 하면, abort된 트랜잭션의 로그가 buffer에
     // 일부 남아있는 케이스를 무시하고 간단하게 구현할 수 있다.
+    std::cout << "before flush" << std::endl;
     buffer.flush();
+    std::cout << "after flush" << std::endl;
 
     LogReader reader { log_path };
     // reader.print();
@@ -884,6 +886,8 @@ bool LogManager::rollback(int transaction_id)
                     };
                     trx_table[transaction_id] = lsn;
                 }
+
+                std::cout << "after_table_latch";
 
                 scoped_node_latch latch { record.table_id, (pagenum_t)record.page_number };
 
