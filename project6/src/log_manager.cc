@@ -309,13 +309,13 @@ int64_t LogBuffer::append(const LogRecord& record)
     switch (record.index())
     {
         case 0:
-            std::cout << std::get<CommonLogRecord>(record).type;
+            std::cout << std::get<CommonLogRecord>(record);
             break;
         case 1:
-            std::cout << std::get<UpdateLogRecord>(record).type;
+            std::cout << std::get<UpdateLogRecord>(record);
             break;
         case 2:
-            std::cout << std::get<CompensateLogRecord>(record).type;
+            std::cout << std::get<CompensateLogRecord>(record);
             break;
     }
     std::cout << '\n';
