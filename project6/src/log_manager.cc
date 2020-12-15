@@ -41,7 +41,7 @@ void LogReader::print() const
         int32_t record_size;
         auto readed = pread(fd, &type, sizeof(type), now + 20);
 
-         switch (type)
+    switch (type)
     {
         case LogType::BEGIN:
             record_size = sizeof(CommonLogRecord);
@@ -195,8 +195,13 @@ std::tuple<LogType, LogRecord> LogReader::get(int64_t lsn) const
             record_size = 0;
             break;
         default:
+        {
             std::cout << "invalid type: " << int(type) << '\n';
+            CommonLogRecord temp;
+            pread(fd, &temp, sizeof(temp), lsn);
+            std::cout << temp << '\n';
             break; 
+        }
     }
 
     switch (record_size)
@@ -292,6 +297,7 @@ void LogBuffer::reset()
 
 void LogBuffer::truncate()
 {
+    std::cout << "truncate\n";
     LogHeader header;
     header.start_lsn = last_lsn;
     pwrite(fd, &header, sizeof(header), 0);
@@ -430,13 +436,11 @@ bool LogBuffer::flush_prev_lsn(int64_t page_lsn)
         }
     }
 
-    // O_APPEND 옵션이 있어 로그가 파일 맨 뒤에 작성되므로 flushed_lsn을
-    // 신경쓰지 않아도 된다.
     for (int i = buffer_head; i < border; ++i)
     {
         std::visit(
             [&](auto&& rec) {
-                write(fd, &rec, sizeof(rec));
+                pwrite(fd, &rec, sizeof(rec), rec.lsn);
             },
             buffer[i]);
     }
@@ -566,6 +570,7 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
 
     if (winners.empty() && losers.empty())
     {
+        std::cout << "pass redo/undo\n";
         return true;
     }
 
