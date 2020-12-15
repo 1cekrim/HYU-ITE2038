@@ -17,7 +17,7 @@ LogReader::LogReader(const std::string& log_path)
     LogHeader header;
     header.header = 0;
     pread(fd, &header, sizeof(LogHeader), 0);
-    // std::cout << result << "header: " << header.header << ",  " << header.start_lsn << '\n';
+    // std::cout << result << "header: " << header.header << ",  " << header.start_lsn << std::endl;
     if (header.header == 0xffeeaaff)
     {
         now_lsn = header.start_lsn;
@@ -26,7 +26,7 @@ LogReader::LogReader(const std::string& log_path)
     {
         now_lsn = 0;
     }
-    // std::cout << "now_lsn: " << now_lsn << '\n';;
+    // std::cout << "now_lsn: " << now_lsn << std::endl;;
 }
 
 
@@ -233,7 +233,7 @@ std::tuple<LogType, LogRecord> LogReader::next() const
     if (std::get<0>(t) != LogType::INVALID)
     {
         // std::cout << "now_lsn: " << now_lsn << ". plus "
-        //           << get_log_record_size(std::get<1>(t)) << '\n';
+        //           << get_log_record_size(std::get<1>(t)) << std::endl;
         now_lsn += get_log_record_size(std::get<1>(t));
     }
     return t;
@@ -255,7 +255,7 @@ std::tuple<LogType, LogRecord> LogReader::prev() const
             now_lsn = -1;
         }
         // std::cout << "now_lsn: " << now_lsn << ". minus " << record_size
-        //           << '\n';
+        //           << std::endl;
         now_lsn -= record_size;
     }
     return t;
@@ -287,7 +287,7 @@ void LogBuffer::truncate()
     LogHeader header;
     header.start_lsn = last_lsn;
     pwrite(fd, &header, sizeof(header), 0);
-    // std::cout << "header seted: " << last_lsn << '\n';
+    // std::cout << "header seted: " << last_lsn << std::endl;
     
     fsync(fd);
     // ftruncate(fd, 0);
@@ -318,7 +318,7 @@ int64_t LogBuffer::append(const LogRecord& record)
             std::cout << std::get<CompensateLogRecord>(record);
             break;
     }
-    std::cout << '\n';
+    std::cout << std::endl;
 
     // TODO: buffer_index 넘치면 flush
     if (buffer_index == LOG_BUFFER_SIZE)
@@ -377,7 +377,7 @@ void LogBuffer::flush(bool from_append)
     {
         std::visit(
             [&](auto&& rec) {
-                // std::cout << "flushed: " << rec << '\n';
+                // std::cout << "flushed: " << rec << std::endl;
                 pwrite(fd, &rec, sizeof(rec), rec.lsn);
             },
             buffer[i]);
@@ -454,7 +454,7 @@ bool LogBuffer::flush_prev_lsn(int64_t page_lsn)
 void LogManager::open(const std::string& log_path,
                       const std::string& logmsg_path)
 {
-    std::cout << "log_path: " << log_path << '\n' << "logmsg_path: " << logmsg_path << '\n';
+    std::cout << "log_path: " << log_path << std::endl << "logmsg_path: " << logmsg_path << std::endl;
     buffer.open(log_path);
     this->log_path = log_path;
     this->logmsg_path = logmsg_path;
@@ -749,7 +749,7 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
                         record.new_image,      record.old_image,
                         record.prev_lsn,       sizeof(CompensateLogRecord)
                     };
-                    // std::cout << "clr: " << clr.next_undo_lsn << '\n';
+                    // std::cout << "clr: " << clr.next_undo_lsn << std::endl;
                     trx_table[record.transaction_id] = buffer.append(clr);
                     // if (page.nodePageHeader().pageLsn < record.lsn)
                     // {
