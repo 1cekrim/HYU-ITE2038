@@ -1,6 +1,8 @@
 #include "log_manager.hpp"
+#include "scoped_page_latch.hpp"
 
 #include <algorithm>
+
 
 LogReader::LogReader(const std::string& log_path, int64_t start_lsn)
     : fd(open(log_path.c_str(), O_RDONLY)),
@@ -828,6 +830,7 @@ bool LogManager::flush()
 
 bool LogManager::rollback(int transaction_id)
 {
+    std::cout << "rollback\n";
     auto it = trx_table.find(transaction_id);
     if (it == trx_table.end())
     {
@@ -869,6 +872,11 @@ bool LogManager::rollback(int transaction_id)
                     record.new_image, record.old_image,
                     record.prev_lsn,  sizeof(CompensateLogRecord)
                 };
+
+                auto lsn = buffer.append(clr);
+
+                scoped_node_latch latch { record.table_id, record.page_number };
+
                 {
                     std::unique_lock<std::mutex> trx_table_latch_lock {
                         trx_table_latch
@@ -876,11 +884,10 @@ bool LogManager::rollback(int transaction_id)
                     trx_table[transaction_id] = buffer.append(clr);
                 }
 
-                // rollback 할때는 이미 buffer_latch, page latch, lock 등이 모두
-                // 걸린 상태이다!
                 page_t page;
                 BufferController::instance().get(record.table_id,
                                                  record.page_number, page);
+                page.nodePageHeader().pageLsn = lsn;
                 std::memcpy((char*)(&page) + record.offset,
                             (char*)(&record.old_image), record.data_length);
                 BufferController::instance().put(record.table_id,
