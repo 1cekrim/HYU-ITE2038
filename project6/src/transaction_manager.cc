@@ -196,16 +196,6 @@ bool Transaction::abort()
     state = TransactionState::ABORTED;
     std::cout << "abort: " << transactionID << '\n';
     CHECK(LogManager::instance().rollback(transactionID));
-    // auto logs = LogManagerLegacy::instance().trace_log(transactionID);
-    // // std::cout << "abort: " << transactionID << '\n';
-    // for (const auto& log : logs)
-    // {
-    //     if (log.type == LogTypeLegacy::UPDATE)
-    //     {
-    //         TableManager::instance().update(log.hash.table_id, log.hash.key,
-    //                                         log.before.value);
-    //     }
-    // }
-    // log undo
+
     return lock_release(true);
 }

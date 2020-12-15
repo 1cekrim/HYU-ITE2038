@@ -134,13 +134,14 @@ bool BPTree::update(keyType key, const valType& value, int transaction_id)
     node_tuple leaf;
     CHECK(find_leaf(key, leaf));
 
+    std::unique_lock<std::mutex> trxmanager_latch {
+        TransactionManager::instance().mtx
+    };
+
     scoped_node_latch latch { manager.get_manager_id(), leaf.id };
 
     if (transaction_id != TransactionManager::invliad_transaction_id)
     {
-        std::unique_lock<std::mutex> trxmanager_latch {
-            TransactionManager::instance().mtx
-        };
         auto& trx = TransactionManager::instance().get(transaction_id);
         // std::unique_lock<std::mutex> trx_latch { trx.mtx };
         auto [lock, state] = TransactionManager::instance().lock_acquire(
@@ -165,6 +166,8 @@ bool BPTree::update(keyType key, const valType& value, int transaction_id)
                 latch.lock();
         }
     }
+
+    // trxmanager_latch.unlock();
 
     CHECK(load_node(leaf));
     valType before;
@@ -647,13 +650,14 @@ bool BPTree::find(keyType key, record_t& ret, int transaction_id)
         return false;
     }
 
+    std::unique_lock<std::mutex> trx_latch {
+            TransactionManager::instance().mtx
+    };
+
     scoped_node_latch_shared latch_shared { manager.get_manager_id(), leaf.id };
 
     if (transaction_id != TransactionManager::invliad_transaction_id)
     {
-        std::unique_lock<std::mutex> trx_latch {
-            TransactionManager::instance().mtx
-        };
         auto& trx = TransactionManager::instance().get(transaction_id);
 
         auto [lock, state] = TransactionManager::instance().lock_acquire(
@@ -678,6 +682,8 @@ bool BPTree::find(keyType key, record_t& ret, int transaction_id)
                 latch_shared.lock_shared();
         }
     }
+
+    // trx_latch.unlock();
 
     int i = leaf.node.index_key<record_t>(key);
     if (i == -1)
