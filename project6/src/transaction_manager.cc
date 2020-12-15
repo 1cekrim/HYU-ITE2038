@@ -112,11 +112,17 @@ LockAcquireResult TransactionManager::lock_acquire(int table_id, int64_t key,
 
 int TransactionManager::abort(int transaction_id)
 {
+    std::cout << "manager::abort called " << transaction_id << std::endl;
     auto it = transactions.find(transaction_id);
-    CHECK_RET(it != transactions.end(), 0);
+    if (it == transactions.end())
+    {
+        return 0;
+    }
+    // CHECK_RET(it != transactions.end(), 0);
 
     CHECK_RET(it->second.abort(), 0);
     transactions.erase(it);
+    std::cout << "manager::abort ended " << transaction_id << std::endl;
 
     // LogManager::instance().log(transaction_id, LogTypeLegacy::ABORT);
 

@@ -71,6 +71,7 @@ int db_update(int table_id, int64_t key, char* values, int trx_id)
 
 int trx_abort(int trx_id)
 {
+    std::cout << "trx_abort called" << std::endl;
     std::unique_lock<std::mutex> buffer_latch {
         BufferController::instance().mtx
     };

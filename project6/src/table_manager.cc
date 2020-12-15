@@ -9,11 +9,11 @@ bool TableManager::init_db(int buf_num, int flag, int log_num, char* log_path, c
     CHECK_WITH_LOG(BufferController::instance().init_buffer(buf_num), false,
                    "init buffer failure");
     valid_table_manager = true;
-    std::cout << "init_db open\n";
+    std::cout << "init_db open";
     LogManager::instance().open(log_path, logmsg);
-    std::cout << "init_db recovery\n";
+    std::cout << "init_db recovery" << std::endl;
     LogManager::instance().recovery(RecoveryMode(flag), log_num);
-    std::cout << "init_db end\n";
+    std::cout << "init_db end" << std::endl;
     return true;
 }
 

@@ -588,7 +588,7 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
             if (mode == RecoveryMode::REDO_CRASH && i == log_num)
             {
                 // REDO CRASH
-                exit(0);
+                DB_CRASH(0, "REDO CRASH");
             }
 
             auto [type, rec] = reader.next();
@@ -679,8 +679,8 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
         {
             if (mode == RecoveryMode::UNDO_CRASH && i == log_num)
             {
-                // REDO CRASH
-                exit(0);
+                // UNDO CRASH
+                DB_CRASH(0, "UNDO CRASH");
             }
 
             auto [type, rec] = reader.prev();
@@ -916,27 +916,22 @@ bool LogManager::rollback(int transaction_id)
 
             case LogType::COMPENSATE:
                 // 트랜잭션이 abort 될 때, compensate 로그가 있으면 안된다.
-                std::cerr << "compensate log cannot be rolled back";
-                exit(-1);
+                DB_CRASH(-1, "compensate log cannot be rolled back");
                 break;
 
             case LogType::ROLLBACK:
                 // rollback에 성공한 trx를 또 rollback 하는건 논리적 오류이다!
-                std::cerr
-                    << "rolled back transaction cannot be rolled back again";
-                exit(-1);
+                DB_CRASH(-1, "rolled back transaction cannot be rolled back again");
                 break;
 
             case LogType::COMMIT:
                 // commit에 성공한 trx를 rollback 하는건 논리적 오류이다!
-                std::cerr << "commited transaction cannot be rolled back";
-                exit(-1);
+                DB_CRASH(-1, "commited transaction cannot be rolled back");
                 break;
 
             case LogType::INVALID:
                 // invalid가 등장하면 안된다
-                std::cerr << "invalid log type";
-                exit(-1);
+                DB_CRASH(-1, "invalid log type");
                 break;
         }
     }
