@@ -134,9 +134,10 @@ bool BPTree::update(keyType key, const valType& value, int transaction_id)
     node_tuple leaf;
     CHECK(find_leaf(key, leaf));
 
-        std::unique_lock<std::mutex> trxmanager_latch {
-            TransactionManager::instance().mtx
-        };
+    std::unique_lock<std::mutex> trxmanager_latch {
+        TransactionManager::instance().mtx
+    };
+    
     scoped_node_latch latch { manager.get_manager_id(), leaf.id };
 
     if (transaction_id != TransactionManager::invliad_transaction_id)
