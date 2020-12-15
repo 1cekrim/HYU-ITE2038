@@ -200,7 +200,7 @@ bool Transaction::lock_release(bool abort)
 bool Transaction::abort()
 {
     state = TransactionState::ABORTED;
-    std::cout << "abort: " << transactionID << '\n';
+    std::cout << "abort: " << transactionID << std::endl;
     CHECK(LogManager::instance().rollback(transactionID));
 
     return lock_release(true);

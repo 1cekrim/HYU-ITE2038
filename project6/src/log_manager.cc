@@ -320,21 +320,6 @@ int64_t LogBuffer::append(const LogRecord& record)
     last_lsn += get_log_record_size(record);
     int buffer_index = buffer_tail++;
 
-    // std::cout << "lsn: " << my_lsn << ", ";
-    // switch (record.index())
-    // {
-    //     case 0:
-    //         std::cout << std::get<CommonLogRecord>(record);
-    //         break;
-    //     case 1:
-    //         std::cout << std::get<UpdateLogRecord>(record);
-    //         break;
-    //     case 2:
-    //         std::cout << std::get<CompensateLogRecord>(record);
-    //         break;
-    // }
-    // std::cout << std::endl;
-
     // TODO: buffer_index 넘치면 flush
     if (buffer_index == LOG_BUFFER_SIZE)
     {
@@ -349,6 +334,7 @@ int64_t LogBuffer::append(const LogRecord& record)
     std::unique_lock<std::mutex> buffer_latch_lock {
         buffer_latch[buffer_index]
     };
+
     buffer[buffer_index] = record;
     std::visit(
         [&](auto&& rec) {
@@ -844,13 +830,13 @@ bool LogManager::flush()
 
 bool LogManager::rollback(int transaction_id)
 {
-    std::cout << "rollback\n";
+    std::cout << "rollback" << std::endl;
     auto it = trx_table.find(transaction_id);
     if (it == trx_table.end())
     {
         // 트랜잭션이 begin 할때 무조건 begin 로그가 작성되는데, trx_table에 trx
         // id가 없다는 건 trx id가 invalid 하다는 의미
-        std::cout << "???\n";
+        std::cout << "???" << std::endl;
         return false;
     }
 
@@ -898,6 +884,7 @@ bool LogManager::rollback(int transaction_id)
                     };
                     trx_table[transaction_id] = lsn;
                 }
+
                 scoped_node_latch latch { record.table_id, (pagenum_t)record.page_number };
 
                 page_t page;
@@ -935,6 +922,8 @@ bool LogManager::rollback(int transaction_id)
         }
     }
 
+    std::cout << "rollback middle" << std::endl;
+
     CommonLogRecord record { INVALID_LSN, trx_table[transaction_id],
                              transaction_id, LogType::ROLLBACK,
                              sizeof(CommonLogRecord) };
@@ -945,7 +934,10 @@ bool LogManager::rollback(int transaction_id)
         trx_table.erase(transaction_id);
     }
 
+    std::cout << "rollback before flush" << std::endl;
+
     buffer.flush();
+    std::cout << "rollback after flush" << std::endl;
 
     return true;
 }
