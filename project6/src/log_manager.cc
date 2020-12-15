@@ -880,6 +880,8 @@ bool LogManager::rollback(int transaction_id)
 
                 auto lsn = buffer.append(clr);
 
+                std::Cout << "before_table_altch" << std::endl;
+
                 {
                     std::unique_lock<std::mutex> trx_table_latch_lock {
                         trx_table_latch
@@ -887,9 +889,11 @@ bool LogManager::rollback(int transaction_id)
                     trx_table[transaction_id] = lsn;
                 }
 
-                std::cout << "after_table_latch";
+                std::cout << "after_table_latch" << std::endl;
 
                 // scoped_node_latch latch { record.table_id, (pagenum_t)record.page_number };
+
+                std::cout << "after latch" << std::endl;
 
                 page_t page;
                 BufferController::instance().get(record.table_id,
