@@ -1,8 +1,8 @@
 #include "log_manager.hpp"
-#include "scoped_page_latch.hpp"
 
 #include <algorithm>
 
+#include "scoped_page_latch.hpp"
 
 LogReader::LogReader(const std::string& log_path, int64_t start_lsn)
     : fd(open(log_path.c_str(), O_RDONLY)),
@@ -17,7 +17,8 @@ LogReader::LogReader(const std::string& log_path)
     LogHeader header;
     header.header = 0;
     pread(fd, &header, sizeof(LogHeader), 0);
-    // std::cout << result << "header: " << header.header << ",  " << header.start_lsn << std::endl;
+    // std::cout << result << "header: " << header.header << ",  " <<
+    // header.start_lsn << std::endl;
     if (header.header == 0xffeeaaff)
     {
         now_lsn = header.start_lsn;
@@ -30,7 +31,6 @@ LogReader::LogReader(const std::string& log_path)
     // std::cout << "now_lsn: " << now_lsn << std::endl;;
 }
 
-
 void LogReader::print() const
 {
     int64_t now = 0;
@@ -42,27 +42,27 @@ void LogReader::print() const
         int32_t record_size;
         auto readed = pread(fd, &type, sizeof(type), now + 20);
 
-    switch (type)
-    {
-        case LogType::BEGIN:
-            record_size = sizeof(CommonLogRecord);
-            break;
-        case LogType::COMMIT:
-            record_size = sizeof(CommonLogRecord);
-            break;
-        case LogType::COMPENSATE:
-            record_size = sizeof(CompensateLogRecord);
-            break;
-        case LogType::ROLLBACK:
-            record_size = sizeof(CommonLogRecord);
-            break;
-        case LogType::UPDATE:
-            record_size = sizeof(UpdateLogRecord);
-            break;
-        case LogType::INVALID:
-            record_size = 0;
-            break;
-    }
+        switch (type)
+        {
+            case LogType::BEGIN:
+                record_size = sizeof(CommonLogRecord);
+                break;
+            case LogType::COMMIT:
+                record_size = sizeof(CommonLogRecord);
+                break;
+            case LogType::COMPENSATE:
+                record_size = sizeof(CompensateLogRecord);
+                break;
+            case LogType::ROLLBACK:
+                record_size = sizeof(CommonLogRecord);
+                break;
+            case LogType::UPDATE:
+                record_size = sizeof(UpdateLogRecord);
+                break;
+            case LogType::INVALID:
+                record_size = 0;
+                break;
+        }
 
         if (!readed)
         {
@@ -107,7 +107,7 @@ void LogReader::print() const
                          record_size, now);
         }
     } while (readed);
-    
+
     std::cout << std::endl;
 }
 
@@ -160,7 +160,8 @@ std::ostream& operator<<(std::ostream& os, const CompensateLogRecord& dt)
        << dt.prev_lsn << ", " << dt.transaction_id << ", " << dt.table_id
        << ", " << dt.page_number << ", " << dt.offset << ", " << dt.data_length
        << "]\n";
-    os << "old_image: " << dt.old_image << "\nnew_image: " << dt.new_image << "\nundo next: " << dt.next_undo_lsn;
+    os << "old_image: " << dt.old_image << "\nnew_image: " << dt.new_image
+       << "\nundo next: " << dt.next_undo_lsn;
     return os;
 }
 
@@ -195,13 +196,12 @@ std::tuple<LogType, LogRecord> LogReader::get(int64_t lsn) const
         case LogType::INVALID:
             record_size = 0;
             break;
-        default:
-        {
+        default: {
             std::cout << "invalid type: " << int(type) << '\n';
             // CommonLogRecord temp;
             // pread(fd, &temp, sizeof(temp), lsn);
             // std::cout << temp << '\n';
-            break; 
+            break;
         }
     }
 
@@ -303,7 +303,7 @@ void LogBuffer::truncate()
     header.start_lsn = last_lsn;
     pwrite(fd, &header, sizeof(header), 0);
     // std::cout << "header seted: " << last_lsn << std::endl;
-    
+
     fsync(fd);
     // ftruncate(fd, 0);
 }
@@ -453,7 +453,8 @@ bool LogBuffer::flush_prev_lsn(int64_t page_lsn)
 void LogManager::open(const std::string& log_path,
                       const std::string& logmsg_path)
 {
-    std::cout << "log_path: " << log_path << std::endl << "logmsg_path: " << logmsg_path << std::endl;
+    std::cout << "log_path: " << log_path << std::endl
+              << "logmsg_path: " << logmsg_path << std::endl;
     buffer.open(log_path);
     this->log_path = log_path;
     this->logmsg_path = logmsg_path;
@@ -859,7 +860,8 @@ bool LogManager::rollback(int transaction_id)
             case LogType::BEGIN:
                 // now가 INVALID_LSN이여만 한다.
                 now = std::get<CommonLogRecord>(rec).prev_lsn;
-                // std::cout << "rollback: " << std::get<CommonLogRecord>(rec) << std::endl;
+                // std::cout << "rollback: " << std::get<CommonLogRecord>(rec)
+                // << std::endl;
                 CHECK(now == INVALID_LSN);
                 break;
 
@@ -891,7 +893,8 @@ bool LogManager::rollback(int transaction_id)
 
                 std::cout << "after_table_latch" << std::endl;
 
-                // scoped_node_latch latch { record.table_id, (pagenum_t)record.page_number };
+                // scoped_node_latch latch { record.table_id,
+                // (pagenum_t)record.page_number };
 
                 std::cout << "after latch" << std::endl;
 
@@ -915,7 +918,8 @@ bool LogManager::rollback(int transaction_id)
 
             case LogType::ROLLBACK:
                 // rollback에 성공한 trx를 또 rollback 하는건 논리적 오류이다!
-                DB_CRASH(-1, "rolled back transaction cannot be rolled back again");
+                DB_CRASH(-1,
+                         "rolled back transaction cannot be rolled back again");
                 break;
 
             case LogType::COMMIT:
@@ -1000,8 +1004,9 @@ inline void LogManager::Message::begin(int64_t lsn, int trx_id)
 {
     fprintf(fp, "LSN %lu[BEGIN] Transaction id %d\n",
             lsn + sizeof(CommonLogRecord), trx_id);
-    // fprintf(stdout, "LSN %lu[BEGIN] Transaction id %d\n", lsn + sizeof(CommonLogRecord),
-        //    trx_id);
+    // fprintf(stdout, "LSN %lu[BEGIN] Transaction id %d\n", lsn +
+    // sizeof(CommonLogRecord),
+    //    trx_id);
 }
 
 inline void LogManager::Message::update_redo(int64_t lsn, int trx_id)
