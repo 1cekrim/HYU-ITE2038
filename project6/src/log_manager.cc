@@ -503,7 +503,7 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
     // analysis
     {
         LogReader reader { log_path };
-        reader.print();
+        // reader.print();
         msg.analysis_start();
 
         while (true)
