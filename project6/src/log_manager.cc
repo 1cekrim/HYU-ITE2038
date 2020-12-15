@@ -807,7 +807,11 @@ bool LogManager::rollback(int transaction_id)
             case LogType::BEGIN:
                 // now가 INVALID_LSN이여만 한다.
                 now = std::get<CommonLogRecord>(rec).prev_lsn;
-                CHECK(now == INVALID_LSN);
+                // CHECK(now == INVALID_LSN);
+                if (now != INVALID_LSN)
+                {
+                    std::cout << std::get<CommonLogRecord>(rec) << '\n';
+                }
                 break;
 
             case LogType::UPDATE: {
