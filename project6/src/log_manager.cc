@@ -881,7 +881,7 @@ bool LogManager::rollback(int transaction_id)
                     std::unique_lock<std::mutex> trx_table_latch_lock {
                         trx_table_latch
                     };
-                    trx_table[transaction_id] = buffer.append(clr);
+                    trx_table[transaction_id] = lsn;
                 }
 
                 page_t page;
