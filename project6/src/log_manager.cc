@@ -891,6 +891,10 @@ bool LogManager::rollback(int transaction_id)
                 };
 
                 auto lsn = buffer.append(clr);
+                
+                page_t page;
+                BufferController::instance().get(record.table_id,
+                                                 record.page_number, page);
 
                 scoped_node_latch latch { record.table_id, (pagenum_t)record.page_number };
 
@@ -901,9 +905,6 @@ bool LogManager::rollback(int transaction_id)
                     trx_table[transaction_id] = lsn;
                 }
 
-                page_t page;
-                BufferController::instance().get(record.table_id,
-                                                 record.page_number, page);
                 page.nodePageHeader().pageLsn = lsn;
                 std::memcpy((char*)(&page) + record.offset,
                             (char*)(&record.old_image), record.data_length);
