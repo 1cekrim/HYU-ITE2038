@@ -44,7 +44,6 @@ LockAcquireResult TransactionManager::lock_acquire(int table_id, int64_t key,
     }
 
     auto& locks = transaction->second.locks;
-    // auto& state = transaction->second.state;
     if (auto count = std::count_if(locks.begin(), locks.end(),
                                    [&hash](auto& t) {
                                        return std::get<0>(t) == hash;
@@ -118,13 +117,10 @@ int TransactionManager::abort(int transaction_id)
     {
         return 0;
     }
-    // CHECK_RET(it != transactions.end(), 0);
 
     CHECK_RET(it->second.abort(), 0);
     transactions.erase(it);
     std::cout << "manager::abort ended " << transaction_id << std::endl;
-
-    // LogManager::instance().log(transaction_id, LogTypeLegacy::ABORT);
 
     return transaction_id;
 }
