@@ -155,13 +155,18 @@ std::ostream& operator<<(std::ostream& os, const UpdateLogRecord& dt)
 
 std::ostream& operator<<(std::ostream& os, const CompensateLogRecord& dt)
 {
+    os << dt.type << ": [" << dt.log_size << ", " << dt.lsn << ", "
+       << dt.prev_lsn << ", " << dt.transaction_id << ", " << dt.table_id
+       << ", " << dt.page_number << ", " << dt.offset << ", " << dt.data_length
+       << "]\n";
+    os << "old_image: " << dt.old_image << "\nnew_image: " << dt.new_image << "\nundo next: " << dt.next_undo_lsn;
     return os;
 }
 
 std::tuple<LogType, LogRecord> LogReader::get(int64_t lsn) const
 {
     LogType type;
-    int32_t record_size;
+    int32_t record_size = 0;
     auto readed = pread(fd, &type, sizeof(type), lsn + 20);
     if (readed != sizeof(type))
     {
@@ -189,6 +194,9 @@ std::tuple<LogType, LogRecord> LogReader::get(int64_t lsn) const
         case LogType::INVALID:
             record_size = 0;
             break;
+        default:
+            std::cout << "invalid type: " << int(type) << '\n';
+            break; 
     }
 
     switch (record_size)
