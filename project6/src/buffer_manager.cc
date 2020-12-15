@@ -1,7 +1,7 @@
 #include "buffer_manager.hpp"
-#include "log_manager.hpp"
 
 #include "frame.hpp"
+#include "log_manager.hpp"
 #include "logger.hpp"
 
 BufferManager::BufferManager() : fileManager()
@@ -37,28 +37,6 @@ bool BufferManager::open(const std::string& name)
     return true;
 }
 
-// bool BufferManager::commit(pagenum_t pagenum, const frame_t& frame)
-// {
-//     return BufferController::instance().put(manager_id, pagenum, frame);
-// }
-
-// int BufferManager::load(pagenum_t pagenum, frame_t& frame)
-// {
-// int result = BufferController::instance().get(manager_id, pagenum, frame);
-// if (result != INVALID_BUFFER_INDEX)
-// {
-//     BufferController::instance().retain_frame(result);
-// }
-// return result;
-// }
-
-// bool BufferManager::commit(pagenum_t pagenum, std::function<void(page_t&)>
-// func, bool auto_release)
-// {
-//     return BufferController::instance().put(manager_id, pagenum, func,
-//     auto_release);
-// }
-
 int BufferManager::load(pagenum_t pagenum, page_t& page)
 {
     int result = BufferController::instance().get(manager_id, pagenum, page);
@@ -69,13 +47,6 @@ bool BufferManager::commit(pagenum_t pagenum, const page_t& page)
 {
     return BufferController::instance().put(manager_id, pagenum, page);
 }
-
-// int BufferManager::load(pagenum_t pagenum, std::function<void(const page_t&)>
-// func, bool auto_release)
-// {
-//     return BufferController::instance().get(manager_id, pagenum, func,
-//     auto_release);
-// }
 
 void BufferManager::release(pagenum_t pagenum)
 {
@@ -228,13 +199,13 @@ bool BufferController::fileManagerExist(int file_id)
     return fileManagers.find(file_id) != fileManagers.end();
 }
 
-
 void BufferController::release_frame(int file_id, pagenum_t pagenum)
 {
     int index = find(file_id, pagenum);
     if (index == INVALID_BUFFER_INDEX)
     {
-        std::cerr << "release_frame Logical error. file_id: " << file_id << ", pagenum: " << pagenum << std::endl;
+        std::cerr << "release_frame Logical error. file_id: " << file_id
+                  << ", pagenum: " << pagenum << std::endl;
         index = load(file_id, pagenum);
         if (index == INVALID_BUFFER_INDEX)
         {
@@ -253,7 +224,8 @@ void BufferController::retain_frame(int file_id, pagenum_t pagenum)
     int index = find(file_id, pagenum);
     if (index == INVALID_BUFFER_INDEX)
     {
-        std::cerr << "retain_frame Logical error. file_id: " << file_id << ", pagenum: " << pagenum << std::endl;
+        std::cerr << "retain_frame Logical error. file_id: " << file_id
+                  << ", pagenum: " << pagenum << std::endl;
         index = load(file_id, pagenum);
         if (index == INVALID_BUFFER_INDEX)
         {
@@ -272,7 +244,8 @@ void BufferController::release_frame_shared(int file_id, pagenum_t pagenum)
     int index = find(file_id, pagenum);
     if (index == INVALID_BUFFER_INDEX)
     {
-        std::cerr << "release_frame_shared Logical error. file_id: " << file_id << ", pagenum: " << pagenum << std::endl;
+        std::cerr << "release_frame_shared Logical error. file_id: " << file_id
+                  << ", pagenum: " << pagenum << std::endl;
         index = load(file_id, pagenum);
         if (index == INVALID_BUFFER_INDEX)
         {
@@ -290,7 +263,8 @@ void BufferController::retain_frame_shared(int file_id, pagenum_t pagenum)
     int index = find(file_id, pagenum);
     if (index == INVALID_BUFFER_INDEX)
     {
-        std::cerr << "retain_frame_shared Logical error. file_id: " << file_id << ", pagenum: " << pagenum << std::endl;
+        std::cerr << "retain_frame_shared Logical error. file_id: " << file_id
+                  << ", pagenum: " << pagenum << std::endl;
         index = load(file_id, pagenum);
         if (index == INVALID_BUFFER_INDEX)
         {
@@ -322,23 +296,6 @@ int BufferController::get(int file_id, pagenum_t pagenum, page_t& page)
               INVALID_BUFFER_INDEX);
 
     return index;
-    // auto& buffer_frame = (*buffer)[index];
-    // {
-    //     // std::shared_lock<std::shared_mutex> crit (buffer_frame.mtx);
-    //     buffer_frame.mtx.lock_shared();
-    //     std::cout << "lock\n";
-    //     ++buffer_frame.pin;
-    //     func(buffer_frame);
-    //     CHECK_RET(update_recently_used(index, buffer_frame, true),
-    //     INVALID_BUFFER_INDEX); if (auto_release)
-    //     {
-    //         std::cout << "release\n";
-    //         --buffer_frame.pin;
-    //         buffer_frame.mtx.unlock_shared();
-    //     }
-    // }
-
-    // return true;
 }
 
 bool BufferController::put(int file_id, pagenum_t pagenum, const page_t& frame)
@@ -361,23 +318,6 @@ bool BufferController::put(int file_id, pagenum_t pagenum, const page_t& frame)
               INVALID_BUFFER_INDEX);
 
     return true;
-
-    // auto& buffer_frame = (*buffer)[index];
-    //  {
-    //     // std::unique_lock<std::shared_mutex> crit (buffer_frame.mtx);
-    //     buffer_frame.mtx.lock();
-    //     ++buffer_frame.pin;
-    //     func(buffer_frame);
-    //     CHECK_RET(update_recently_used(index, buffer_frame, true),
-    //     INVALID_BUFFER_INDEX); buffer_frame.is_dirty = true; if
-    //     (auto_release)
-    //     {
-    //         --buffer_frame.pin;
-    //         buffer_frame.mtx.unlock();
-    //     }
-    // }
-
-    // return true;
 }
 
 int BufferController::create(int file_id)
@@ -628,7 +568,8 @@ int BufferController::load(int file_id, pagenum_t pagenum)
 bool BufferController::commit(int file_id, const frame_t& frame)
 {
     auto& fileManager = getFileManager(file_id);
-    // static db에 page를 작성하기 전에, 해당 page의 page lsn보다 이전에 작성된 로그들을 log buffer에서 flush 한다.
+    // static db에 page를 작성하기 전에, 해당 page의 page lsn보다 이전에 작성된
+    // 로그들을 log buffer에서 flush 한다.
     LogManager::instance().flush_prev_lsn(frame.nodePageHeader().pageLsn);
     CHECK_WITH_LOG(fileManager.commit(frame.pagenum, frame), false,
                    "commit frame failure: %ld", frame.pagenum);
