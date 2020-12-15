@@ -155,7 +155,6 @@ int BufferController::openFileManager(const std::string& name)
     }
 
     std::string number = name.substr(4, name.size() - 4);
-    std::cout << number << '\n';
     int id;
     try
     {

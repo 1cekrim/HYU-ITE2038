@@ -220,7 +220,6 @@ void LockManager::lock_wait(lock_t* lock_obj)
 void LockManager::dfs(int now, std::unordered_map<int, graph_node>& graph,
                       bool& stop)
 {
-    // std::cout << "dfs: " << now << std::endl;
     graph[now].visited = true;
     for (const auto& next : graph[now].next)
     {
@@ -277,7 +276,6 @@ bool LockManager::lock_release(lock_t* lock_obj, bool abort)
             crit.lock();
         }
         LockHash hash = lock_obj->hash;
-        // std::cout << "release start (" << lock_obj->hash.key << ") -> ";
         auto& lockList = lock_table[hash];
         auto& table = lockList.locks;
 
@@ -312,14 +310,12 @@ bool LockManager::lock_release(lock_t* lock_obj, bool abort)
 
         if (iter->get()->state == LockState::ACQUIRED)
         {
-            // std::cout << "acquire -> ";
             --lockList.acquire_count;
         }
         else
         {
             // wait 중인걸 그냥 lock_release 해도 되나?
             // TODO: abort 될때 처리...
-            // std::cout << "wait -> ";
             --lockList.wait_count;
         }
         table.erase(iter);
@@ -342,7 +338,6 @@ bool LockManager::lock_release(lock_t* lock_obj, bool abort)
                     ++lockList.acquire_count;
                     --lockList.wait_count;
                     second->signal();
-                    // std::cout << "sxlock -> ";
                 }
             }
 
@@ -371,7 +366,6 @@ bool LockManager::lock_release(lock_t* lock_obj, bool abort)
         if (lockList.wait_count == 0)
         {
             lock_table.erase(hash);
-            // std::cout << "wait == 0. end.\n";
             return true;
         }
 
@@ -385,7 +379,6 @@ bool LockManager::lock_release(lock_t* lock_obj, bool abort)
             ++lockList.acquire_count;
             --lockList.wait_count;
             target->signal();
-            // std::cout << "front xlock. end.\n";
             return true;
         }
 
@@ -396,16 +389,13 @@ bool LockManager::lock_release(lock_t* lock_obj, bool abort)
             if (it->lockMode == LockMode::EXCLUSIVE)
             {
                 lockList.mode = LockMode::EXCLUSIVE;
-                // std::cout << "xlock acquired -> ";
                 break;
             }
             it->state = LockState::ACQUIRED;
             ++lockList.acquire_count;
             --lockList.wait_count;
             it->signal();
-            // std::cout << "slock acquired -> ";
         }
-        // std::cout << "return true. mode: " << lockList.mode << '\n';
         ;
     }
 
@@ -441,7 +431,6 @@ void lock_t::signal()
 {
     auto& transaction = TransactionManager::instance().get(ownerTransactionID);
     std::unique_lock<std::mutex> crit { transaction.mtx };
-    // std::cout << "signal\n";
 
     locked = false;
     transaction.state = TransactionState::RUNNING;

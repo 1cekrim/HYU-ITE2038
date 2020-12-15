@@ -142,10 +142,8 @@ bool BPTree::update(keyType key, const valType& value, int transaction_id)
             TransactionManager::instance().mtx
         };
         auto& trx = TransactionManager::instance().get(transaction_id);
-        // std::unique_lock<std::mutex> trx_latch { trx.mtx };
         auto [lock, state] = TransactionManager::instance().lock_acquire(
             get_table_id(), key, transaction_id, LockMode::EXCLUSIVE);
-        std::cout << state << ". trx: " << transaction_id << std::endl;
         switch (state)
         {
             case LockState::INVALID:

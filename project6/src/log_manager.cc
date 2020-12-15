@@ -20,7 +20,6 @@ LogReader::LogReader(const std::string& log_path)
     if (header.header == 0xffeeaaff)
     {
         now_lsn = header.start_lsn;
-        std::cout << "header detected. now_lsn: " << now_lsn << '\n';
     }
     else
     {
@@ -287,7 +286,6 @@ void LogBuffer::reset()
 
 void LogBuffer::truncate()
 {
-    std::cout << "truncate\n";
     LogHeader header;
     header.start_lsn = last_lsn;
     pwrite(fd, &header, sizeof(header), 0);
@@ -365,7 +363,6 @@ void LogBuffer::flush(bool from_append)
     {
         std::visit(
             [&](auto&& rec) {
-                // std::cout << "flushed: " << rec << std::endl;
                 pwrite(fd, &rec, sizeof(rec), rec.lsn);
             },
             buffer[i]);
@@ -440,8 +437,6 @@ bool LogBuffer::flush_prev_lsn(int64_t page_lsn)
 void LogManager::open(const std::string& log_path,
                       const std::string& logmsg_path)
 {
-    std::cout << "log_path: " << log_path << std::endl
-              << "logmsg_path: " << logmsg_path << std::endl;
     buffer.open(log_path);
     this->log_path = log_path;
     this->logmsg_path = logmsg_path;
@@ -545,7 +540,6 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
 
     if (winners.empty() && losers.empty())
     {
-        std::cout << "pass redo/undo\n";
         return true;
     }
 
@@ -788,13 +782,11 @@ bool LogManager::flush()
 
 bool LogManager::rollback(int transaction_id)
 {
-    std::cout << "rollback" << std::endl;
     auto it = trx_table.find(transaction_id);
     if (it == trx_table.end())
     {
         // 트랜잭션이 begin 할때 무조건 begin 로그가 작성되는데, trx_table에 trx
         // id가 없다는 건 trx id가 invalid 하다는 의미
-        std::cout << "???" << std::endl;
         return false;
     }
 
@@ -802,9 +794,7 @@ bool LogManager::rollback(int transaction_id)
 
     // rollback 전에 buffer를 flush 하면, abort된 트랜잭션의 로그가 buffer에
     // 일부 남아있는 케이스를 무시하고 간단하게 구현할 수 있다.
-    std::cout << "before flush" << std::endl;
     buffer.flush();
-    std::cout << "after flush" << std::endl;
 
     LogReader reader { log_path };
     // reader.print();
@@ -836,7 +826,6 @@ bool LogManager::rollback(int transaction_id)
 
                 auto lsn = buffer.append(clr);
 
-                std::cout << "before_table_altch" << std::endl;
 
                 {
                     std::unique_lock<std::mutex> trx_table_latch_lock {
@@ -845,9 +834,6 @@ bool LogManager::rollback(int transaction_id)
                     trx_table[transaction_id] = lsn;
                 }
 
-                std::cout << "after_table_latch" << std::endl;
-
-                std::cout << "after latch" << std::endl;
 
                 page_t page;
                 BufferController::instance().get(record.table_id,
@@ -885,7 +871,6 @@ bool LogManager::rollback(int transaction_id)
         }
     }
 
-    std::cout << "rollback middle" << std::endl;
 
     CommonLogRecord record { INVALID_LSN, trx_table[transaction_id],
                              transaction_id, LogType::ROLLBACK,
@@ -897,10 +882,8 @@ bool LogManager::rollback(int transaction_id)
         trx_table.erase(transaction_id);
     }
 
-    std::cout << "rollback before flush" << std::endl;
 
     buffer.flush();
-    std::cout << "rollback after flush" << std::endl;
 
     return true;
 }
