@@ -122,39 +122,6 @@ bool BPTree::insert(keyType key, const valType& value)
 
 bool BPTree::update(keyType key, const valType& value, int transaction_id)
 {
-    // std::unique_lock<std::mutex> buffer_latch {
-    //     BufferController::instance().mtx
-    // };
-
-    // TODO: 나중에 수정 필요.
-    /*
-    지금은 rollback을 update로 구현해놔서, 그냥 buffer latch를 걸면 동일
-    스레드에서 buffer latch를 2번 걸게 된다. 그래서 일단은 transaction_id가
-    0일때 rollback 용으로만 돌아가도록 했다.
-    */
-    if (transaction_id == TransactionManager::invliad_transaction_id)
-    {
-        if (!exist_key(key))
-        {
-            return false;
-        }
-
-        node_tuple leaf;
-        CHECK(find_leaf(key, leaf));
-
-        CHECK(load_node(leaf));
-
-        record_t before;
-
-        int i = leaf.node.index_key<record_t>(key);
-        before = leaf.node.records()[i];
-        leaf.node.records()[i].value = value;
-
-        CHECK(commit_node(leaf));
-
-        return true;
-    }
-
     std::unique_lock<std::mutex> buffer_latch {
         BufferController::instance().mtx
     };
@@ -168,16 +135,6 @@ bool BPTree::update(keyType key, const valType& value, int transaction_id)
     CHECK(find_leaf(key, leaf));
 
     scoped_node_latch latch { manager.get_manager_id(), leaf.id };
-
-    // if (transaction_id != TransactionManager::invliad_transaction_id)
-    // {
-    //     if (!TransactionManager::instance().lock_acquire(
-    //             get_table_id(), key, transaction_id, LockMode::EXCLUSIVE,
-    //             leaf.id, manager))
-    //     {
-    //         return false;
-    //     }
-    // }
 
     if (transaction_id != TransactionManager::invliad_transaction_id)
     {
