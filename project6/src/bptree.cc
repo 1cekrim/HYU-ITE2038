@@ -153,8 +153,9 @@ bool BPTree::update(keyType key, const valType& value, int transaction_id)
             case LockState::ACQUIRED:
                 break;
             case LockState::ABORTED:
-                // abort 시에는 page latch를 잡고 있어야 할 이유가 없다.
-                // latch.unlock();
+                // abort 시에도 page latch를 계속 잡고 있어야 한다.
+                // abort 할 때 해당 페이지가 중간에 eviction 되면 버그가
+                // 발생한다.
                 TransactionManager::instance().abort(transaction_id);
                 return false;
             case LockState::WAITING:
@@ -169,8 +170,6 @@ bool BPTree::update(keyType key, const valType& value, int transaction_id)
         }
     }
 
-    // trxmanager_latch.unlock();
-
     CHECK(load_node(leaf));
     valType before;
 
@@ -178,15 +177,10 @@ bool BPTree::update(keyType key, const valType& value, int transaction_id)
     before = leaf.node.records()[i].value;
     leaf.node.records()[i].value = value;
 
-    // update log
-    // LogManagerLegacy::instance().log(transaction_id, LogTypeLegacy::UPDATE,
-    //                            LockHash(get_table_id(), key), before,
-    //                            leaf.node.records()[i]);
     auto lsn = LogManager::instance().update_log(
         transaction_id, manager.get_manager_id(), leaf.id,
         leaf.node.get_offset<record_t>(i), sizeof(valType), before, value);
 
-    // page lsn
     leaf.node.nodePageHeader().pageLsn = lsn;
 
     CHECK(commit_node(leaf));
@@ -277,22 +271,6 @@ int BPTree::get_left_index(const node_t& parent, nodeId_t left_id) const
         });
     return left_index + 1;
 }
-
-// bool BPTree::load_node(nodeId_t page, std::function<void(const page_t&)>
-// func, bool auto_release)
-// {
-//     CHECK(manager.load(page, std::move(func), auto_release));
-//     return true;
-// }
-
-// bool BPTree::commit_node(nodeId_t page, std::function<void(page_t&)> func,
-// bool auto_release)
-// {
-//     // CHECK_WITH_LOG(manager.commit(target.id, target.node), false,
-//     //    "commit node failure: %ld", target.id);
-//     CHECK(manager.commit(page, std::move(func), auto_release));
-//     return true;
-// }
 
 bool BPTree::load_node(node_tuple& target)
 {
