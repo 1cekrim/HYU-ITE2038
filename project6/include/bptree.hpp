@@ -10,6 +10,7 @@
 #include "log_manager_legacy.hpp"
 #include "page.hpp"
 #include "transaction_manager.hpp"
+#include "scoped_page_latch.hpp"
 
 constexpr auto LEAF_ORDER = 32;
 constexpr auto INTERNAL_ORDER = 249;
@@ -37,32 +38,6 @@ struct node_tuple
     {
         return id != INVALID_NODE_ID;
     }
-};
-
-class scoped_node_latch
-{
- public:
-    scoped_node_latch(int manager_id, nodeId_t id);
-    ~scoped_node_latch();
-    void lock();
-    void unlock();
-
- private:
-    int manager_id;
-    nodeId_t id;
-};
-
-class scoped_node_latch_shared
-{
- public:
-    scoped_node_latch_shared(int manager_id, nodeId_t id);
-    ~scoped_node_latch_shared();
-    void lock_shared();
-    void unlock_shared();
-
- private:
-    int manager_id;
-    nodeId_t id;
 };
 
 class BPTree

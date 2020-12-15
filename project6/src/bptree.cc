@@ -7,6 +7,7 @@
 
 #include "logger.hpp"
 #include "log_manager.hpp"
+#include "scoped_page_latch.hpp"
 
 scoped_node_latch::scoped_node_latch(int manager_id, nodeId_t id)
     : manager_id(manager_id),
