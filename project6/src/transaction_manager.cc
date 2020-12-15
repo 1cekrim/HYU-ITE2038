@@ -110,35 +110,35 @@ LockAcquireResult TransactionManager::lock_acquire(int table_id, int64_t key,
     return { new_lock, LockState::ACQUIRED };
 }
 
-bool TransactionManager::abort(int transaction_id)
+int TransactionManager::abort(int transaction_id)
 {
     auto it = transactions.find(transaction_id);
-    CHECK(it != transactions.end());
+    CHECK_RET(it != transactions.end(), 0);
 
-    CHECK(it->second.abort());
+    CHECK_RET(it->second.abort(), 0);
     transactions.erase(it);
 
     // LogManager::instance().log(transaction_id, LogTypeLegacy::ABORT);
 
-    return true;
+    return transaction_id;
 }
 
-bool TransactionManager::commit(int id)
+int TransactionManager::commit(int id)
 {
     std::unique_lock<std::mutex> trx_latch { mtx };
 
     auto it = transactions.find(id);
     if (it == transactions.end())
     {
-        return true;
+        return id;
     }
 
     LogManager::instance().commit_log(id);
 
-    CHECK(it->second.commit());
+    CHECK_RET(it->second.commit(), 0);
     transactions.erase(it);
 
-    return true;
+    return id;
 }
 
 void TransactionManager::reset()

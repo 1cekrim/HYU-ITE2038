@@ -50,10 +50,10 @@ class TransactionManager
         return transactionManager;
     }
     int begin();
-    bool commit(int id);
+    int commit(int id);
     Transaction& get(int transaction_id);
     const std::unordered_map<int, Transaction>& get_transactions() const;
-    bool abort(int transaction_id);
+    int abort(int transaction_id);
     void reset();
 
     LockAcquireResult lock_acquire(int table_id, int64_t key, int trx_id,

@@ -102,5 +102,5 @@ int trx_begin()
 
 int trx_commit(int trx_id)
 {
-    return TransactionManager::instance().commit(trx_id) ? 0 : -1;
+    return TransactionManager::instance().commit(trx_id);
 }
