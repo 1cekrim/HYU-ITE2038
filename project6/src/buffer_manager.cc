@@ -234,8 +234,12 @@ void BufferController::release_frame(int file_id, pagenum_t pagenum)
     int index = find(file_id, pagenum);
     if (index == INVALID_BUFFER_INDEX)
     {
-        std::cerr << "Logical error. file_id: " << file_id << ", pagenum: " << pagenum << std::endl;
-        return;
+        std::cerr << "release_frame Logical error. file_id: " << file_id << ", pagenum: " << pagenum << std::endl;
+        if (index == INVALID_BUFFER_INDEX)
+        {
+            std::cerr << "load failed....\n";
+            return;
+        }
     }
 
     auto& frame = buffer->at(index);
@@ -248,8 +252,13 @@ void BufferController::retain_frame(int file_id, pagenum_t pagenum)
     int index = find(file_id, pagenum);
     if (index == INVALID_BUFFER_INDEX)
     {
-        std::cerr << "Logical error. file_id: " << file_id << ", pagenum: " << pagenum << std::endl;
-        return;
+        std::cerr << "retain_frame Logical error. file_id: " << file_id << ", pagenum: " << pagenum << std::endl;
+        index = load(file_id, pagenum);
+        if (index == INVALID_BUFFER_INDEX)
+        {
+            std::cerr << "load failed....\n";
+            return;
+        }
     }
 
     auto& frame = buffer->at(index);
@@ -262,8 +271,12 @@ void BufferController::release_frame_shared(int file_id, pagenum_t pagenum)
     int index = find(file_id, pagenum);
     if (index == INVALID_BUFFER_INDEX)
     {
-        std::cerr << "Logical error. file_id: " << file_id << ", pagenum: " << pagenum << std::endl;
-        return;
+        std::cerr << "release_frame_shared Logical error. file_id: " << file_id << ", pagenum: " << pagenum << std::endl;
+        if (index == INVALID_BUFFER_INDEX)
+        {
+            std::cerr << "load failed....\n";
+            return;
+        }
     }
     auto& frame = buffer->at(index);
     --frame.pin;
@@ -275,9 +288,12 @@ void BufferController::retain_frame_shared(int file_id, pagenum_t pagenum)
     int index = find(file_id, pagenum);
     if (index == INVALID_BUFFER_INDEX)
     {
-        std::cerr << "Logical error. file_id: " << file_id << ", pagenum: " << pagenum << std::endl;
-        return;
-        // exit(-1);
+        std::cerr << "retain_frame_shared Logical error. file_id: " << file_id << ", pagenum: " << pagenum << std::endl;
+        if (index == INVALID_BUFFER_INDEX)
+        {
+            std::cerr << "load failed....\n";
+            return;
+        }
     }
 
     auto& frame = buffer->at(index);
