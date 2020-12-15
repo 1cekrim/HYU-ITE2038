@@ -154,7 +154,7 @@ bool BPTree::update(keyType key, const valType& value, int transaction_id)
                 break;
             case LockState::ABORTED:
                 // abort 시에는 page latch를 잡고 있어야 할 이유가 없다.
-                // latch.unlock();
+                latch.unlock();
                 TransactionManager::instance().abort(transaction_id);
                 return false;
             case LockState::WAITING:
