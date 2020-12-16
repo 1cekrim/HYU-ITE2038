@@ -743,7 +743,7 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
                     break;
                 }
                 case LogType::INVALID:
-                    flag = false;
+                    DB_CRASH(-1, "INVALID logtype");
                     break;
             }
         }
