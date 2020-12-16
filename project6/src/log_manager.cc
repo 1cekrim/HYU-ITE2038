@@ -472,7 +472,7 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
     // analysis
     {
         LogReader reader { log_path };
-        // reader.print();
+        reader.print();
         msg.analysis_start();
 
         while (true)
@@ -600,7 +600,7 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
                 }
                 case LogType::ROLLBACK: {
                     CommonLogRecord& record = std::get<CommonLogRecord>(rec);
-                    msg.commit(record.lsn, record.transaction_id);
+                    msg.rollback(record.lsn, record.transaction_id);
                     break;
                 }
                 case LogType::UPDATE: {
