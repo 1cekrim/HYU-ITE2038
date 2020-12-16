@@ -470,6 +470,8 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
 
     int64_t last_lsn = 0;
 
+    std::cout << "analysus start" << std::endl;
+
     // analysis
     {
         LogReader reader { log_path };
@@ -539,6 +541,8 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
         msg.analysis_end(winners, losers);
     }
 
+    std::cout << "analysus end" << std::endl;
+
     if (winners.empty() && losers.empty())
     {
         return true;
@@ -547,6 +551,8 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
     buffer.last_lsn = last_lsn;
 
     msg.redo_pass_start();
+
+    std::cout << "redo start" << std::endl;
 
     // REDO
     {
@@ -640,6 +646,8 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
         }
     }
 
+    std::cout << "redo end" << std::endl;
+
     msg.redo_pass_end();
     msg.undo_pass_start();
 
@@ -650,6 +658,7 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
         next_undo_lsn_pq.push(trx_table[it]);
     }
 
+    std::cout << "undo start" << std::endl;
     // UNDO
     {
         LogReader reader { log_path };
@@ -751,13 +760,19 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
         }
     }
 
+    std::cout << "undo end" << std::endl;
+
     msg.undo_pass_end();
 
+    std::cout << "sync start" << std::endl;
     msg.flush_with_sync();
     buffer.flush();
     BufferController::instance().sync();
+    std::cout << "sync end" << std::endl;
 
     buffer.truncate();
+
+    std::cout << "all end" << std::endl;
 
     return true;
 }
