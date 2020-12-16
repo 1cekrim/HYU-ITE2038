@@ -1,6 +1,7 @@
 #include "log_manager.hpp"
 
 #include <algorithm>
+#include <queue>
 
 #include "scoped_page_latch.hpp"
 
@@ -472,7 +473,7 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
     // analysis
     {
         LogReader reader { log_path };
-        reader.print();
+        // reader.print();
         msg.analysis_start();
 
         while (true)
@@ -556,6 +557,9 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
             if (mode == RecoveryMode::REDO_CRASH && i == log_num)
             {
                 // REDO CRASH
+                msg.flush_with_sync();
+                buffer.flush();
+                BufferController::instance().sync();
                 DB_CRASH(0, "REDO CRASH");
             }
 
@@ -638,20 +642,32 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
     msg.redo_pass_end();
     msg.undo_pass_start();
 
+    std::priority_queue<int> next_undo_lsn_pq;
+
+    for (int it : losers)
+    {
+        next_undo_lsn_pq.push(trx_table[it]);
+    }
+
     // UNDO
     {
-        LogReader reader { log_path, last_lsn };
+        LogReader reader { log_path };
 
-        bool flag = true;
-        for (int i = 0; flag; ++i)
+        for (int i = 0; !next_undo_lsn_pq.empty(); ++i)
         {
             if (mode == RecoveryMode::UNDO_CRASH && i == log_num)
             {
                 // UNDO CRASH
+                msg.flush_with_sync();
+                buffer.flush();
+                BufferController::instance().sync();
                 DB_CRASH(0, "UNDO CRASH");
             }
 
-            auto [type, rec] = reader.prev();
+            // loser의 undo 해야할 lsn을 priority queue에서 내림차순으로 읽어온다.
+            auto [type, rec] = reader.get(next_undo_lsn_pq.top());
+            next_undo_lsn_pq.pop();
+
             if (type == LogType::INVALID)
             {
                 break;
@@ -664,6 +680,8 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
                 });
             if (it == losers.end())
             {
+                // loser 만 나와야 한다!
+                DB_CRASH(-1, "not loser error");
                 continue;
             }
             switch (type)
@@ -679,6 +697,8 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
                     break;
                 }
                 case LogType::COMMIT: {
+                    // loser는 COMMIT이 나올리 없다
+                    DB_CRASH(-1, "loser log commit error!");
                     break;
                 }
                 case LogType::COMPENSATE: {
@@ -687,10 +707,13 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
 
                     // undo compensate
                     msg.compensate(record.lsn, record.next_undo_lsn);
-                    reader.set_lsn(record.next_undo_lsn);
+                    // reader.set_lsn(record.next_undo_lsn);
+                    next_undo_lsn_pq.push(record.next_undo_lsn);
                     break;
                 }
                 case LogType::ROLLBACK: {
+                    // loser는 ROLLBACK이 나올리 없다
+                    DB_CRASH(-1, "loser log rollback error!");
                     break;
                 }
                 case LogType::UPDATE: {
@@ -715,6 +738,8 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
                     BufferController::instance().put(record.table_id,
                                                      record.page_number, page);
                     msg.update_undo(record.lsn, record.transaction_id);
+
+                    next_undo_lsn_pq.push(record.prev_lsn);
                     break;
                 }
                 case LogType::INVALID:
