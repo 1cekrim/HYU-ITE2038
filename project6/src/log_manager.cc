@@ -487,10 +487,12 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
             }
 
             last_lsn = get_log_record_lsn(rec);
+            std::cout << "last lsn: " << last_lsn << '\n';
             trx_table[get_log_record_trx(rec)] = last_lsn;
 
             if (type == LogType::BEGIN)
             {
+                std::cout << "begin" << std::endl;
                 auto target = std::get<CommonLogRecord>(rec).transaction_id;
                 auto it = std::find_if(winners.begin(), winners.end(),
                                        [target](int v) {
@@ -502,10 +504,12 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
                     winners.erase(it);
                 }
                 losers.emplace_back(target);
+                std::cout << "begin end" << std::endl;
             }
 
             if (type == LogType::COMMIT || type == LogType::ROLLBACK)
             {
+                std::cout << "commit" << std::endl;
                 auto target = std::get<CommonLogRecord>(rec).transaction_id;
                 auto it =
                     std::find_if(losers.begin(), losers.end(), [target](int v) {
@@ -513,28 +517,35 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
                     });
                 losers.erase(it);
                 winners.emplace_back(target);
+                std::cout << "commit end" << std::endl;
             }
 
             if (type == LogType::UPDATE)
             {
+                std::cout << "update" << std::endl;
                 auto target = std::get<UpdateLogRecord>(rec);
                 if (!BufferController::instance().fileManagerExist(
                         target.table_id))
                 {
                     std::string s = "DATA" + std::to_string(target.table_id);
+                    std::cout << "s: " << s << std::endl;
                     BufferController::instance().openFileManager(s);
                 }
+                std::cout << "update end" << std::endl;
             }
 
             if (type == LogType::COMPENSATE)
             {
+                 std::cout << "compensate" << std::endl;
                 auto target = std::get<CompensateLogRecord>(rec);
                 if (!BufferController::instance().fileManagerExist(
                         target.table_id))
                 {
                     std::string s = "DATA" + std::to_string(target.table_id);
+                    std::cout << "s: " << s << std::endl;
                     BufferController::instance().openFileManager(s);
                 }
+                std::cout << "compensate end" << std::endl;
             }
         }
 
