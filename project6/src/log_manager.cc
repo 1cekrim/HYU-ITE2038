@@ -485,7 +485,7 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
             }
 
             last_lsn = get_log_record_lsn(rec);
-            trx_table[get_log_record_trx(rec)] = last_lsn;
+            trx_table.at(get_log_record_trx(rec)) = last_lsn;
 
             if (type == LogType::BEGIN)
             {
@@ -584,6 +584,7 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
                     page_t page;
                     BufferController::instance().get(record.table_id,
                                                      record.page_number, page);
+
                     // consider redo?
                     if (page.nodePageHeader().pageLsn < record.lsn)
                     {
@@ -665,6 +666,7 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
             }
 
             // loser의 undo 해야할 lsn을 priority queue에서 내림차순으로 읽어온다.
+            std::cout << "now undo: " << next_undo_lsn_pq.top() << '\n';
             auto [type, rec] = reader.get(next_undo_lsn_pq.top());
             next_undo_lsn_pq.pop();
 
