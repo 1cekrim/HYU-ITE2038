@@ -500,6 +500,7 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
             {
                 std::cout << "begin" << std::endl;
                 auto target = std::get<CommonLogRecord>(rec).transaction_id;
+                std::cout << "btarget: " << target << std::endl;
                 auto it = std::find_if(winners.begin(), winners.end(),
                                        [target](int v) {
                                            return v == target;
@@ -517,6 +518,12 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
             {
                 std::cout << "commit" << std::endl;
                 auto target = std::get<CommonLogRecord>(rec).transaction_id;
+                std::cout << "ctarget: " << target << std::endl;
+                for (auto i : losers)
+                {
+                    std::cout << i << ' ';
+                }
+                std::cout << std::endl;
                 auto it =
                     std::find_if(losers.begin(), losers.end(), [target](int v) {
                         return v == target;
