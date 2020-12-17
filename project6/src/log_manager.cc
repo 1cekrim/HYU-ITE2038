@@ -401,7 +401,7 @@ void LogBuffer::flush(bool from_append)
 
     // buffer 파일을 디스크에 기록한다.
     fsync(fd);
-}
+} 
 
 bool LogBuffer::flush_prev_lsn(int64_t page_lsn)
 {
