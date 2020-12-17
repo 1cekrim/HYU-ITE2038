@@ -417,7 +417,7 @@ bool LogBuffer::flush_prev_lsn(int64_t page_lsn)
             buffer_latch[border].unlock();
             break;
         }
-    }
+    } 
 
     for (int i = buffer_head; i < border; ++i)
     {
