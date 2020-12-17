@@ -239,7 +239,7 @@ std::tuple<LogType, LogRecord> LogReader::get(int64_t lsn) const
         DB_CRASH(-1, "invalid log record size: %d. lsn: %ld", record_size,
                  lsn);
     }
-} 
+}  
 
 std::tuple<LogType, LogRecord> LogReader::next() const
 {
