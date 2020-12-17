@@ -476,7 +476,7 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
 
     int64_t last_lsn = 0;
 
-    std::cout << "analysus start" << std::endl;
+    // std::cout << "analysus start" << std::endl;
 
     // analysis
     {
@@ -498,9 +498,9 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
 
             if (type == LogType::BEGIN)
             {
-                std::cout << "begin" << std::endl;
+                // std::cout << "begin" << std::endl;
                 auto target = std::get<CommonLogRecord>(rec).transaction_id;
-                std::cout << "btarget: " << target << std::endl;
+                // std::cout << "btarget: " << target << std::endl;
                 auto it = std::find_if(winners.begin(), winners.end(),
                                        [target](int v) {
                                            return v == target;
@@ -511,14 +511,14 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
                     winners.erase(it);
                 }
                 losers.emplace_back(target);
-                std::cout << "begin end" << std::endl;
+                // std::cout << "begin end" << std::endl;
             }
 
             if (type == LogType::COMMIT || type == LogType::ROLLBACK)
             {
-                std::cout << "commit" << std::endl;
+                // std::cout << "commit" << std::endl;
                 auto target = std::get<CommonLogRecord>(rec).transaction_id;
-                std::cout << "ctarget: " << target << std::endl;
+                // std::cout << "ctarget: " << target << std::endl;
                 for (auto i : losers)
                 {
                     std::cout << i << ' ';
@@ -528,44 +528,48 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
                     std::find_if(losers.begin(), losers.end(), [target](int v) {
                         return v == target;
                     });
+                if (it == losers.end())
+                {
+                    std::cout << std::get<CommonLogRecord>(rec);
+                }
                 losers.erase(it);
                 winners.emplace_back(target);
-                std::cout << "commit end" << std::endl;
+                // std::cout << "commit end" << std::endl;
             }
 
             if (type == LogType::UPDATE)
             {
-                std::cout << "update" << std::endl;
+                // std::cout << "update" << std::endl;
                 auto target = std::get<UpdateLogRecord>(rec);
                 if (!BufferController::instance().fileManagerExist(
                         target.table_id))
                 {
                     std::string s = "DATA" + std::to_string(target.table_id);
-                    std::cout << "s: " << s << std::endl;
+                    // std::cout << "s: " << s << std::endl;
                     BufferController::instance().openFileManager(s);
                 }
-                std::cout << "update end" << std::endl;
+                // std::cout << "update end" << std::endl;
             }
 
             if (type == LogType::COMPENSATE)
             {
-                std::cout << "compensate" << std::endl;
+                // std::cout << "compensate" << std::endl;
                 auto target = std::get<CompensateLogRecord>(rec);
                 if (!BufferController::instance().fileManagerExist(
                         target.table_id))
                 {
                     std::string s = "DATA" + std::to_string(target.table_id);
-                    std::cout << "s: " << s << std::endl;
+                    // std::cout << "s: " << s << std::endl;
                     BufferController::instance().openFileManager(s);
                 }
-                std::cout << "compensate end" << std::endl;
+                // std::cout << "compensate end" << std::endl;
             }
         }
 
         msg.analysis_end(winners, losers);
     }
 
-    std::cout << "analysus end" << std::endl;
+    // std::cout << "analysus end" << std::endl;
 
     if (winners.empty() && losers.empty())
     {
@@ -812,6 +816,7 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
 
 int64_t LogManager::begin_log(int transaction_id)
 {
+    std::cout << "begin log: " << transaction_id << std::endl;
     CommonLogRecord record{INVALID_LSN, INVALID_LSN, transaction_id,
                            LogType::BEGIN, sizeof(CommonLogRecord)};
     return log_wrapper(transaction_id, record);
