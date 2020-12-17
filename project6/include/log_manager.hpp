@@ -102,7 +102,7 @@ constexpr std::size_t get_log_record_size(const LogRecord& rec)
         case 2:
             return sizeof(CompensateLogRecord);
     }
-    exit(-1);
+    DB_CRASH(-1, "invalid LogRecord error");
     return 0;
 }  
 
@@ -117,7 +117,7 @@ constexpr int64_t get_log_record_lsn(const LogRecord& rec)
         case 2:
             return std::get<CompensateLogRecord>(rec).lsn;
     }
-    exit(-1);
+    DB_CRASH(-1, "invalid LogRecord error");
     return 0;
 }
 
@@ -132,7 +132,7 @@ constexpr int32_t get_log_record_trx(const LogRecord& rec)
         case 2:
             return std::get<CompensateLogRecord>(rec).transaction_id;
     }
-    exit(-1);
+    DB_CRASH(-1, "invalid LogRecord error");
     return 0;
 }
 
@@ -158,7 +158,7 @@ class LogBuffer
     std::array<LogRecord, LOG_BUFFER_SIZE> buffer;
     std::mutex value_latch;
     int fd;
-    
+
     void flush_without_value_latch_lock();
 };
 
