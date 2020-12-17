@@ -411,7 +411,7 @@ bool LogBuffer::flush_prev_lsn(int64_t page_lsn)
     std::cout << "l" << buffer_head << "|" << buffer_tail << " ";
     for (border = buffer_head; border < buffer_tail; ++border)
     { 
-        buffer_latch[border].lock();
+        buffer_latch[border].lock(); 
         if (std::visit(
                 [&](auto&& arg) {
                     return arg.lsn > page_lsn;
