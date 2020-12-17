@@ -945,7 +945,7 @@ bool LogManager::rollback(int transaction_id)
                 BufferController::instance().put(record.table_id,
                                                  record.page_number, page);
                 now = record.prev_lsn;
-                break;
+                break; 
             }
 
             case LogType::COMPENSATE:
