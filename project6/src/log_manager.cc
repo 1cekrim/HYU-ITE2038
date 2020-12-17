@@ -341,7 +341,7 @@ int64_t LogBuffer::append(const LogRecord &record)
             std::cout << "a" << rec.lsn << "/" << buffer_index <<" ";
         },
         buffer[buffer_index]);
-
+ 
     return my_lsn;
 }
 
