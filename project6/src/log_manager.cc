@@ -311,6 +311,11 @@ int64_t LogBuffer::append(const LogRecord &record)
     std::unique_lock<std::mutex> value_latch_lock{value_latch};
     int my_lsn = last_lsn;
     last_lsn += get_log_record_size(record);
+    if (int a = last_lsn - my_lsn; a != 28 && a != 288 && a != 296)
+    {
+        std::cout << "invalid a: " << a << std::endl;
+        exit(-1);
+    }
     int buffer_index = buffer_tail++;
 
     // TODO: buffer_index 넘치면 flush
@@ -331,6 +336,7 @@ int64_t LogBuffer::append(const LogRecord &record)
     std::visit(
         [&](auto &&rec) {
             rec.lsn = my_lsn;
+            std::cout << "a" << rec.lsn << "/" << buffer_index <<" ";
         },
         buffer[buffer_index]);
 
@@ -375,7 +381,7 @@ void LogBuffer::flush(bool from_append)
                     std::cout << "visit trx 0" << std::endl;
                     exit(-1);
                 }
-                std::cout << rec.lsn << ' ';
+                std::cout << "f" << rec.lsn << "/" << i <<" ";
                 pwrite(fd, &rec, sizeof(rec), rec.lsn);
             },
             buffer[i]);
@@ -429,7 +435,7 @@ bool LogBuffer::flush_prev_lsn(int64_t page_lsn)
                     std::cout << "visit trx 0" << std::endl;
                     exit(-1);
                 } 
-                std::cout << rec.lsn << ' ';
+                std::cout << "p" << rec.lsn << "/" << i <<" ";
                 pwrite(fd, &rec, sizeof(rec), rec.lsn);
             },
             buffer[i]);
