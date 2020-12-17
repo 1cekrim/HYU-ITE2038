@@ -143,7 +143,7 @@ class LogBuffer
     void open(const std::string& log_path);
     // buffer에 LogRecord를 추가한 뒤, 추가된 rec의 lsn을 반환
     int64_t append(const LogRecord& rec);
-    void flush(bool from_append = false);
+    void flush();
     bool flush_prev_lsn(int64_t page_lsn);
     void reset();
     void truncate();
@@ -158,6 +158,8 @@ class LogBuffer
     std::array<LogRecord, LOG_BUFFER_SIZE> buffer;
     std::mutex value_latch;
     int fd;
+    
+    void flush_without_value_latch_lock();
 };
 
 class LogReader

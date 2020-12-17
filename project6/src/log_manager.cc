@@ -310,7 +310,7 @@ int64_t LogBuffer::append(const LogRecord& record)
     if (buffer_index == LOG_BUFFER_SIZE)
     {
         --buffer_tail;
-        flush(true); 
+        flush_without_value_latch_lock();
 
         buffer_index = buffer_tail++;
     }
@@ -332,22 +332,43 @@ int64_t LogBuffer::append(const LogRecord& record)
     return my_lsn;
 }
 
-void LogBuffer::flush(bool from_append)
+
+void LogBuffer::flush_without_value_latch_lock()
+{
+    std::unique_lock<std::mutex> crit { flush_latch };
+
+    for (int i = buffer_head; i < buffer_tail; ++i)
+    {
+        buffer_latch[i].lock();
+    }
+
+    for (int i = buffer_head; i < buffer_tail; ++i)
+    {
+        std::visit(
+            [&](auto&& rec) {
+                pwrite(fd, &rec, sizeof(rec), rec.lsn);
+            },
+            buffer[i]);
+    }
+
+    for (int i = buffer_head; i < buffer_tail; ++i)
+    {
+        buffer_latch[i].unlock();
+    }
+
+    buffer_tail = 0;
+    buffer_head = 0;
+
+    fsync(fd);
+}
+
+void LogBuffer::flush()
 {
     // flush는 한번에 한 스레드에서만 호출 가능하다.
     std::unique_lock<std::mutex> crit { flush_latch };
 
     // flush 중에는 log가 추가되는 것을 막는다
-    // std::unique_lock<std::mutex> value_latch_lock { value_latch };
-    std::unique_lock<std::mutex> value_latch_lock { value_latch,
-                                                    std::defer_lock };
- 
-    // append 함수에서는 이미 value_latch를 잡고 있으므로, append 함수에서
-    // 호출했을 때는 lock을 걸지 않는다.
-    if (!from_append)
-    {
-        value_latch_lock.lock();
-    }
+    std::unique_lock<std::mutex> value_latch_lock { value_latch };
 
     // 버퍼에 존재하는 모든 로그의 latch를 잠근다.
     // 로그를 작성하는 스레드늨 buffer_tail을 증가시킬 때 buffer_latch를 걸고,
