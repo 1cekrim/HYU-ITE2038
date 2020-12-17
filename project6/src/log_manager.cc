@@ -466,10 +466,8 @@ void LogManager::open(const std::string& log_path,
 
 int64_t LogManager::log_wrapper(int transaction_id, const LogRecord& rec)
 {
-    std::unique_lock<std::mutex> trx_table_latch_lock { trx_table_latch };
-    trx_table_latch_lock.unlock();
     auto lsn = buffer.append(rec);
-    trx_table_latch_lock.lock();
+    std::unique_lock<std::mutex> trx_table_latch_lock { trx_table_latch };
     trx_table[transaction_id] = lsn;
     return lsn;
 }
