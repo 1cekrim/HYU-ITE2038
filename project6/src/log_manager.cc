@@ -348,7 +348,7 @@ void LogBuffer::flush(bool from_append)
     // std::unique_lock<std::mutex> value_latch_lock { value_latch };
     std::unique_lock<std::mutex> value_latch_lock { value_latch,
                                                     std::defer_lock };
-
+ 
     // append 함수에서는 이미 value_latch를 잡고 있으므로, append 함수에서
     // 호출했을 때는 lock을 걸지 않는다.
     if (!from_append)
