@@ -436,7 +436,7 @@ bool LogBuffer::flush_prev_lsn(int64_t page_lsn)
                 pwrite(fd, &rec, sizeof(rec), rec.lsn);
             },
             buffer[i]);
-    }
+    } 
 
     // latch를 푼다.
     for (int i = buffer_head; i < border; ++i)
