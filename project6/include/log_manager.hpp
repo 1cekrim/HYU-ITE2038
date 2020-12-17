@@ -161,7 +161,7 @@ class LogBuffer
 };
 
 class LogReader
-{
+{ 
  public:
     LogReader(const std::string& log_path, int64_t start_lsn);
     LogReader(const std::string& log_path);
