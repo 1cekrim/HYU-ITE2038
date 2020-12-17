@@ -375,6 +375,7 @@ void LogBuffer::flush(bool from_append)
                     std::cout << "visit trx 0" << std::endl;
                     exit(-1);
                 }
+                std::cout << rec.lsn << ' ';
                 pwrite(fd, &rec, sizeof(rec), rec.lsn);
             },
             buffer[i]);
@@ -428,6 +429,7 @@ bool LogBuffer::flush_prev_lsn(int64_t page_lsn)
                     std::cout << "visit trx 0" << std::endl;
                     exit(-1);
                 } 
+                std::cout << rec.lsn << ' ';
                 pwrite(fd, &rec, sizeof(rec), rec.lsn);
             },
             buffer[i]);
