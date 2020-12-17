@@ -813,7 +813,7 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
     std::cout << "all end" << std::endl;
 
     return true;
-}
+} 
 
 int64_t LogManager::begin_log(int transaction_id)
 {
