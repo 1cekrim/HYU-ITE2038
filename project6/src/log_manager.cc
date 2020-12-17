@@ -509,7 +509,7 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
                 {
                     // 지워줌
                     winners.erase(it);
-                }
+                } 
                 losers.emplace_back(target);
                 // std::cout << "begin end" << std::endl;
             }
