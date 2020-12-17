@@ -102,9 +102,9 @@ constexpr std::size_t get_log_record_size(const LogRecord& rec)
         case 2:
             return sizeof(CompensateLogRecord);
     }
-    DB_CRASH(-1, "invalid LogRecord error");
+    exit(-1);
     return 0;
-}  
+}
 
 constexpr int64_t get_log_record_lsn(const LogRecord& rec)
 {
@@ -117,7 +117,7 @@ constexpr int64_t get_log_record_lsn(const LogRecord& rec)
         case 2:
             return std::get<CompensateLogRecord>(rec).lsn;
     }
-    DB_CRASH(-1, "invalid LogRecord error");
+    exit(-1);
     return 0;
 }
 
@@ -132,7 +132,7 @@ constexpr int32_t get_log_record_trx(const LogRecord& rec)
         case 2:
             return std::get<CompensateLogRecord>(rec).transaction_id;
     }
-    DB_CRASH(-1, "invalid LogRecord error");
+    exit(-1);
     return 0;
 }
 
@@ -163,7 +163,7 @@ class LogBuffer
 };
 
 class LogReader
-{ 
+{
  public:
     LogReader(const std::string& log_path, int64_t start_lsn);
     LogReader(const std::string& log_path);
@@ -172,6 +172,7 @@ class LogReader
     std::tuple<LogType, LogRecord> next() const;
     std::tuple<LogType, LogRecord> prev() const;
     void set_lsn(int64_t lsn);
+
  private:
     int fd;
     mutable int64_t now_lsn;
@@ -192,7 +193,7 @@ class LogManager
     int64_t update_log(int transaction_id, int table_id, pagenum_t page_number,
                        int offset, int data_length, const valType& old_image,
                        const valType& new_image);
- 
+
     int64_t log_wrapper(int transaction_id, const LogRecord& rec);
 
     void open(const std::string& log_path, const std::string& logmsg_path);
