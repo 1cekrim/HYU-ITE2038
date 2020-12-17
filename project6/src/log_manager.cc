@@ -315,7 +315,7 @@ int64_t LogBuffer::append(const LogRecord& record)
     if (buffer_index == LOG_BUFFER_SIZE)
     {
         --buffer_tail;
-        flush(true);
+        flush(true); 
 
         std::cout << "q" << buffer_tail << ' ';
 
