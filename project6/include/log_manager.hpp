@@ -47,7 +47,7 @@ struct CommonLogRecord
     int64_t lsn;
     int64_t prev_lsn;
     int32_t transaction_id;
-    LogType type;
+    LogType type = LogType::INVALID;
     int32_t log_size;
 } __attribute__((packed));
 
@@ -56,7 +56,7 @@ struct UpdateLogRecord
     int64_t lsn;
     int64_t prev_lsn;
     int32_t transaction_id;
-    LogType type;
+    LogType type = LogType::INVALID;
     int32_t table_id;
     int64_t page_number;
     int32_t offset;
@@ -71,7 +71,7 @@ struct CompensateLogRecord
     int64_t lsn;
     int64_t prev_lsn;
     int32_t transaction_id;
-    LogType type;
+    LogType type = LogType::INVALID;
     int32_t table_id;
     int64_t page_number;
     int32_t offset;

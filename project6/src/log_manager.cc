@@ -423,6 +423,11 @@ bool LogBuffer::flush_prev_lsn(int64_t page_lsn)
     {
         std::visit(
             [&](auto &&rec) {
+                if (rec.transaction_id == 0)
+                {
+                    std::cout << "visit trx 0" << std::endl;
+                    exit(-1);
+                }
                 pwrite(fd, &rec, sizeof(rec), rec.lsn);
             },
             buffer[i]);
