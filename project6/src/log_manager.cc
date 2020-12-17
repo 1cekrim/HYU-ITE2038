@@ -370,6 +370,11 @@ void LogBuffer::flush(bool from_append)
     {
         std::visit(
             [&](auto &&rec) {
+                if (rec.transaction_id == 0)
+                {
+                    std::cout << "visit trx 0" << std::endl;
+                    exit(-1);
+                }
                 pwrite(fd, &rec, sizeof(rec), rec.lsn);
             },
             buffer[i]);
@@ -494,12 +499,17 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
  
             last_lsn = get_log_record_lsn(rec);
             std::cout << "last lsn: " << last_lsn << '\n';
+            if (last_lsn == 0)
+            {
+                std::cout << std::get<CommonLogRecord>(rec) << std::endl;
+            }
             trx_table[get_log_record_trx(rec)] = last_lsn;
 
             if (type == LogType::BEGIN)
             {
                 // std::cout << "begin" << std::endl;
                 auto target = std::get<CommonLogRecord>(rec).transaction_id;
+                 
                 // std::cout << "btarget: " << target << std::endl;
                 auto it = std::find_if(winners.begin(), winners.end(),
                                        [target](int v) {
