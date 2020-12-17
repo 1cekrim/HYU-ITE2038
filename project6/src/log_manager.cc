@@ -310,7 +310,7 @@ int64_t LogBuffer::append(const LogRecord& record)
         exit(-1);
     }
     int buffer_index = buffer_tail++;
-
+ 
     // TODO: buffer_index 넘치면 flush
     if (buffer_index == LOG_BUFFER_SIZE)
     {
