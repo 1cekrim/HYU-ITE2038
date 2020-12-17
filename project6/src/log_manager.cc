@@ -324,6 +324,8 @@ int64_t LogBuffer::append(const LogRecord &record)
         --buffer_tail;
         flush(true);
 
+        std::cout << "q" << buffer_tail << ' ';
+
         buffer_index = buffer_tail++;
     }
 
@@ -412,6 +414,7 @@ bool LogBuffer::flush_prev_lsn(int64_t page_lsn)
     // buffer_latch를 잠그면서, page_lsn보다 큰 로그가 처음으로 등장하는 위치를
     // 찾는다.
     int border = buffer_head;
+    std::cout << "l" << buffer_head << "|" << buffer_tail << " ";
     for (border = buffer_head; border < buffer_tail; ++border)
     {
         buffer_latch[border].lock();
