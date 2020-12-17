@@ -104,7 +104,7 @@ constexpr std::size_t get_log_record_size(const LogRecord& rec)
     }
     exit(-1);
     return 0;
-}
+}  
 
 constexpr int64_t get_log_record_lsn(const LogRecord& rec)
 {
