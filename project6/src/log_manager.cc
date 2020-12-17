@@ -489,8 +489,6 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
 
     int64_t last_lsn = 0;
 
-    // std::cout << "analysus start" << std::endl;
-
     // analysis
     {
         LogReader reader { log_path };

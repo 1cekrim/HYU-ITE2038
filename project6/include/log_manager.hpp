@@ -190,7 +190,7 @@ class LogManager
     int64_t update_log(int transaction_id, int table_id, pagenum_t page_number,
                        int offset, int data_length, const valType& old_image,
                        const valType& new_image);
-
+ 
     int64_t log_wrapper(int transaction_id, const LogRecord& rec);
 
     void open(const std::string& log_path, const std::string& logmsg_path);
