@@ -668,7 +668,7 @@ bool BPTree::find(keyType key, record_t &ret, int transaction_id)
     {
         return false;
     }
-
+ 
     ret = leaf.node.get<record_t>(i);
 
     return true;
