@@ -19,7 +19,7 @@ scoped_node_latch::scoped_node_latch(int manager_id, nodeId_t id)
 scoped_node_latch::~scoped_node_latch()
 {
     BufferController::instance().release_frame(manager_id, id);
-}
+} 
 
 void scoped_node_latch::lock()
 {
