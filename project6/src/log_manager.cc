@@ -817,7 +817,12 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
 
 int64_t LogManager::begin_log(int transaction_id)
 {
-    std::cout << "begin log: " << transaction_id << std::endl;
+    // std::cout << "begin log: " << transaction_id << std::endl;
+    if (transaction_id == 0)
+    {
+        std::cout << "invalid transaction_id" << std::endl;
+        exit(-1);
+    }
     CommonLogRecord record{INVALID_LSN, INVALID_LSN, transaction_id,
                            LogType::BEGIN, sizeof(CommonLogRecord)};
     return log_wrapper(transaction_id, record);
