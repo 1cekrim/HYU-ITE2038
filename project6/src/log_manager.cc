@@ -377,7 +377,7 @@ void LogBuffer::flush(bool from_append)
                     std::cout << "visit trx 0" << std::endl;
                     exit(-1);
                 }
-                std::cout << "f" << rec.lsn << "/" << i << " ";
+                // std::cout << "f" << rec.lsn << "/" << i << " ";
                 pwrite(fd, &rec, sizeof(rec), rec.lsn);
             },
             buffer[i]);
