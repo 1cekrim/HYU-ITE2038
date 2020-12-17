@@ -516,7 +516,7 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
 
             if (type == LogType::COMMIT || type == LogType::ROLLBACK)
             {
-                // std::cout << "commit" << std::endl;
+                // std::cout << "commit" << std::endl; 
                 auto target = std::get<CommonLogRecord>(rec).transaction_id;
                 // std::cout << "ctarget: " << target << std::endl;
                 for (auto i : losers)
