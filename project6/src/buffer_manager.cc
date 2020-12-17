@@ -25,9 +25,9 @@ bool BufferManager::close()
     return true;
 }
 
-bool BufferManager::open(const std::string& name)
+bool BufferManager::open(const std::string &name)
 {
-    auto& bc = BufferController::instance();
+    auto &bc = BufferController::instance();
     manager_id = bc.openFileManager(name);
     fileManager = &bc.getFileManager(manager_id);
     CHECK_WITH_LOG(fileManager, false, "buffer manager open failure: %s",
@@ -37,13 +37,13 @@ bool BufferManager::open(const std::string& name)
     return true;
 }
 
-int BufferManager::load(pagenum_t pagenum, page_t& page)
+int BufferManager::load(pagenum_t pagenum, page_t &page)
 {
     int result = BufferController::instance().get(manager_id, pagenum, page);
     return result;
 }
 
-bool BufferManager::commit(pagenum_t pagenum, const page_t& page)
+bool BufferManager::commit(pagenum_t pagenum, const page_t &page)
 {
     return BufferController::instance().put(manager_id, pagenum, page);
 }
@@ -103,7 +103,7 @@ bool BufferController::init_buffer(std::size_t buffer_size)
 
     buffer = std::make_unique<std::vector<frame_t>>(buffer_size);
     CHECK_WITH_LOG(buffer.get(), false, "alloc buffer failure");
-    for (auto& frame : *buffer)
+    for (auto &frame : *buffer)
     {
         frame.init();
     }
@@ -145,7 +145,7 @@ bool BufferController::clear_buffer()
     return true;
 }
 
-int BufferController::openFileManager(const std::string& name)
+int BufferController::openFileManager(const std::string &name)
 {
     // project6 명세대로, DATA[file_id]
     if (name.substr(0, 4) != "DATA")
@@ -160,7 +160,7 @@ int BufferController::openFileManager(const std::string& name)
     {
         id = std::stoi(number);
     }
-    catch (std::invalid_argument&)
+    catch (std::invalid_argument &)
     {
         std::cerr << "name format: DATA[file_id], " << name << '\n';
         return -1;
@@ -171,7 +171,7 @@ int BufferController::openFileManager(const std::string& name)
         return id;
     }
 
-    auto& fm = fileManagers[id] = std::make_unique<FileManager>();
+    auto &fm = fileManagers[id] = std::make_unique<FileManager>();
     CHECK_RET(fm->open(name), -1);
 
     return id;
@@ -188,7 +188,7 @@ int BufferController::openFileManager(const std::string& name)
     // return nameFileManagerMap[name];
 }
 
-FileManager& BufferController::getFileManager(int file_id)
+FileManager &BufferController::getFileManager(int file_id)
 {
     return *fileManagers.at(file_id);
 }
@@ -213,7 +213,7 @@ void BufferController::release_frame(int file_id, pagenum_t pagenum)
         }
     }
 
-    auto& frame = buffer->at(index);
+    auto &frame = buffer->at(index);
     --frame.pin;
     frame.mtx.unlock();
 }
@@ -233,7 +233,7 @@ void BufferController::retain_frame(int file_id, pagenum_t pagenum)
         }
     }
 
-    auto& frame = buffer->at(index);
+    auto &frame = buffer->at(index);
     frame.mtx.lock();
     ++frame.pin;
 }
@@ -252,7 +252,7 @@ void BufferController::release_frame_shared(int file_id, pagenum_t pagenum)
             return;
         }
     }
-    auto& frame = buffer->at(index);
+    auto &frame = buffer->at(index);
     --frame.pin;
     frame.mtx.unlock_shared();
 }
@@ -272,12 +272,12 @@ void BufferController::retain_frame_shared(int file_id, pagenum_t pagenum)
         }
     }
 
-    auto& frame = buffer->at(index);
+    auto &frame = buffer->at(index);
     frame.mtx.lock_shared();
     ++frame.pin;
 }
 
-int BufferController::get(int file_id, pagenum_t pagenum, page_t& page)
+int BufferController::get(int file_id, pagenum_t pagenum, page_t &page)
 {
     int index = find(file_id, pagenum);
     if (index == INVALID_BUFFER_INDEX)
@@ -288,7 +288,7 @@ int BufferController::get(int file_id, pagenum_t pagenum, page_t& page)
     CHECK_WITH_LOG(index != INVALID_BUFFER_INDEX, INVALID_BUFFER_INDEX,
                    "Buffer load failure. file: %d / pagenum: %ld", file_id,
                    pagenum);
-    auto& buffer_frame = (*buffer)[index];
+    auto &buffer_frame = (*buffer)[index];
     page = buffer_frame;
 
     CHECK_RET(update_recently_used(index, buffer_frame, true),
@@ -297,7 +297,7 @@ int BufferController::get(int file_id, pagenum_t pagenum, page_t& page)
     return index;
 }
 
-bool BufferController::put(int file_id, pagenum_t pagenum, const page_t& frame)
+bool BufferController::put(int file_id, pagenum_t pagenum, const page_t &frame)
 {
     int index = find(file_id, pagenum);
     if (index == INVALID_BUFFER_INDEX)
@@ -308,7 +308,7 @@ bool BufferController::put(int file_id, pagenum_t pagenum, const page_t& frame)
     CHECK_WITH_LOG(index != INVALID_BUFFER_INDEX, INVALID_BUFFER_INDEX,
                    "Buffer load failure. file: %d / pagenum: %ld", file_id,
                    pagenum);
-    auto& buffer_frame = (*buffer)[index];
+    auto &buffer_frame = (*buffer)[index];
 
     buffer_frame.change_page(frame);
     buffer_frame.is_dirty = true;
@@ -321,7 +321,7 @@ bool BufferController::put(int file_id, pagenum_t pagenum, const page_t& frame)
 
 int BufferController::create(int file_id)
 {
-    auto& fileManager = getFileManager(file_id);
+    auto &fileManager = getFileManager(file_id);
     auto pagenum = fileManager.create();
 
     int result = load(file_id, pagenum);
@@ -363,7 +363,7 @@ std::size_t BufferController::capacity() const
     return buffer->size();
 }
 
-bool BufferController::update_recently_used(int buffer_index, frame_t& frame,
+bool BufferController::update_recently_used(int buffer_index, frame_t &frame,
                                             bool unlink)
 {
     if (unlink)
@@ -388,7 +388,7 @@ bool BufferController::update_recently_used(int buffer_index, frame_t& frame,
     return true;
 }
 
-bool BufferController::unlink_frame(int buffer_index, frame_t& frame)
+bool BufferController::unlink_frame(int buffer_index, frame_t &frame)
 {
     if (frame.prev != INVALID_BUFFER_INDEX)
     {
@@ -443,7 +443,7 @@ bool BufferController::sync(bool lock)
     {
         return true;
     }
-    for (auto& frame : *buffer)
+    for (auto &frame : *buffer)
     {
         if (frame.valid() && frame.is_dirty)
         {
@@ -462,7 +462,7 @@ bool BufferController::fsync(int file_id, bool free_flag)
     {
         return true;
     }
-    for (auto& frame : *buffer)
+    for (auto &frame : *buffer)
     {
         if (frame.valid() && frame.file_id == file_id)
         {
@@ -512,7 +512,7 @@ int BufferController::frame_alloc()
 
 bool BufferController::frame_free(int buffer_index, bool push_free_indexes_flag)
 {
-    auto& frame = buffer->at(buffer_index);
+    auto &frame = buffer->at(buffer_index);
     // 지금은 병렬 x
     if (frame.is_use_now())
     {
@@ -544,10 +544,10 @@ bool BufferController::frame_free(int buffer_index, bool push_free_indexes_flag)
 
 int BufferController::load(int file_id, pagenum_t pagenum)
 {
-    auto& fileManager = getFileManager(file_id);
+    auto &fileManager = getFileManager(file_id);
     int index = frame_alloc();
     CHECK_RET(index != INVALID_BUFFER_INDEX, INVALID_BUFFER_INDEX);
-    auto& frame = buffer->at(index);
+    auto &frame = buffer->at(index);
 
     frame_t page;
     CHECK_WITH_LOG(fileManager.load(pagenum, page), INVALID_BUFFER_INDEX,
@@ -564,9 +564,9 @@ int BufferController::load(int file_id, pagenum_t pagenum)
     return index;
 }
 
-bool BufferController::commit(int file_id, const frame_t& frame)
+bool BufferController::commit(int file_id, const frame_t &frame)
 {
-    auto& fileManager = getFileManager(file_id);
+    auto &fileManager = getFileManager(file_id);
     // static db에 page를 작성하기 전에, 해당 page의 page lsn보다 이전에 작성된
     // 로그들을 log buffer에서 flush 한다.
     LogManager::instance().flush_prev_lsn(frame.nodePageHeader().pageLsn);
