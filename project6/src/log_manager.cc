@@ -491,7 +491,7 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
             {
                 break;
             }
-
+ 
             last_lsn = get_log_record_lsn(rec);
             std::cout << "last lsn: " << last_lsn << '\n';
             trx_table[get_log_record_trx(rec)] = last_lsn;
