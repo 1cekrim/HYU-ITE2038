@@ -363,7 +363,7 @@ void LogBuffer::flush(bool from_append)
     {
         buffer_latch[i].lock();
     }
-
+ 
     // O_APPEND 옵션이 있어 로그가 파일 맨 뒤에 작성되므로 flushed_lsn을
     // 신경쓰지 않아도 된다.
     for (int i = buffer_head; i < buffer_tail; ++i)
