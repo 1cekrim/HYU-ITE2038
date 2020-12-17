@@ -398,7 +398,7 @@ void LogBuffer::flush(bool from_append)
 }
 
 bool LogBuffer::flush_prev_lsn(int64_t page_lsn)
-{
+{ 
     // flush 함수는 한번에 한 스레드에서만 호출 가능하다.
     std::unique_lock<std::mutex> crit { flush_latch };
 
