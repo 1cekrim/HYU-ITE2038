@@ -67,13 +67,13 @@ void BPTree::set_table(int table_id)
     this->table_id = table_id;
 }
 
-bool BPTree::open_table(const std::string& filename)
+bool BPTree::open_table(const std::string &filename)
 {
     CHECK_WITH_LOG(manager.open(filename), false, "open table failure");
     return true;
 }
 
-int BPTree::char_to_valType(valType& dst, const char* src) const
+int BPTree::char_to_valType(valType &dst, const char *src) const
 {
     std::fill(std::begin(dst), std::end(dst), 0);
     std::copy_n(src, std::min(static_cast<int>(strlen(src)), 119),
@@ -86,7 +86,7 @@ int BPTree::get_table_id() const
     return table_id;
 }
 
-bool BPTree::insert(keyType key, const valType& value)
+bool BPTree::insert(keyType key, const valType &value)
 {
     // 중복을 허용하지 않음
     if (exist_key(key))
@@ -95,7 +95,7 @@ bool BPTree::insert(keyType key, const valType& value)
     }
 
     record_t record;
-    record = { key, value };
+    record = {key, value};
 
     if (!is_valid(manager.root()))
     {
@@ -120,11 +120,10 @@ bool BPTree::insert(keyType key, const valType& value)
     return result;
 }
 
-bool BPTree::update(keyType key, const valType& value, int transaction_id)
+bool BPTree::update(keyType key, const valType &value, int transaction_id)
 {
-    std::unique_lock<std::mutex> buffer_latch {
-        BufferController::instance().mtx
-    };
+    std::unique_lock<std::mutex> buffer_latch{
+        BufferController::instance().mtx};
 
     if (!exist_key(key))
     {
@@ -134,37 +133,36 @@ bool BPTree::update(keyType key, const valType& value, int transaction_id)
     node_tuple leaf;
     CHECK(find_leaf(key, leaf));
 
-    scoped_node_latch latch { manager.get_manager_id(), leaf.id };
+    scoped_node_latch latch{manager.get_manager_id(), leaf.id};
 
     if (transaction_id != TransactionManager::invliad_transaction_id)
     {
-        std::unique_lock<std::mutex> trxmanager_latch {
-            TransactionManager::instance().mtx
-        };
-        auto& trx = TransactionManager::instance().get(transaction_id);
+        std::unique_lock<std::mutex> trxmanager_latch{
+            TransactionManager::instance().mtx};
+        auto &trx = TransactionManager::instance().get(transaction_id);
         auto [lock, state] = TransactionManager::instance().lock_acquire(
             get_table_id(), key, transaction_id, LockMode::EXCLUSIVE);
         switch (state)
         {
-            case LockState::INVALID:
-                return false;
-            case LockState::ACQUIRED:
-                break;
-            case LockState::ABORTED:
-                // abort 시에도 page latch를 계속 잡고 있어야 한다.
-                // abort 할 때 해당 페이지가 중간에 eviction 되면 버그가
-                // 발생한다.
-                TransactionManager::instance().abort(transaction_id);
-                return false;
-            case LockState::WAITING:
-                trx.mtx.lock();
-                trxmanager_latch.unlock();
-                latch.unlock();
-                buffer_latch.unlock();
-                trx.mtx.unlock();
-                TransactionManager::instance().lock_wait(lock);
-                buffer_latch.lock();
-                latch.lock();
+        case LockState::INVALID:
+            return false;
+        case LockState::ACQUIRED:
+            break;
+        case LockState::ABORTED:
+            // abort 시에도 page latch를 계속 잡고 있어야 한다.
+            // abort 할 때 해당 페이지가 중간에 eviction 되면 버그가
+            // 발생한다.
+            TransactionManager::instance().abort(transaction_id);
+            return false;
+        case LockState::WAITING:
+            trx.mtx.lock();
+            trxmanager_latch.unlock();
+            latch.unlock();
+            buffer_latch.unlock();
+            trx.mtx.unlock();
+            TransactionManager::instance().lock_wait(lock);
+            buffer_latch.lock();
+            latch.lock();
         }
     }
 
@@ -186,10 +184,10 @@ bool BPTree::update(keyType key, const valType& value, int transaction_id)
     return true;
 }
 
-bool BPTree::insert_into_leaf(node_tuple& leaf, const record_t& rec)
+bool BPTree::insert_into_leaf(node_tuple &leaf, const record_t &rec)
 {
     int insertion_point =
-        leaf.node.satisfy_condition_first<record_t>([&rec](auto& now) {
+        leaf.node.satisfy_condition_first<record_t>([&rec](auto &now) {
             return now.key >= rec.key;
         });
     leaf.node.insert(rec, insertion_point);
@@ -199,13 +197,13 @@ bool BPTree::insert_into_leaf(node_tuple& leaf, const record_t& rec)
     return true;
 }
 
-bool BPTree::insert_into_leaf_after_splitting(node_tuple& leaf,
-                                              const record_t& rec)
+bool BPTree::insert_into_leaf_after_splitting(node_tuple &leaf,
+                                              const record_t &rec)
 {
-    node_tuple new_leaf { create_node() };
+    node_tuple new_leaf{create_node()};
     new_leaf.node.set_is_leaf(true);
     int insertion_index =
-        leaf.node.satisfy_condition_first<record_t>([&rec](auto& now) {
+        leaf.node.satisfy_condition_first<record_t>([&rec](auto &now) {
             return now.key >= rec.key;
         });
 
@@ -234,8 +232,8 @@ bool BPTree::insert_into_leaf_after_splitting(node_tuple& leaf,
                               new_leaf);
 }
 
-bool BPTree::insert_into_parent(node_tuple& left, keyType key,
-                                node_tuple& right)
+bool BPTree::insert_into_parent(node_tuple &left, keyType key,
+                                node_tuple &right)
 {
     node_tuple parent;
     parent.id = left.node.parent();
@@ -256,7 +254,7 @@ bool BPTree::insert_into_parent(node_tuple& left, keyType key,
     return insert_into_node_after_splitting(parent, left_index, key, right);
 }
 
-int BPTree::get_left_index(const node_t& parent, nodeId_t left_id) const
+int BPTree::get_left_index(const node_t &parent, nodeId_t left_id) const
 {
     if (parent.leftmost() == left_id)
     {
@@ -264,13 +262,13 @@ int BPTree::get_left_index(const node_t& parent, nodeId_t left_id) const
     }
 
     int left_index =
-        parent.satisfy_condition_first<internal_t>([&left_id](auto& now) {
+        parent.satisfy_condition_first<internal_t>([&left_id](auto &now) {
             return now.node_id == left_id;
         });
     return left_index + 1;
 }
 
-bool BPTree::load_node(node_tuple& target)
+bool BPTree::load_node(node_tuple &target)
 {
     int result = manager.load(target.id, target.node);
     CHECK_WITH_LOG(result != INVALID_BUFFER_INDEX, false,
@@ -278,21 +276,21 @@ bool BPTree::load_node(node_tuple& target)
     return true;
 }
 
-bool BPTree::commit_node(nodeId_t node_id, const node_t& node)
+bool BPTree::commit_node(nodeId_t node_id, const node_t &node)
 {
     CHECK_WITH_LOG(manager.commit(node_id, node), false,
                    "commit node failure: %ld", node_id);
     return true;
 }
 
-bool BPTree::commit_node(const node_tuple& target)
+bool BPTree::commit_node(const node_tuple &target)
 {
     CHECK_WITH_LOG(manager.commit(target.id, target.node), false,
                    "commit node failure: %ld", target.id);
     return true;
 }
 
-bool BPTree::free_node(node_tuple& target)
+bool BPTree::free_node(node_tuple &target)
 {
     CHECK_WITH_LOG(manager.free(target.id), false, "free page failure: %ld",
                    target.id);
@@ -307,10 +305,10 @@ nodeId_t BPTree::create_node()
     return t;
 }
 
-bool BPTree::insert_into_new_root(node_tuple& left, keyType key,
-                                  node_tuple& right)
+bool BPTree::insert_into_new_root(node_tuple &left, keyType key,
+                                  node_tuple &right)
 {
-    node_tuple root = { create_node() };
+    node_tuple root = {create_node()};
     CHECK(root);
 
     root.node.set_leftmost(left.id);
@@ -328,21 +326,21 @@ bool BPTree::insert_into_new_root(node_tuple& left, keyType key,
     return true;
 }
 
-bool BPTree::insert_into_node(node_tuple& parent, int left_index, keyType key,
-                              node_tuple& right)
+bool BPTree::insert_into_node(node_tuple &parent, int left_index, keyType key,
+                              node_tuple &right)
 {
     CHECK_WITH_LOG(left_index >= 0 && left_index < 248, false, "left_index: %d",
                    left_index);
-    parent.node.insert<internal_t>({ key, right.id }, left_index);
+    parent.node.insert<internal_t>({key, right.id}, left_index);
     CHECK(commit_node(parent));
     return true;
 }
 
-bool BPTree::insert_into_node_after_splitting(node_tuple& parent,
+bool BPTree::insert_into_node_after_splitting(node_tuple &parent,
                                               int left_index, keyType key,
-                                              node_tuple& target)
+                                              node_tuple &target)
 {
-    node_tuple right = { create_node() };
+    node_tuple right = {create_node()};
     CHECK(right);
 
     std::vector<internal_t> temp;
@@ -350,7 +348,7 @@ bool BPTree::insert_into_node_after_splitting(node_tuple& parent,
 
     auto back = std::back_inserter(temp);
     parent.node.range_copy<internal_t>(back, 0, left_index);
-    back = { key, target.id };
+    back = {key, target.id};
     parent.node.range_copy<internal_t>(back, left_index);
 
     int split = cut(internal_order);
@@ -365,7 +363,7 @@ bool BPTree::insert_into_node_after_splitting(node_tuple& parent,
     right.node.set_parent(parent.node.parent());
 
     CHECK(update_parent_with_commit(right.node.leftmost(), right.id));
-    for (auto& tmp : right.node.range<internal_t>())
+    for (auto &tmp : right.node.range<internal_t>())
     {
         CHECK(update_parent_with_commit(tmp.node_id, right.id));
     }
@@ -391,7 +389,7 @@ bool BPTree::delete_key(keyType key)
     return true;
 }
 
-bool BPTree::delete_entry(node_tuple& target, keyType key)
+bool BPTree::delete_entry(node_tuple &target, keyType key)
 {
     CHECK_WITH_LOG(remove_entry_from_node(target, key), false,
                    "remove entry from node failure: %ld", key);
@@ -458,7 +456,7 @@ bool BPTree::delete_entry(node_tuple& target, keyType key)
     }
 }
 
-bool BPTree::remove_entry_from_node(node_tuple& target, keyType key)
+bool BPTree::remove_entry_from_node(node_tuple &target, keyType key)
 {
     if (target.node.is_leaf())
     {
@@ -476,7 +474,7 @@ bool BPTree::remove_entry_from_node(node_tuple& target, keyType key)
     return true;
 }
 
-bool BPTree::adjust_root(node_tuple& root)
+bool BPTree::adjust_root(node_tuple &root)
 {
     if (root.node.number_of_keys() > 0)
     {
@@ -502,7 +500,7 @@ bool BPTree::adjust_root(node_tuple& root)
 
 bool BPTree::update_parent_with_commit(nodeId_t target_id, nodeId_t parent_id)
 {
-    node_tuple temp { target_id };
+    node_tuple temp{target_id};
     CHECK(load_node(temp));
     temp.node.set_parent(parent_id);
     CHECK(commit_node(temp));
@@ -510,12 +508,12 @@ bool BPTree::update_parent_with_commit(nodeId_t target_id, nodeId_t parent_id)
     return true;
 }
 
-bool BPTree::coalesce_nodes(node_tuple& target, node_tuple& neighbor,
-                            node_tuple& parent, int k_prime)
+bool BPTree::coalesce_nodes(node_tuple &target, node_tuple &neighbor,
+                            node_tuple &parent, int k_prime)
 {
     if (target.node.is_leaf())
     {
-        for (auto& rec : target.node.range<record_t>())
+        for (auto &rec : target.node.range<record_t>())
         {
             neighbor.node.push_back(rec);
         }
@@ -525,7 +523,7 @@ bool BPTree::coalesce_nodes(node_tuple& target, node_tuple& neighbor,
     {
         neighbor.node.emplace_back<internal_t>(k_prime, target.node.leftmost());
         CHECK(update_parent_with_commit(target.node.leftmost(), neighbor.id));
-        for (auto& internal : target.node.range<internal_t>())
+        for (auto &internal : target.node.range<internal_t>())
         {
             neighbor.node.push_back(internal);
             CHECK(update_parent_with_commit(internal.node_id, neighbor.id));
@@ -539,8 +537,8 @@ bool BPTree::coalesce_nodes(node_tuple& target, node_tuple& neighbor,
     return true;
 }
 
-bool BPTree::redistribute_nodes(node_tuple& target, node_tuple& neighbor,
-                                node_tuple& parent, int k_prime,
+bool BPTree::redistribute_nodes(node_tuple &target, node_tuple &neighbor,
+                                node_tuple &parent, int k_prime,
                                 int k_prime_index, int neighbor_index)
 {
     if (neighbor_index != -1)
@@ -548,10 +546,10 @@ bool BPTree::redistribute_nodes(node_tuple& target, node_tuple& neighbor,
         // left neighbor
         if (!target.node.is_leaf())
         {
-            target.node.insert<internal_t>({ k_prime, target.node.leftmost() },
+            target.node.insert<internal_t>({k_prime, target.node.leftmost()},
                                            0);
 
-            auto& new_one = neighbor.node.back<internal_t>();
+            auto &new_one = neighbor.node.back<internal_t>();
 
             parent.node.get<internal_t>(k_prime_index).key = new_one.key;
             target.node.set_leftmost(new_one.node_id);
@@ -574,7 +572,7 @@ bool BPTree::redistribute_nodes(node_tuple& target, node_tuple& neighbor,
             target.node.emplace_back<internal_t>(k_prime,
                                                  neighbor.node.leftmost());
 
-            auto& leftmost = neighbor.node.first<internal_t>();
+            auto &leftmost = neighbor.node.first<internal_t>();
             parent.node.get<internal_t>(k_prime_index).key = leftmost.key;
             neighbor.node.set_leftmost(leftmost.node_id);
 
@@ -618,11 +616,10 @@ bool BPTree::exist_key(keyType key)
     return true;
 }
 
-bool BPTree::find(keyType key, record_t& ret, int transaction_id)
+bool BPTree::find(keyType key, record_t &ret, int transaction_id)
 {
-    std::unique_lock<std::mutex> buffer_latch {
-        BufferController::instance().mtx
-    };
+    std::unique_lock<std::mutex> buffer_latch{
+        BufferController::instance().mtx};
 
     node_tuple leaf;
     if (!find_leaf(key, leaf))
@@ -630,38 +627,37 @@ bool BPTree::find(keyType key, record_t& ret, int transaction_id)
         return false;
     }
 
-    scoped_node_latch_shared latch_shared { manager.get_manager_id(), leaf.id };
+    scoped_node_latch_shared latch_shared{manager.get_manager_id(), leaf.id};
 
     if (transaction_id != TransactionManager::invliad_transaction_id)
     {
-        std::unique_lock<std::mutex> trx_latch {
-            TransactionManager::instance().mtx
-        };
+        std::unique_lock<std::mutex> trx_latch{
+            TransactionManager::instance().mtx};
 
-        auto& trx = TransactionManager::instance().get(transaction_id);
+        auto &trx = TransactionManager::instance().get(transaction_id);
 
         auto [lock, state] = TransactionManager::instance().lock_acquire(
             get_table_id(), key, transaction_id, LockMode::SHARED);
         switch (state)
         {
-            case LockState::INVALID:
-                return false;
-            case LockState::ACQUIRED:
-                break;
-            case LockState::ABORTED:
-                // abort 시에는 page latch를 잡고 있어야 할 이유가 없다.
-                // latch_shared.unlock_shared();
-                TransactionManager::instance().abort(transaction_id);
-                return false;
-            case LockState::WAITING:
-                trx.mtx.lock();
-                trx_latch.unlock();
-                latch_shared.unlock_shared();
-                buffer_latch.unlock();
-                trx.mtx.unlock();
-                TransactionManager::instance().lock_wait(lock);
-                buffer_latch.lock();
-                latch_shared.lock_shared();
+        case LockState::INVALID:
+            return false;
+        case LockState::ACQUIRED:
+            break;
+        case LockState::ABORTED:
+            // abort 시에는 page latch를 잡고 있어야 할 이유가 없다.
+            // latch_shared.unlock_shared();
+            TransactionManager::instance().abort(transaction_id);
+            return false;
+        case LockState::WAITING:
+            trx.mtx.lock();
+            trx_latch.unlock();
+            latch_shared.unlock_shared();
+            buffer_latch.unlock();
+            trx.mtx.unlock();
+            TransactionManager::instance().lock_wait(lock);
+            buffer_latch.lock();
+            latch_shared.lock_shared();
         }
     }
 
@@ -678,7 +674,7 @@ bool BPTree::find(keyType key, record_t& ret, int transaction_id)
     return true;
 }
 
-bool BPTree::find_leaf(keyType key, node_tuple& node)
+bool BPTree::find_leaf(keyType key, node_tuple &node)
 {
     node.id = manager.root();
     if (!is_valid(node.id))
@@ -701,9 +697,9 @@ bool BPTree::find_leaf(keyType key, node_tuple& node)
     return true;
 }
 
-bool BPTree::start_new_tree(const record_t& rec)
+bool BPTree::start_new_tree(const record_t &rec)
 {
-    node_tuple root = { create_node() };
+    node_tuple root = {create_node()};
     root.node.set_is_leaf(true);
     CHECK(root);
 
