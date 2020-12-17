@@ -531,6 +531,7 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
                 if (it == losers.end())
                 {
                     std::cout << std::get<CommonLogRecord>(rec);
+                    exit(-1);
                 }
                 losers.erase(it);
                 winners.emplace_back(target);
