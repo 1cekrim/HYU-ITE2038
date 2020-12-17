@@ -325,7 +325,6 @@ int64_t LogBuffer::append(const LogRecord& record)
     std::visit(
         [&](auto&& rec) {
             rec.lsn = my_lsn;
-            std::cout << rec.lsn << "/" << buffer_index << " ";
         },
         buffer[buffer_index]);
 
@@ -416,7 +415,6 @@ bool LogBuffer::flush_prev_lsn(int64_t page_lsn)
     // buffer_latch를 잠그면서, page_lsn보다 큰 로그가 처음으로 등장하는 위치를
     // 찾는다.
     int border = buffer_head;
-    std::cout << buffer_head << "|" << buffer_tail << " ";
     for (border = buffer_head; border < buffer_tail; ++border)
     { 
         buffer_latch[border].lock(); 
@@ -435,7 +433,6 @@ bool LogBuffer::flush_prev_lsn(int64_t page_lsn)
     {
         std::visit(
             [&](auto&& rec) {
-                std::cout << "p" << rec.lsn << "/" << i << " ";
                 pwrite(fd, &rec, sizeof(rec), rec.lsn);
             },
             buffer[i]);
@@ -507,19 +504,11 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
             }
 
             last_lsn = get_log_record_lsn(rec);
-            std::cout << "last lsn: " << last_lsn << '\n';
-            if (last_lsn == 0)
-            {
-                std::cout << std::get<CommonLogRecord>(rec) << std::endl;
-            }
             trx_table[get_log_record_trx(rec)] = last_lsn;
 
             if (type == LogType::BEGIN)
             {
-                // std::cout << "begin" << std::endl;
                 auto target = std::get<CommonLogRecord>(rec).transaction_id;
-
-                // std::cout << "btarget: " << target << std::endl;
                 auto it = std::find_if(winners.begin(), winners.end(),
                                        [target](int v) {
                                            return v == target;
@@ -530,66 +519,45 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
                     winners.erase(it);
                 }
                 losers.emplace_back(target);
-                // std::cout << "begin end" << std::endl;
             }
 
             if (type == LogType::COMMIT || type == LogType::ROLLBACK)
             {
-                // std::cout << "commit" << std::endl;
                 auto target = std::get<CommonLogRecord>(rec).transaction_id;
-                // std::cout << "ctarget: " << target << std::endl;
-                for (auto i : losers)
-                {
-                    std::cout << i << ' ';
-                }
-                std::cout << std::endl;
                 auto it =
                     std::find_if(losers.begin(), losers.end(), [target](int v) {
                         return v == target;
                     });
-                if (it == losers.end())
-                {
-                    std::cout << std::get<CommonLogRecord>(rec);
-                    exit(-1);
-                }
+                DB_CRASH_COND(it != losers.end(), -1, "dangling commit error!");
                 losers.erase(it);
                 winners.emplace_back(target);
-                // std::cout << "commit end" << std::endl;
             }
 
             if (type == LogType::UPDATE)
             {
-                // std::cout << "update" << std::endl;
                 auto target = std::get<UpdateLogRecord>(rec);
                 if (!BufferController::instance().fileManagerExist(
                         target.table_id))
                 {
                     std::string s = "DATA" + std::to_string(target.table_id);
-                    // std::cout << "s: " << s << std::endl;
                     BufferController::instance().openFileManager(s);
                 }
-                // std::cout << "update end" << std::endl;
             }
 
             if (type == LogType::COMPENSATE)
             {
-                // std::cout << "compensate" << std::endl;
                 auto target = std::get<CompensateLogRecord>(rec);
                 if (!BufferController::instance().fileManagerExist(
                         target.table_id))
                 {
                     std::string s = "DATA" + std::to_string(target.table_id);
-                    // std::cout << "s: " << s << std::endl;
                     BufferController::instance().openFileManager(s);
                 }
-                // std::cout << "compensate end" << std::endl;
             }
         }
 
         msg.analysis_end(winners, losers);
     }
-
-    // std::cout << "analysus end" << std::endl;
 
     if (winners.empty() && losers.empty())
     {
@@ -694,8 +662,6 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
         }
     }
 
-    std::cout << "redo end" << std::endl;
-
     msg.redo_pass_end();
     msg.undo_pass_start();
 
@@ -706,7 +672,6 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
         next_undo_lsn_pq.push(trx_table[it]);
     }
 
-    std::cout << "undo start" << std::endl;
     // UNDO
     {
         LogReader reader { log_path };
@@ -724,7 +689,6 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
 
             // loser의 undo 해야할 lsn을 priority queue에서 내림차순으로
             // 읽어온다.
-            std::cout << "now undo: " << next_undo_lsn_pq.top() << '\n';
             auto [type, rec] = reader.get(next_undo_lsn_pq.top());
             next_undo_lsn_pq.pop();
 
@@ -809,31 +773,19 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
         }
     }
 
-    std::cout << "undo end" << std::endl;
-
     msg.undo_pass_end();
 
-    std::cout << "sync start" << std::endl;
     msg.flush_with_sync();
     buffer.flush();
     BufferController::instance().sync();
-    std::cout << "sync end" << std::endl;
 
     buffer.truncate();
-
-    std::cout << "all end" << std::endl;
 
     return true;
 }
 
 int64_t LogManager::begin_log(int transaction_id)
 {
-    // std::cout << "begin log: " << transaction_id << std::endl;
-    if (transaction_id == 0)
-    {
-        std::cout << "invalid transaction_id" << std::endl;
-        exit(-1);
-    }
     CommonLogRecord record { INVALID_LSN, INVALID_LSN, transaction_id,
                              LogType::BEGIN, sizeof(CommonLogRecord) };
     return log_wrapper(transaction_id, record);
@@ -902,13 +854,7 @@ bool LogManager::rollback(int transaction_id)
         switch (type)
         {
             case LogType::BEGIN:
-                // now가 INVALID_LSN이여만 한다.
                 now = std::get<CommonLogRecord>(rec).prev_lsn;
-                // CHECK(now == INVALID_LSN);
-                if (now != INVALID_LSN)
-                {
-                    std::cout << std::get<CommonLogRecord>(rec) << '\n';
-                }
                 break;
 
             case LogType::UPDATE: {
