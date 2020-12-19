@@ -610,6 +610,7 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
                     // consider redo?
                     if (page.nodePageHeader().pageLsn < record.lsn)
                     {
+                        std::cout << "consider redo" << page.nodePageHeader().pageLsn << " < " << record.lsn << std::endl;
                         std::memcpy((char*)(&page) + record.offset,
                                     (char*)(&record.new_image),
                                     record.data_length);
