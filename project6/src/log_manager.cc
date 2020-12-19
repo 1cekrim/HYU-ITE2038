@@ -528,7 +528,7 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
                     std::find_if(losers.begin(), losers.end(), [target](int v) {
                         return v == target;
                     });
-                DB_CRASH_COND(it != losers.end(), -1, "dangling commit error!");
+                DB_CRASH_COND(it != losers.end(), -1, "dangling commit error! trx id: %d", target);
                 losers.erase(it);
                 winners.emplace_back(target);
             }
