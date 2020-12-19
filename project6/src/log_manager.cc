@@ -579,9 +579,9 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
             if (mode == RecoveryMode::REDO_CRASH && i == log_num)
             {
                 // REDO CRASH
-                msg.flush_with_sync();
-                buffer.flush();
-                BufferController::instance().sync();
+                // msg.flush_with_sync();
+                // buffer.flush();
+                // BufferController::instance().sync();
                 DB_CRASH(0, "REDO CRASH");
             }
 
@@ -681,9 +681,9 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
             if (mode == RecoveryMode::UNDO_CRASH && i == log_num)
             {
                 // UNDO CRASH
-                msg.flush_with_sync();
-                buffer.flush();
-                BufferController::instance().sync();
+                // msg.flush_with_sync();
+                // buffer.flush();
+                // BufferController::instance().sync();
                 DB_CRASH(0, "UNDO CRASH");
             }
 
