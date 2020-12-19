@@ -20,7 +20,7 @@ struct frame_t : public page_t
 {
     pagenum_t pagenum;
     int file_id;
-    int pin;
+    std::atomic<int> pin;
     int next;
     int prev;
     bool is_dirty;
@@ -38,7 +38,7 @@ struct frame_t : public page_t
     {
         rhs.pagenum = pagenum;
         rhs.file_id = file_id;
-        rhs.pin = pin;
+        rhs.pin = pin.load();
         rhs.next = next;
         rhs.prev = prev;
         rhs.is_dirty = is_dirty;
@@ -56,18 +56,6 @@ struct frame_t : public page_t
         this->header = page.header;
         this->entry = page.entry;
     }
-
-    // void retain()
-    // {
-    //     mtx.lock();
-    //     ++pin;
-    // }
-
-    // void release()
-    // {
-    //     mtx.unlock();
-    //     --pin;
-    // }
 
     bool valid() const
     {

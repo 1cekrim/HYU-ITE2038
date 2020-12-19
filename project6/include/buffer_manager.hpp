@@ -65,7 +65,8 @@ class BufferController
     // bool get(int file_id, pagenum_t pagenum, std::function<void(const
     // page_t&)> func, bool auto_release = true); bool put(int file_id,
     // pagenum_t pagenum, std::function<void(page_t&)> func, bool auto_release =
-    // true);
+    // true);]
+    frame_t& at(int idx);
     int get(int file_id, pagenum_t pagenum, page_t& frame);
     bool put(int file_id, pagenum_t pagenum, const page_t& frame);
     int create(int file_id);

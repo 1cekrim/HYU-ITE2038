@@ -9,48 +9,94 @@
 #include "logger.hpp"
 #include "scoped_page_latch.hpp"
 
-scoped_node_latch::scoped_node_latch(int manager_id, nodeId_t id)
+scoped_node_latch::scoped_node_latch(int manager_id, nodeId_t id, int buffer_index)
     : manager_id(manager_id),
-      id(id)
+      id(id),
+      buffer_index(buffer_index),
+      locked(false)
 {
-    BufferController::instance().retain_frame(manager_id, id);
+    lock();
 }
 
 scoped_node_latch::~scoped_node_latch()
 {
-    BufferController::instance().release_frame(manager_id, id);
+    unlock();
 } 
 
 void scoped_node_latch::lock()
 {
-    BufferController::instance().retain_frame(manager_id, id);
+    if (locked)
+    {
+        return;
+    }
+    locked = true;
+    auto& frame = BufferController::instance().at(buffer_index);
+    DB_CRASH_COND(frame.file_id == manager_id && frame.pagenum == id, -1, "invalid frame");
+    frame.mtx.lock();
+    if (frame.pin != 0)
+    {
+        std::cout << "???: " << frame.pin << std::endl;
+    }
+    ++frame.pin;
 }
 
 void scoped_node_latch::unlock()
 {
-    BufferController::instance().release_frame(manager_id, id);
+    if (!locked)
+    {
+        std::cout << "???";
+        return;
+    }
+    auto& frame = BufferController::instance().at(buffer_index);
+    DB_CRASH_COND(frame.file_id == manager_id && frame.pagenum == id, -1, "invalid frame");
+    --frame.pin;
+    if (frame.pin != 0)
+    {
+        std::cout << "???: " << frame.pin << std::endl;
+    }
+    frame.mtx.unlock();
+    locked = false;
 }
 
-scoped_node_latch_shared::scoped_node_latch_shared(int manager_id, nodeId_t id)
+scoped_node_latch_shared::scoped_node_latch_shared(int manager_id, nodeId_t id, int buffer_index)
     : manager_id(manager_id),
-      id(id)
+      id(id),
+      buffer_index(buffer_index),
+      locked(false)
 {
-    BufferController::instance().retain_frame_shared(manager_id, id);
+    lock_shared();
 }
 
 scoped_node_latch_shared::~scoped_node_latch_shared()
 {
-    BufferController::instance().release_frame_shared(manager_id, id);
+    unlock_shared();
 }
 
 void scoped_node_latch_shared::lock_shared()
 {
-    BufferController::instance().retain_frame_shared(manager_id, id);
+    if (locked)
+    {
+        return;
+    }
+    locked = true;
+    auto& frame = BufferController::instance().at(buffer_index);
+    DB_CRASH_COND(frame.file_id == manager_id && frame.pagenum == id, -1, "invalid frame");
+    frame.mtx.lock_shared();
+    ++frame.pin;
 }
 
 void scoped_node_latch_shared::unlock_shared()
 {
-    BufferController::instance().release_frame_shared(manager_id, id);
+    if (!locked)
+    {
+        std::cout << "???";
+        return;
+    }
+    auto& frame = BufferController::instance().at(buffer_index);
+    DB_CRASH_COND(frame.file_id == manager_id && frame.pagenum == id, -1, "invalid frame");
+    --frame.pin;
+    frame.mtx.unlock_shared();
+    locked = false;
 }
 
 BPTree::BPTree(bool verbose_output, int delayed_min)
@@ -133,7 +179,7 @@ bool BPTree::update(keyType key, const valType &value, int transaction_id)
     node_tuple leaf;
     CHECK(find_leaf(key, leaf));
 
-    scoped_node_latch latch{manager.get_manager_id(), leaf.id};
+    scoped_node_latch latch{manager.get_manager_id(), leaf.id, leaf.buffer_index};
 
     if (transaction_id != TransactionManager::invliad_transaction_id)
     {
@@ -166,20 +212,23 @@ bool BPTree::update(keyType key, const valType &value, int transaction_id)
         }
     }
 
-    CHECK(load_node(leaf));
+    int idx = leaf.buffer_index;
+    auto& frame = BufferController::instance().at(idx);
+
+    buffer_latch.unlock();
+
     valType before;
 
-    int i = leaf.node.index_key<record_t>(key);
-    before = leaf.node.records()[i].value;
-    leaf.node.records()[i].value = value;
+    int i = frame.index_key<record_t>(key);
+    before = frame.records()[i].value;
+    frame.records()[i].value = value;
 
     auto lsn = LogManager::instance().update_log(
         transaction_id, manager.get_manager_id(), leaf.id,
-        leaf.node.get_offset<record_t>(i), sizeof(valType), before, value);
+        frame.get_offset<record_t>(i), sizeof(valType), before, value);
 
-    leaf.node.nodePageHeader().pageLsn = lsn;
-
-    CHECK(commit_node(leaf));
+    frame.nodePageHeader().pageLsn = lsn;
+    frame.is_dirty = true;
 
     return true;
 }
@@ -273,6 +322,7 @@ bool BPTree::load_node(node_tuple &target)
     int result = manager.load(target.id, target.node);
     CHECK_WITH_LOG(result != INVALID_BUFFER_INDEX, false,
                    "load node failure: %ld", target.id);
+    target.buffer_index = result;
     return true;
 }
 
@@ -627,7 +677,7 @@ bool BPTree::find(keyType key, record_t &ret, int transaction_id)
         return false;
     }
 
-    scoped_node_latch_shared latch_shared{manager.get_manager_id(), leaf.id};
+    scoped_node_latch_shared latch_shared{manager.get_manager_id(), leaf.id, leaf.buffer_index};
 
     if (transaction_id != TransactionManager::invliad_transaction_id)
     {
@@ -661,7 +711,7 @@ bool BPTree::find(keyType key, record_t &ret, int transaction_id)
         }
     }
 
-    // trx_latch.unlock();
+    buffer_latch.unlock();
 
     int i = leaf.node.index_key<record_t>(key);
     if (i == -1)

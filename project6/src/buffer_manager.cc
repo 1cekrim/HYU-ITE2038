@@ -188,6 +188,11 @@ int BufferController::openFileManager(const std::string &name)
     // return nameFileManagerMap[name];
 }
 
+frame_t& BufferController::at(int idx)
+{
+    return buffer->at(idx);
+}
+
 FileManager &BufferController::getFileManager(int file_id)
 {
     return *fileManagers.at(file_id);
@@ -477,7 +482,7 @@ bool BufferController::fsync(int file_id, bool free_flag)
             if (free_flag)
             {
                 CHECK_WITH_LOG(frame.pin == 0, false,
-                               "cannot free frame. frame.pin == %d", frame.pin);
+                               "cannot free frame. frame.pin == %d", frame.pin.load());
                 frame_free(index_table[file_id][frame.pagenum]);
             }
         }

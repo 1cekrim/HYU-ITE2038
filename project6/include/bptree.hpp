@@ -28,6 +28,7 @@ struct node_tuple
 {
     nodeId_t id;
     node_t node;
+    int buffer_index;
     node_tuple() = default;
     node_tuple(const node_tuple&) = delete;
     node_tuple(node_tuple&&) = delete;
