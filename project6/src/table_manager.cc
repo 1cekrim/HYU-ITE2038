@@ -9,6 +9,7 @@ bool TableManager::init_db(int buf_num, int flag, int log_num, char* log_path, c
     CHECK_WITH_LOG(BufferController::instance().init_buffer(buf_num), false,
                    "init buffer failure");
     valid_table_manager = true;
+    std::cout << "init_db" << std::endl;
     LogManager::instance().open(log_path, logmsg);
     LogManager::instance().recovery(RecoveryMode(flag), log_num);
     return true;
@@ -23,6 +24,7 @@ bool TableManager::shutdown_db()
                    "clear buffer failure");
     tables.clear();
     name_id_table.clear();
+    std::cout << "shutdown db" << std::endl;
     return true;
 }
 
