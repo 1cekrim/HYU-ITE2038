@@ -11,7 +11,7 @@ BufferManager::BufferManager() : fileManager()
 
 BufferManager::~BufferManager()
 {
-    close();
+    // close();
 }
 
 bool BufferManager::close()
