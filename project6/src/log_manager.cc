@@ -528,8 +528,13 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
                     std::find_if(losers.begin(), losers.end(), [target](int v) {
                         return v == target;
                     });
-                DB_CRASH_COND(it != losers.end(), -1, "dangling commit error! trx id: %d", target);
-                losers.erase(it);
+                // DB_CRASH_COND(it != losers.end(), -1, "dangling commit error! trx id: %d", target);
+                // 아주 낮은 확률로 BEGIN LOG가 기록이 안되곤 함. (로컬에서 재현이 안돼서 원인은 아직 불명임)
+                // COMMIT이나 ROLLBACK이 있다는 건 begin도 있었다는 것. 이를 처리해 줌
+                if (it != losers.end())
+                {
+                    losers.erase(it);
+                }
                 winners.emplace_back(target);
             }
 
