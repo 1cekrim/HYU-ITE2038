@@ -315,11 +315,11 @@ int64_t LogBuffer::append(const LogRecord& record)
         buffer_index = buffer_tail++;
     }
 
-    value_latch_lock.unlock();
-
     std::unique_lock<std::mutex> buffer_latch_lock {
         buffer_latch[buffer_index]
     };
+
+    value_latch_lock.unlock();
 
     buffer[buffer_index] = record;
     std::visit(
