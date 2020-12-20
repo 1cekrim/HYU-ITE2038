@@ -107,7 +107,7 @@ class BufferController
     }
     ~BufferController()
     {
-        clear_buffer();
+        // clear_buffer();
     }
 
     int find(int file_id, pagenum_t pagenum);
