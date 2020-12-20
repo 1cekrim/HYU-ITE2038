@@ -54,10 +54,10 @@ class TableManager
     }
     ~TableManager()
     {
-        if (valid_table_manager)
-        {
-            shutdown_db();
-        }
+        // if (valid_table_manager)
+        // {
+        //     shutdown_db();
+        // }
     }
     int get_table_id(const std::string& name);
 };
