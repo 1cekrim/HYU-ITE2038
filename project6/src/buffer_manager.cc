@@ -571,6 +571,7 @@ int BufferController::load(int file_id, pagenum_t pagenum)
 
 bool BufferController::commit(int file_id, const frame_t &frame)
 {
+    std::cout << "commited:" << frame.nodePageHeader().pageLsn << std::endl;
     auto &fileManager = getFileManager(file_id);
     // static db에 page를 작성하기 전에, 해당 page의 page lsn보다 이전에 작성된
     // 로그들을 log buffer에서 flush 한다.
