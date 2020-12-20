@@ -518,7 +518,10 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
                     // 지워줌
                     winners.erase(it);
                 }
-                losers.emplace_back(target);
+                if (target > 0)
+                {
+                    losers.emplace_back(target);
+                }
             }
 
             if (type == LogType::COMMIT || type == LogType::ROLLBACK)
@@ -716,7 +719,7 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
                 // loser 만 나와야 한다!
                 DB_CRASH(-1, "not loser error: %d", trx_id);
                 continue;
-            }
+            } 
             switch (type)
             {
                 case LogType::BEGIN: {
