@@ -581,6 +581,7 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
         bool flag = true;
         for (int i = 0; flag; ++i)
         {
+            std::cout << "read";
             if (mode == RecoveryMode::REDO_CRASH && i == log_num)
             {
                 // REDO CRASH
