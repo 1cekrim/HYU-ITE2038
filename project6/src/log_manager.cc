@@ -630,7 +630,7 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
                     }
                     else
                     {
-                        // std::cout << "consider redo" << page.nodePageHeader().pageLsn << " < " << record.lsn << std::endl;
+                        std::cout << "consider redo" << page.nodePageHeader().pageLsn << " < " << record.lsn << std::endl;
                         msg.consider_redo_update(record.lsn,
                                                  record.transaction_id);
                     }
@@ -662,7 +662,7 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
                     }
                     else
                     {
-                        // std::cout << "consider " << page.nodePageHeader().pageLsn << " < " << record.lsn << std::endl;
+                        std::cout << "consider " << page.nodePageHeader().pageLsn << " < " << record.lsn << std::endl;
                         msg.consider_redo_update(record.lsn,
                                                  record.transaction_id);
                     }
