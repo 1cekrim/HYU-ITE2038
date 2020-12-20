@@ -10,6 +10,7 @@
 #include <mutex>
 #include <shared_mutex>
 #include <thread>
+#include <atomic>
 
 #include "page.hpp"
 
