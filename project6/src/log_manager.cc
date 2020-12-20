@@ -626,7 +626,7 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
                     }
                     else
                     {
-                        std::cout << "consider redo" << page.nodePageHeader().pageLsn << " < " << record.lsn << std::endl;
+                        // std::cout << "consider redo" << page.nodePageHeader().pageLsn << " < " << record.lsn << std::endl;
                         msg.consider_redo_update(record.lsn,
                                                  record.transaction_id);
                     }
@@ -658,7 +658,7 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
                     }
                     else
                     {
-                        std::cout << "consider " << page.nodePageHeader().pageLsn << " < " << record.lsn << std::endl;
+                        // std::cout << "consider " << page.nodePageHeader().pageLsn << " < " << record.lsn << std::endl;
                         msg.consider_redo_update(record.lsn,
                                                  record.transaction_id);
                     }
@@ -714,7 +714,7 @@ bool LogManager::recovery(RecoveryMode mode, int log_num)
             if (it == losers.end())
             {
                 // loser 만 나와야 한다!
-                DB_CRASH(-1, "not loser error");
+                DB_CRASH(-1, "not loser error: %d", trx_id);
                 continue;
             }
             switch (type)
