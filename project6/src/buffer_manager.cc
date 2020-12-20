@@ -506,7 +506,6 @@ int BufferController::frame_alloc()
     }
 
     int index = select_victim<BufferLRUTraversalPolicy>();
-    std::cout << 'v' << index << ' ';
 
     CHECK_WITH_LOG(index != INVALID_BUFFER_INDEX, INVALID_BUFFER_INDEX,
                    "alloc frame failure");
@@ -576,6 +575,7 @@ bool BufferController::commit(int file_id, const frame_t &frame)
     auto &fileManager = getFileManager(file_id);
     // static db에 page를 작성하기 전에, 해당 page의 page lsn보다 이전에 작성된
     // 로그들을 log buffer에서 flush 한다.
+    std::cout << 'p' << frame.nodePageHeader().pageLsn << ' ';
     LogManager::instance().flush_prev_lsn(frame.nodePageHeader().pageLsn);
     CHECK_WITH_LOG(fileManager.commit(frame.pagenum, frame), false,
                    "commit frame failure: %ld", frame.pagenum);
