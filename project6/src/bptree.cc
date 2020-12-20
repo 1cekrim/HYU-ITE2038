@@ -9,10 +9,9 @@
 #include "logger.hpp"
 #include "scoped_page_latch.hpp"
 
-scoped_node_latch::scoped_node_latch(int manager_id, nodeId_t id, int buffer_index)
+scoped_node_latch::scoped_node_latch(int manager_id, nodeId_t id)
     : manager_id(manager_id),
       id(id),
-      buffer_index(buffer_index),
       locked(false)
 {
     lock();
@@ -29,7 +28,11 @@ void scoped_node_latch::lock()
     {
         return;
     }
+
     locked = true;
+    page_t temp;
+    buffer_index = BufferController::instance().get(manager_id, id, temp);
+
     auto& frame = BufferController::instance().at(buffer_index);
     DB_CRASH_COND(frame.file_id == manager_id && frame.pagenum == id, -1, "invalid frame");
     frame.mtx.lock();
@@ -58,10 +61,9 @@ void scoped_node_latch::unlock()
     locked = false;
 }
 
-scoped_node_latch_shared::scoped_node_latch_shared(int manager_id, nodeId_t id, int buffer_index)
+scoped_node_latch_shared::scoped_node_latch_shared(int manager_id, nodeId_t id)
     : manager_id(manager_id),
       id(id),
-      buffer_index(buffer_index),
       locked(false)
 {
     lock_shared();
@@ -79,6 +81,9 @@ void scoped_node_latch_shared::lock_shared()
         return;
     }
     locked = true;
+    page_t temp;
+    buffer_index = BufferController::instance().get(manager_id, id, temp);
+
     auto& frame = BufferController::instance().at(buffer_index);
     DB_CRASH_COND(frame.file_id == manager_id && frame.pagenum == id, -1, "invalid frame");
     frame.mtx.lock_shared();
@@ -179,7 +184,7 @@ bool BPTree::update(keyType key, const valType &value, int transaction_id)
     node_tuple leaf;
     CHECK(find_leaf(key, leaf));
 
-    scoped_node_latch latch{manager.get_manager_id(), leaf.id, leaf.buffer_index};
+    scoped_node_latch latch{ manager.get_manager_id(), leaf.id };
 
     if (transaction_id != TransactionManager::invliad_transaction_id)
     {
@@ -212,7 +217,7 @@ bool BPTree::update(keyType key, const valType &value, int transaction_id)
         }
     }
 
-    int idx = leaf.buffer_index;
+    int idx = latch.buffer_index;
     auto& frame = BufferController::instance().at(idx);
 
     buffer_latch.unlock();
@@ -677,7 +682,7 @@ bool BPTree::find(keyType key, record_t &ret, int transaction_id)
         return false;
     }
 
-    scoped_node_latch_shared latch_shared{manager.get_manager_id(), leaf.id, leaf.buffer_index};
+    scoped_node_latch_shared latch_shared{ manager.get_manager_id(), leaf.id };
 
     if (transaction_id != TransactionManager::invliad_transaction_id)
     {
